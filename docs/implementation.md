@@ -1,0 +1,45 @@
+# Implementation status — 6 October 2026
+
+## Delivered
+
+The local scaffold implements the flight decision model, a persistent PostgreSQL database through PGlite, immutable criteria and observations, explicit coverage gaps, repeat comparisons, conservative scoring, saved/rejected candidates, selections and user-reported booking records. Fourteen tools are available through the official MCP TypeScript SDK with Streamable HTTP.
+
+The acceptance inputs retain the user's confirmed Flaine dates, party count, snowboard requirement and all-airport scope. No previous connector prices are used as current fares. Test fixtures are synthetic and have one-hour fixture expiries; those expiries do not represent a supplier guarantee.
+
+Local authentication uses a random bearer token and loopback binding. Hosted-mode code verifies asymmetric JWT signatures, issuer, audience, expiry, UUID subject and OAuth `client_id`, then requires an existing database grant. Host/Origin checks and a request-body limit protect the endpoint. Tests include an official SDK client over real local HTTP, signed test JWTs, cross-owner denial, grant revocation, duplicate mutations, revision conflicts, comparison semantics and database restart.
+
+## Hosted deployment sequence
+
+Target remains **one Render service + Supabase**. Vercel and a separate worker are unnecessary for this milestone. The repository contains an external PostgreSQL adapter and JWT verifier; this is preparatory code, not a tested hosted deployment.
+
+1. Provision a Supabase development project and a Render Node service. Keep provider credentials server-side. Configure Node 24, build `npm ci && npm run build`, start `npm start`, and `/health` as the health route.
+2. Configure `APP_MODE=hosted`, `NODE_ENV=production`, `PORT` (provided by Render), `PUBLIC_ORIGIN`, `DATABASE_URL`, `SUPABASE_AUTH_ISSUER` and `MCP_AUDIENCE`. Use `DATABASE_CA_FILE` if needed for the trusted database certificate. TLS verification stays enabled. Connection-string SSL parameters are rejected to prevent them overriding verification. Preserve the external Host header through ingress.
+3. Apply `npm run migrate` once with hosted settings before starting the service. Use a dedicated application database/schema and a migration role with sufficient privileges. Current tables live in `public`; review naming collisions before applying to an existing Supabase project.
+4. Implement the small Supabase sign-in/OAuth consent and client-grant flow, plus grant revocation. The current code intentionally does not manufacture grants for hosted tokens. Register an actual client and verify its OAuth discovery, redirect, PKCE, refresh, issuer, audience and `client_id` behavior. Choose the audience based on tokens actually issued for the intended resource; do not weaken audience validation just to accept an unrelated token. No end-to-end Supabase OAuth exchange or ChatGPT/Claude connection has been tested yet. Confirm which “Muse” product is intended before claiming compatibility.
+5. Exercise account isolation and revocation against external PostgreSQL and the hosted endpoint, including proxy headers, health checks, secret handling, request limits, logs and monitoring. Add production throttling and a least-privilege database role before wider access. The current database adapter is unit/integration tested only through embedded PostgreSQL, not a real Supabase instance.
+6. Add a provider only after verifying access, commercial rights, retention limits, round-trip/party-price semantics, snowboard coverage and actual freshness/bookability. Follow the provider evaluation in the spike; SerpApi remains a conditional pilot choice, not a committed live integration.
+
+RLS is enabled with no public policies and direct access is revoked from Supabase `anon`/`authenticated` roles when those roles exist. The current service expects a privileged server database connection. Such a connection bypasses RLS; ownership and client checks in `core.ts` are therefore essential. Do not expose that connection to a browser or use the browser's Supabase data API as an alternate access path. A dedicated runtime-role/RLS design is still a production hardening task.
+
+The hosted fixture provider is disabled. Hosted mode currently supports manual evidence and comparisons but cannot initiate a search. OAuth authorization and application read/write/search permissions are distinct: `client_grants` stores the latter. There is no consent UI or grant-management tool yet.
+
+## Provider integration requirements
+
+The current `FlightProvider` boundary accepts frozen criteria and returns validated offers plus coverage. Its only implementation is `fixture`; production provider types, capabilities and evidence provenance must be added explicitly. The schema deliberately rejects claims of live provider evidence today.
+
+The fixture runner persists queued/running/completed/failed state, uses a lease and fences late results by generation. Automatic retry of an expired lease is safe for fixtures. **Do not apply that retry policy to a paid provider**: add provider idempotency/reconciliation, an `outcome_unknown` path for uncertain external outcomes, cost budgets, grant rechecks, timeout/cancellation, bounded retention and provider-specific expansion/caching rules first. Add evidence for query parameters, units, requested party, fare family, baggage, full return legs, timestamps and incomplete airport coverage.
+
+The local examples include at most 20 observations per run and six departure airports. There is no generalized pagination/expansion engine or recurring-search scheduler. Candidate identity follows flight numbers, airports and local dates; provider identifiers and codeshare handling will need validation with real data. Time strings retain supplied local offsets; the live adapter must establish their correct airport time zones.
+
+## Roadmap and acceptance gates
+
+| Phase | Outcome | Exit evidence |
+| --- | --- | --- |
+| 0 — current | Local MCP flight decision slice | Offline acceptance tests, build and runnable demo |
+| 1 | Hosted identity and persistence | A real client signs in; two accounts cannot access one another; revoke access mid-session |
+| 2 | Live flight research | Rights-cleared provider; full party/return evidence; coverage and fees explicit; safe repeat-search behavior |
+| 3 | Flaine decision trial | Search all London airports; resolve equipment quantity/size and transfers; compare real options with timestamps |
+| 4 | Hotels | Shared decision/observation model with stay, occupancy, cancellation and full-price semantics |
+| 5 | Restaurants and optional shared review | Provider access first; separately implement shared links, membership, votes and comments |
+
+This work does not depend on friends having developer setup in the eventual product. The local developer scaffold is an implementation milestone; an ordinary shared web review flow remains a later product feature as requested.

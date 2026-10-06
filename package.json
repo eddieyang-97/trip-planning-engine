@@ -1,0 +1,33 @@
+{
+  "name": "trip-planning-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "tsx --env-file-if-exists=.env src/main.ts",
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
+    "start": "node --env-file-if-exists=.env dist/src/main.js",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
+    "check": "tsc --noEmit",
+    "demo": "tsx scripts/demo.ts",
+    "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "express": "5.2.1",
+    "jose": "6.2.12",
+    "pg": "8.23.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "26.6.4",
+    "@types/pg": "8.23.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}

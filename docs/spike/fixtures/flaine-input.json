@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "trip": { "destination": "Flaine, France", "startDate": "2026-12-18", "endDate": "2026-12-20", "travelerCount": 4 },
+  "confirmed": { "year": 2026, "travelerCount": 4, "snowboardRequired": true, "londonAirportPreference": "all airports" },
+  "provisional": {
+    "party": { "adults": 4, "children": 0, "infants": 0 },
+    "snowboardQuantity": 1,
+    "snowboardQuantityBasis": "working assumption for the party; quantity unconfirmed",
+    "departureAirports": ["LHR", "LGW", "LTN", "STN", "LCY", "SEN"],
+    "arrivalAirport": "GVA",
+    "cabin": "economy",
+    "queryCurrency": "GBP",
+    "market": "GB"
+  },
+  "unresolved": {
+    "snowboardWeightKg": null, "snowboardDimensionsCm": null,
+    "earliestFridayDeparture": null, "latestSundayArrival": null,
+    "groupBudgetGBP": null, "checkedBags": null,
+    "transferMethod": null, "transferAvailability": null,
+    "minimumSkiTime": null
+  },
+  "rules": [
+    "Do not silently restrict all airports to those returned by a provider.",
+    "No results from an airport is not proof that no flights operate there.",
+    "Carry-on allowance does not establish snowboard carriage.",
+    "Ask for adult/child ages and equipment quantity before relying on a purchase quote.",
+    "Do not treat after-work Friday travel as a confirmed hard cutoff."
+  ]
+}

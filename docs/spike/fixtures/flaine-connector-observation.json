@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T23:04:40Z",
+  "recordedAtNote": "Recorded after the tool call; exact provider observation time not supplied.",
+  "source": "Connected Trip.com search_flights tool; not our deployed provider API",
+  "transactionId": "ac1c8cb1-7ef2-45fd-80c2-599b11b425de",
+  "request": {
+    "origin": "London",
+    "destination": "Geneva",
+    "outbound": "2026-12-18",
+    "inbound": "2026-12-20",
+    "adults": 4,
+    "locale": "en-GB"
+  },
+  "returnedCurrency": "USD",
+  "totalReturned": 9,
+  "priceBasis": "unknown",
+  "priceBasisReason": "Tool schema says total/CNY while actual response is USD with i18n perTraveler label; no explicit party total field.",
+  "snowboardAllowance": "unknown",
+  "coverage": "Sample only; no proof all London airports/airlines were checked",
+  "options": [
+    {
+      "displayedPrice": "US$174",
+      "numericPrice": 174,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U22547,U28498&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 105,
+          "segments": [
+            {
+              "flight": "U22547",
+              "origin": "LTN",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 14:25:00",
+              "arrivalLocal": "2026-12-18 17:10:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28498",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 19:55:00",
+              "arrivalLocal": "2026-12-20 20:35:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$175",
+      "numericPrice": 175,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U22547,U28510&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 105,
+          "segments": [
+            {
+              "flight": "U22547",
+              "origin": "LTN",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 14:25:00",
+              "arrivalLocal": "2026-12-18 17:10:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28510",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 19:10:00",
+              "arrivalLocal": "2026-12-20 19:50:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$181",
+      "numericPrice": 181,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U22547,U28506&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 105,
+          "segments": [
+            {
+              "flight": "U22547",
+              "origin": "LTN",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 14:25:00",
+              "arrivalLocal": "2026-12-18 17:10:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28506",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 20:45:00",
+              "arrivalLocal": "2026-12-20 21:25:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$174",
+      "numericPrice": 174,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U28493,U28510&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28493",
+              "origin": "LGW",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 06:10:00",
+              "arrivalLocal": "2026-12-18 08:50:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28510",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 19:10:00",
+              "arrivalLocal": "2026-12-20 19:50:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$175",
+      "numericPrice": 175,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U28493,U28498&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28493",
+              "origin": "LGW",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 06:10:00",
+              "arrivalLocal": "2026-12-18 08:50:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28498",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 19:55:00",
+              "arrivalLocal": "2026-12-20 20:35:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$180",
+      "numericPrice": 180,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U28493,U28506&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28493",
+              "origin": "LGW",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 06:10:00",
+              "arrivalLocal": "2026-12-18 08:50:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28506",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 20:45:00",
+              "arrivalLocal": "2026-12-20 21:25:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$174",
+      "numericPrice": 174,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U28499,U28510&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28499",
+              "origin": "LGW",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 14:20:00",
+              "arrivalLocal": "2026-12-18 17:00:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28510",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 19:10:00",
+              "arrivalLocal": "2026-12-20 19:50:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$175",
+      "numericPrice": 175,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U28499,U28498&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28499",
+              "origin": "LGW",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 14:20:00",
+              "arrivalLocal": "2026-12-18 17:00:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28498",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 19:55:00",
+              "arrivalLocal": "2026-12-20 20:35:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "displayedPrice": "US$180",
+      "numericPrice": 180,
+      "currency": "USD",
+      "bookingUrl": "https://us.trip.com/flights/showfarefirst?dcity=LON&acity=GVA&ddate=2026-12-18&class=Y&triptype=RT&quantity=4&childqty=0&babyqty=0&topflightno=U28499,U28506&rdate=2026-12-20&sort=price&locale=en-US&curr=USD&from=chatgpt&allianceid=8006699&sid=302809151",
+      "legs": [
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28499",
+              "origin": "LGW",
+              "destination": "GVA",
+              "departureLocal": "2026-12-18 14:20:00",
+              "arrivalLocal": "2026-12-18 17:00:00"
+            }
+          ]
+        },
+        {
+          "durationMinutes": 100,
+          "segments": [
+            {
+              "flight": "U28506",
+              "origin": "GVA",
+              "destination": "LGW",
+              "departureLocal": "2026-12-20 20:45:00",
+              "arrivalLocal": "2026-12-20 21:25:00"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
