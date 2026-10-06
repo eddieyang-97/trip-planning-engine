@@ -46,7 +46,7 @@ function serverFor(core: Core, actor: Actor) {
   return server;
 }
 
-export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string }) {
+export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void> }) {
   const origin = new URL(options.publicOrigin);
   if (origin.origin !== options.publicOrigin) throw new Error('PUBLIC_ORIGIN must be an origin without a trailing slash');
   const app = express();
@@ -59,7 +59,10 @@ export function createApp(options: { core: Core; authenticate: Authenticate; pub
     }
     next();
   });
-  app.get('/health', (_req, res) => res.json({ status: 'ok', liveSearch: false }));
+  app.get('/health', async (_req, res) => {
+    try { await options.ready?.(); res.json({ status: 'ok', liveSearch: false }); }
+    catch { res.status(503).json({ status: 'unavailable', liveSearch: false }); }
+  });
   if (options.issuer) {
     app.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], (_req, res) => res.json({
       resource: `${origin.origin}/mcp`, authorization_servers: [options.issuer], bearer_methods_supported: ['header'],

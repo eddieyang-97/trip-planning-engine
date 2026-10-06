@@ -26,9 +26,11 @@ export async function postgres(url: string, caPath?: string): Promise<Database> 
   for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) {
     if (parsed.searchParams.has(key)) throw new Error('Configure TLS with DATABASE_CA_FILE, not URL SSL parameters');
   }
-  const pool = new pg.Pool({ connectionString: url, max: 5, ssl: {
+  const pool = new pg.Pool({ connectionString: url, max: 5, connectionTimeoutMillis: 10_000,
+    statement_timeout: 15_000, idle_in_transaction_session_timeout: 30_000, ssl: {
     rejectUnauthorized: true, ...(caPath ? { ca: await readFile(caPath, 'utf8') } : {}),
   } });
+  pool.on('error', () => { console.error('An idle PostgreSQL connection failed; a later request will reconnect.'); });
   return {
     query: async (sql, params) => { const result = await pool.query(sql, params); return { rows: result.rows }; },
     execute: async sql => { await pool.query(sql); },
@@ -48,6 +50,8 @@ export async function postgres(url: string, caPath?: string): Promise<Database> 
 export async function migrate(db: Database) {
   const sql = await readFile(new URL('../migrations/001_initial.sql', import.meta.url), 'utf8');
   await db.transaction(async tx => {
+    // Serialize even the first migration, before the version table exists.
+    await tx.query('select pg_advisory_xact_lock(781349, 1)');
     await tx.query('create table if not exists app_schema_migrations (version integer primary key)');
     await tx.query('lock table app_schema_migrations in exclusive mode');
     const done = await tx.query('select version from app_schema_migrations where version=1');

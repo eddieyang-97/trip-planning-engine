@@ -20,7 +20,15 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     const address = http.address(); assert.ok(address && typeof address !== 'string');
     const origin = `http://127.0.0.1:${address.port}`;
     const token = randomBytes(32).toString('base64url');
-    http.on('request', createApp({ core: new Core(db, true), authenticate: localAuthentication(token), publicOrigin: origin }));
+    let databaseAvailable = true;
+    http.on('request', createApp({ core: new Core(db, true), authenticate: localAuthentication(token), publicOrigin: origin,
+      ready: async () => { if (!databaseAvailable) throw new Error('Private connection details must not leak'); await db.query('select 1'); } }));
+    assert.equal((await fetch(`${origin}/health`)).status, 200);
+    databaseAvailable = false;
+    const unhealthy = await fetch(`${origin}/health`);
+    assert.equal(unhealthy.status, 503);
+    assert.deepEqual(await unhealthy.json(), { status: 'unavailable', liveSearch: false });
+    databaseAvailable = true;
     assert.equal((await fetch(`${origin}/mcp`, { method: 'POST' })).status, 401);
     assert.equal((await fetch(`${origin}/mcp`, { method: 'POST', headers: { authorization: `Bearer ${token}`, origin: 'https://untrusted.example' } })).status, 403);
     const reboundStatus = await new Promise<number | undefined>((resolve, reject) => {

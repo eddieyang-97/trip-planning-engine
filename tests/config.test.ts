@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { configuration } from '../src/config.js';
+
+const hosted = {
+  APP_MODE: 'hosted', NODE_ENV: 'production', RENDER: 'true', PORT: '10000',
+  RENDER_EXTERNAL_URL: 'https://travel-example.onrender.com',
+  DATABASE_URL: 'postgresql://user:example@db.example/postgres',
+  SUPABASE_AUTH_ISSUER: 'https://project.example/auth/v1', MCP_AUDIENCE: 'test-audience',
+};
+test('hosted config uses the assigned Render origin and never falls back to local storage', () => {
+  assert.equal(configuration(hosted).origin, hosted.RENDER_EXTERNAL_URL);
+  assert.equal(configuration(hosted).port, 10000);
+  assert.equal(configuration(hosted).local, false);
+  assert.equal(configuration({ ...hosted, PUBLIC_ORIGIN: 'https://custom.example' }).origin, 'https://custom.example');
+  for (const name of ['DATABASE_URL', 'SUPABASE_AUTH_ISSUER', 'MCP_AUDIENCE', 'RENDER_EXTERNAL_URL']) {
+    assert.throws(() => configuration({ ...hosted, [name]: undefined }), new RegExp(`Missing ${name}`));
+  }
+});
+test('deployment rejects local mode, invalid origins, ports and ambiguous migration flags', () => {
+  assert.throws(() => configuration({ NODE_ENV: 'production' }), /hosted/);
+  assert.throws(() => configuration({ RENDER: 'true' }), /hosted/);
+  for (const origin of ['http://example.com', 'https://example.com/', 'https://example.com/path', 'https://user:pass@example.com', 'invalid']) {
+    assert.throws(() => configuration({ ...hosted, PUBLIC_ORIGIN: origin }));
+  }
+  assert.throws(() => configuration({ ...hosted, PORT: '0' }), /PORT/);
+  assert.throws(() => configuration({ ...hosted, MIGRATE_ON_START: 'yes' }), /MIGRATE_ON_START/);
+  assert.equal(configuration({ ...hosted, MIGRATE_ON_START: 'true' }).migrateOnStart, true);
+  assert.equal(configuration({}).origin, 'http://127.0.0.1:3000');
+});

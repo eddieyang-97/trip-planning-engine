@@ -96,4 +96,4 @@ The executable schema normalizes relationships and versions while storing valida
 
 ## Next milestone
 
-Deploy one Render Node service with Supabase PostgreSQL/Auth, validate one real MCP client sign-in, then add a rights-cleared flight provider. See [implementation and deployment notes](docs/implementation.md). Collaboration, hotels, restaurants, reservation actions and a full web app remain later phases.
+Deploy one Render Node service with Supabase PostgreSQL/Auth using [render.yaml](render.yaml), validate one real MCP client sign-in, then add a rights-cleared flight provider. The Blueprint selects Free compute, applies migrations at startup and leaves automatic deployments off. The service uses Render's assigned public URL, checks database availability on `/health`, and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation and deployment notes](docs/implementation.md). Collaboration, hotels, restaurants, reservation actions and a full web app remain later phases.

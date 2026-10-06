@@ -1,0 +1,27 @@
+# Free web service only. Supabase supplies the external database and OAuth server.
+services:
+  - type: web
+    name: trip-planning-engine
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: APP_MODE
+        value: hosted
+      - key: MIGRATE_ON_START
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_AUTH_ISSUER
+        sync: false
+      - key: MCP_AUDIENCE
+        sync: false
