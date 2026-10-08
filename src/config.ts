@@ -1,3 +1,13 @@
+export function databaseConnection(env: NodeJS.ProcessEnv = process.env): string {
+  if (!env.DATABASE_URL) throw new Error('Missing DATABASE_URL');
+  let database: URL;
+  try { database = new URL(env.DATABASE_URL); } catch { throw new Error('Invalid DATABASE_URL'); }
+  if (!['postgres:', 'postgresql:'].includes(database.protocol)) throw new Error('DATABASE_URL must use PostgreSQL');
+  if (env.DATABASE_PASSWORD) database.password = encodeURIComponent(env.DATABASE_PASSWORD);
+  if (!database.password || database.password.includes('YOUR-PASSWORD')) throw new Error('Set DATABASE_PASSWORD to your database password');
+  return database.toString();
+}
+
 export function configuration(env: NodeJS.ProcessEnv = process.env) {
   const mode = env.APP_MODE ?? 'local';
   if (mode !== 'local' && mode !== 'hosted') throw new Error('APP_MODE must be local or hosted');
@@ -12,8 +22,9 @@ export function configuration(env: NodeJS.ProcessEnv = process.env) {
   if (parsed.origin !== origin || (!local && parsed.protocol !== 'https:')) throw new Error('Public origin must be HTTPS with no path or trailing slash');
   const migrateOnStart = env.MIGRATE_ON_START ?? 'false';
   if (!['true', 'false'].includes(migrateOnStart)) throw new Error('MIGRATE_ON_START must be true or false');
+  const databaseUrl = local ? undefined : databaseConnection(env);
   return { mode, local, port, origin, migrateOnStart: migrateOnStart === 'true',
-    databaseUrl: local ? undefined : required('DATABASE_URL'), databaseCaFile: env.DATABASE_CA_FILE,
+    databaseUrl, databaseCaFile: env.DATABASE_CA_FILE,
     issuer: local ? undefined : required('SUPABASE_AUTH_ISSUER'),
     audience: local ? undefined : env.MCP_AUDIENCE || `${origin}/mcp`,
   };

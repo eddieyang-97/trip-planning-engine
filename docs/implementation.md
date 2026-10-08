@@ -27,6 +27,8 @@ The hosted fixture provider is disabled. Hosted mode currently supports manual e
 
 The dedicated Supabase project `trip-planning-engine` exists in the Free `Travel Research` organization, in Frankfurt (`eu-central-1`). Render creation is being prepared from the repository Blueprint. The database connection is entered directly into Render, never committed.
 
+The Blueprint provides a separate `DATABASE_PASSWORD` field: paste the original password unchanged. Use the password-free session-pooler URI for `DATABASE_URL`; the app encodes and inserts the password in memory. Existing complete connection URIs also remain supported when the separate password setting is omitted. Credentials are not printed by configuration validation.
+
 `MCP_AUDIENCE` now defaults to the service's public origin plus `/mcp`, so it need not be known before Render assigns its URL. An explicit override remains available. This preserves strict audience validation: the default Supabase audience `authenticated` will not pass. Before a real OAuth client can connect, configure resource-specific token issuance, the consent UI and stored client grants, and verify the resulting token against this audience. A healthy deployment alone is not proof of a working OAuth client connection.
 
 ## Provider integration requirements

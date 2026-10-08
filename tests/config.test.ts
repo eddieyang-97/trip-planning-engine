@@ -30,3 +30,15 @@ test('deployment rejects local mode, invalid origins, ports and ambiguous migrat
   assert.equal(configuration({ ...hosted, MIGRATE_ON_START: 'true' }).migrateOnStart, true);
   assert.equal(configuration({}).origin, 'http://127.0.0.1:3000');
 });
+
+test('a separate database password is encoded once and never included in configuration errors', () => {
+  const password = 'example:@/#?%40 + ü';
+  const cfg = configuration({ ...hosted, DATABASE_URL: 'postgresql://user@db.example/postgres', DATABASE_PASSWORD: password });
+  const parsed = new URL(cfg.databaseUrl!);
+  assert.equal(decodeURIComponent(parsed.password), password);
+  assert.equal(parsed.hostname, 'db.example');
+  assert.equal(parsed.username, 'user');
+  assert.equal(parsed.pathname, '/postgres');
+  assert.throws(() => configuration({ ...hosted, DATABASE_URL: 'postgresql://user@db.example/postgres' }), /Set DATABASE_PASSWORD/);
+  assert.throws(() => configuration({ ...hosted, DATABASE_URL: 'not-a-url-secret' }), { message: 'Invalid DATABASE_URL' });
+});

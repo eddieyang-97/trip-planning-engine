@@ -21,5 +21,7 @@ services:
         value: "true"
       - key: DATABASE_URL
         sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
       - key: SUPABASE_AUTH_ISSUER
         sync: false
