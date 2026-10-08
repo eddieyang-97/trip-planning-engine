@@ -13,7 +13,9 @@ test('hosted config uses the assigned Render origin and never falls back to loca
   assert.equal(configuration(hosted).port, 10000);
   assert.equal(configuration(hosted).local, false);
   assert.equal(configuration({ ...hosted, PUBLIC_ORIGIN: 'https://custom.example' }).origin, 'https://custom.example');
-  for (const name of ['DATABASE_URL', 'SUPABASE_AUTH_ISSUER', 'MCP_AUDIENCE', 'RENDER_EXTERNAL_URL']) {
+  assert.equal(configuration({ ...hosted, MCP_AUDIENCE: undefined }).audience, `${hosted.RENDER_EXTERNAL_URL}/mcp`);
+  assert.equal(configuration(hosted).audience, 'test-audience');
+  for (const name of ['DATABASE_URL', 'SUPABASE_AUTH_ISSUER', 'RENDER_EXTERNAL_URL']) {
     assert.throws(() => configuration({ ...hosted, [name]: undefined }), new RegExp(`Missing ${name}`));
   }
 });

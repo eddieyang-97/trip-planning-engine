@@ -15,6 +15,6 @@ export function configuration(env: NodeJS.ProcessEnv = process.env) {
   return { mode, local, port, origin, migrateOnStart: migrateOnStart === 'true',
     databaseUrl: local ? undefined : required('DATABASE_URL'), databaseCaFile: env.DATABASE_CA_FILE,
     issuer: local ? undefined : required('SUPABASE_AUTH_ISSUER'),
-    audience: local ? undefined : required('MCP_AUDIENCE'),
+    audience: local ? undefined : env.MCP_AUDIENCE || `${origin}/mcp`,
   };
 }

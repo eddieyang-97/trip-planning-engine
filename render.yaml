@@ -23,5 +23,3 @@ services:
         sync: false
       - key: SUPABASE_AUTH_ISSUER
         sync: false
-      - key: MCP_AUDIENCE
-        sync: false

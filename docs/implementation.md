@@ -23,6 +23,12 @@ RLS is enabled with no public policies and direct access is revoked from Supabas
 
 The hosted fixture provider is disabled. Hosted mode currently supports manual evidence and comparisons but cannot initiate a search. OAuth authorization and application read/write/search permissions are distinct: `client_grants` stores the latter. There is no consent UI or grant-management tool yet.
 
+### Deployment setup update — 8 October 2026
+
+The dedicated Supabase project `trip-planning-engine` exists in the Free `Travel Research` organization, in Frankfurt (`eu-central-1`). Render creation is being prepared from the repository Blueprint. The database connection is entered directly into Render, never committed.
+
+`MCP_AUDIENCE` now defaults to the service's public origin plus `/mcp`, so it need not be known before Render assigns its URL. An explicit override remains available. This preserves strict audience validation: the default Supabase audience `authenticated` will not pass. Before a real OAuth client can connect, configure resource-specific token issuance, the consent UI and stored client grants, and verify the resulting token against this audience. A healthy deployment alone is not proof of a working OAuth client connection.
+
 ## Provider integration requirements
 
 The current `FlightProvider` boundary accepts frozen criteria and returns validated offers plus coverage. Its only implementation is `fixture`; production provider types, capabilities and evidence provenance must be added explicitly. The schema deliberately rejects claims of live provider evidence today.
