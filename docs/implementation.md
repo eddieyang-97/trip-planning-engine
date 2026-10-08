@@ -33,6 +33,18 @@ The Blueprint provides a separate `DATABASE_PASSWORD` field: paste the original 
 
 ## Provider integration requirements
 
+### Hosted deployment verification — 9 October 2026
+
+The Free Render service is live at `https://trip-planning-engine.onrender.com`, deployed from commit `0684d9c`. The first deployment failed with `SELF_SIGNED_CERT_IN_CHAIN`; the fix supplies the public Supabase CA through `DATABASE_CA_FILE=certs/supabase-prod-ca-2021.crt`. Certificate-chain and hostname verification remain enabled. The certificate source, fingerprint and expiry are recorded in `certs/README.md`.
+
+Verified the pooler separately with TLS 1.3 and `authorized: true`, without transmitting a database password. Render then completed startup and its migration/version checks. The public checks returned:
+
+- `GET /health`: HTTP 200, `{"status":"ok","liveSearch":false}`; includes a real database query.
+- `GET /mcp` without a token: HTTP 401 with the protected-resource metadata challenge.
+- `GET /.well-known/oauth-protected-resource/mcp`: HTTP 200 with this service's `/mcp` resource and the dedicated Supabase Auth issuer.
+
+This verifies deployment and database connectivity, not authenticated end-to-end MCP use. Consent/account linking, resource-specific token issuance, client grants and live flight-provider integration remain incomplete. No paid infrastructure upgrade was made.
+
 The current `FlightProvider` boundary accepts frozen criteria and returns validated offers plus coverage. Its only implementation is `fixture`; production provider types, capabilities and evidence provenance must be added explicitly. The schema deliberately rejects claims of live provider evidence today.
 
 The fixture runner persists queued/running/completed/failed state, uses a lease and fences late results by generation. Automatic retry of an expired lease is safe for fixtures. **Do not apply that retry policy to a paid provider**: add provider idempotency/reconciliation, an `outcome_unknown` path for uncertain external outcomes, cost budgets, grant rechecks, timeout/cancellation, bounded retention and provider-specific expansion/caching rules first. Add evidence for query parameters, units, requested party, fare family, baggage, full return legs, timestamps and incomplete airport coverage.
