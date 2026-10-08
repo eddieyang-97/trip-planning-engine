@@ -19,6 +19,8 @@ services:
         value: hosted
       - key: MIGRATE_ON_START
         value: "true"
+      - key: DATABASE_CA_FILE
+        value: certs/supabase-prod-ca-2021.crt
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_PASSWORD
