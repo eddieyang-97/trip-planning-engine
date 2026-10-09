@@ -13,6 +13,7 @@
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "check": "tsc --noEmit",
     "demo": "tsx scripts/demo.ts",
+    "probe:flights": "tsx --env-file-if-exists=.env scripts/probe-flights.ts",
     "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts"
   },
   "dependencies": {

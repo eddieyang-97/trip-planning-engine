@@ -102,4 +102,6 @@ The executable schema normalizes relationships and versions while storing valida
 
 ## Next milestone
 
+The [six-search flight capability probe](docs/flight-probe.md) is ready to run independently of account linking. `npm run probe:flights` prints its zero-network plan; `-- --live` requires an authorized Free SerpApi key. No live search has run yet. It is a diagnostic command, not the hosted flight provider.
+
 Finish [Supabase account-linking setup and hosted acceptance](docs/account-linking.md), validate one real MCP client sign-in, then add a rights-cleared flight provider. The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is off, but Blueprint changes can still sync and trigger deployment. The service checks database availability on `/health` and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation notes](docs/implementation.md). The shared itinerary web app follows the flight slice, before hotel integrations.
