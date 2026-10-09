@@ -48,13 +48,19 @@ export async function postgres(url: string, caPath?: string): Promise<Database> 
   };
 }
 export async function migrate(db: Database) {
-  const sql = await readFile(new URL('../migrations/001_initial.sql', import.meta.url), 'utf8');
+  const files = ['001_initial.sql', '002_account_linking.sql'];
   await db.transaction(async tx => {
     // Serialize even the first migration, before the version table exists.
     await tx.query('select pg_advisory_xact_lock(781349, 1)');
     await tx.query('create table if not exists app_schema_migrations (version integer primary key)');
     await tx.query('lock table app_schema_migrations in exclusive mode');
-    const done = await tx.query('select version from app_schema_migrations where version=1');
-    if (!done.rows.length) { await tx.execute(sql); await tx.query('insert into app_schema_migrations values (1)'); }
+    for (const [index, file] of files.entries()) {
+      const version = index + 1;
+      const done = await tx.query('select version from app_schema_migrations where version=$1', [version]);
+      if (!done.rows.length) {
+        await tx.execute(await readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+        await tx.query('insert into app_schema_migrations values ($1)', [version]);
+      }
+    }
   });
 }

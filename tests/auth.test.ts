@@ -7,15 +7,15 @@ import { hostedAuthentication, localAuthentication } from '../src/auth.js';
 test('hosted JWT checks signature, expiry, issuer, audience, user subject and OAuth client binding', async () => {
   const { publicKey, privateKey } = await generateKeyPair('ES256');
   const jwk = await exportJWK(publicKey); jwk.kid = 'test';
-  const issuer = 'https://auth.example/auth/v1', audience = 'https://travel.example/mcp', user = randomUUID();
+  const issuer = 'https://auth.example/auth/v1', audience = 'https://travel.example/mcp', user = randomUUID(), grantVersion = randomUUID();
   const verify = hostedAuthentication(issuer, audience, createLocalJWKSet({ keys: [jwk] }));
   const make = (claims: Record<string, unknown> = {}, key = privateKey) => new SignJWT({
-    iss: issuer, aud: audience, sub: user, client_id: 'approved-client',
+    iss: issuer, aud: audience, sub: user, client_id: 'approved-client', travel_grant_version:grantVersion,
     iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 60, ...claims,
   }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(key);
-  assert.deepEqual(await verify(`Bearer ${await make()}`), { userId: user, clientId: 'approved-client' });
+  assert.deepEqual(await verify(`Bearer ${await make()}`), { userId: user, clientId: 'approved-client', grantVersion });
   for (const claims of [{ iss: 'https://wrong.example' }, { aud: 'another-api' }, { exp: 1 },
-    { client_id: undefined }, { sub: 'not-a-uuid' }, { iat: Math.floor(Date.now() / 1000) + 120 }]) {
+    { travel_grant_version:undefined }, { travel_grant_version:'invalid' }, { client_id: undefined }, { sub: 'not-a-uuid' }, { iat: Math.floor(Date.now() / 1000) + 120 }]) {
     await assert.rejects(verify(`Bearer ${await make(claims)}`));
   }
   const other = await generateKeyPair('ES256');

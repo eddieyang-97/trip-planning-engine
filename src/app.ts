@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Core, isRead, schemas, type ToolName } from './core.js';
 import { DomainError, type Actor } from './domain.js';
 import type { Authenticate } from './auth.js';
+import type { Router } from 'express';
 
 const descriptions: Record<ToolName, string> = {
   list_trips: 'List the signed-in user’s trips.',
@@ -46,7 +47,7 @@ function serverFor(core: Core, actor: Actor) {
   return server;
 }
 
-export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void> }) {
+export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void>; accounts?: Router }) {
   const origin = new URL(options.publicOrigin);
   if (origin.origin !== options.publicOrigin) throw new Error('PUBLIC_ORIGIN must be an origin without a trailing slash');
   const app = express();
@@ -68,6 +69,7 @@ export function createApp(options: { core: Core; authenticate: Authenticate; pub
       resource: `${origin.origin}/mcp`, authorization_servers: [options.issuer], bearer_methods_supported: ['header'],
     }));
   }
+  if (options.accounts) app.use(options.accounts);
   app.use('/mcp', async (req, res, next) => {
     try { res.locals.actor = await options.authenticate(req.headers.authorization); next(); }
     catch {

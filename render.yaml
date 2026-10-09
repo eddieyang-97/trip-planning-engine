@@ -21,6 +21,8 @@ services:
         value: "true"
       - key: DATABASE_CA_FILE
         value: certs/supabase-prod-ca-2021.crt
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_g2fwpOlsm_A_0WkbKU6ukA_fstaWI6I
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_PASSWORD

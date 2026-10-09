@@ -23,8 +23,10 @@ export function configuration(env: NodeJS.ProcessEnv = process.env) {
   const migrateOnStart = env.MIGRATE_ON_START ?? 'false';
   if (!['true', 'false'].includes(migrateOnStart)) throw new Error('MIGRATE_ON_START must be true or false');
   const databaseUrl = local ? undefined : databaseConnection(env);
+  if (env.SUPABASE_PUBLISHABLE_KEY && !/^sb_publishable_[A-Za-z0-9_-]+$/.test(env.SUPABASE_PUBLISHABLE_KEY)) throw new Error('Use a Supabase publishable key, never a secret/service-role key');
   return { mode, local, port, origin, migrateOnStart: migrateOnStart === 'true',
     databaseUrl, databaseCaFile: env.DATABASE_CA_FILE,
+    publishableKey: env.SUPABASE_PUBLISHABLE_KEY,
     issuer: local ? undefined : required('SUPABASE_AUTH_ISSUER'),
     audience: local ? undefined : env.MCP_AUDIENCE || `${origin}/mcp`,
   };

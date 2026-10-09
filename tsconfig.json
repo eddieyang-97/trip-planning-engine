@@ -5,5 +5,5 @@
     "skipLibCheck": true, "outDir": "dist", "rootDir": ".",
     "declaration": true, "sourceMap": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "web/**/*.ts"]
 }

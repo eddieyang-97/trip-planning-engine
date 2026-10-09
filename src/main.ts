@@ -7,6 +7,7 @@ import { Core, runOneJob } from './core.js';
 import { embedded, migrate, postgres } from './database.js';
 import { FixtureProvider } from './providers.js';
 import { configuration } from './config.js';
+import { accountRoutes, supabaseAccounts } from './accounts.js';
 
 const config = configuration();
 const { mode, local, port, origin, issuer } = config;
@@ -30,10 +31,14 @@ if (local) {
   await db.query(`insert into client_grants(owner_id,client_id,permissions) values($1,$2,$3)
     on conflict do nothing`, [localActor.userId, localActor.clientId, ['read', 'write', 'search']]);
 } else {
-  const migration = await db.query('select version from app_schema_migrations where version=1');
+  const migration = await db.query('select version from app_schema_migrations where version=2');
   if (!migration.rows.length) throw new Error('Run migrations before starting hosted mode');
 }
+if (!local) await db.query(`insert into oauth_resource(singleton,audience) values(true,$1)
+  on conflict(singleton) do update set audience=excluded.audience`, [config.audience]);
 const app = createApp({ core: new Core(db, local), authenticate, publicOrigin: origin, issuer,
+  accounts: !local && config.publishableKey ? accountRoutes({ db, origin, issuer:issuer!, publishableKey:config.publishableKey,
+    provider:supabaseAccounts(issuer!,config.publishableKey) }) : undefined,
   ready: async () => { await db.query('select 1'); } });
 const server = app.listen(port, local ? '127.0.0.1' : '0.0.0.0', () => {
   console.log(`Travel decision MCP listening at ${origin}/mcp (${mode}; live search unavailable)`);

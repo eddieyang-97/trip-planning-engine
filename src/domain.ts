@@ -53,7 +53,7 @@ export const offerSchema = z.strictObject({
 export type Offer = z.infer<typeof offerSchema>;
 export type Provenance = 'synthetic' | 'user_reported';
 export type Permission = 'read' | 'write' | 'search';
-export interface Actor { userId: string; clientId: string }
+export interface Actor { userId: string; clientId: string; grantVersion?: string }
 export class DomainError extends Error {
   constructor(public code: string, message: string) { super(message); }
 }

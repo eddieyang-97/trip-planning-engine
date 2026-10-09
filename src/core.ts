@@ -30,6 +30,10 @@ function fail(code: string, message: string): never { throw new DomainError(code
 async function grant(tx: Queryable, actor: Actor, permission: Permission) {
   const result = await tx.query('select permissions from client_grants where owner_id=$1 and client_id=$2 and revoked_at is null', [actor.userId, actor.clientId]);
   if (!result.rows[0]?.permissions.includes(permission)) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');
+  if (actor.grantVersion) {
+    const version = await tx.query('select grant_version from oauth_connections where owner_id=$1 and client_id=$2', [actor.userId, actor.clientId]);
+    if (version.rows[0]?.grant_version !== actor.grantVersion) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');
+  }
 }
 async function ownedTrip(tx: Queryable, actor: Actor, tripId: string) {
   const result = await tx.query('select * from trips where id=$1 and owner_id=$2', [tripId, actor.userId]);

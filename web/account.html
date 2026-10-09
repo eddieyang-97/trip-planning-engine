@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Travel Research — Your account</title><link rel="stylesheet" href="/assets/account.css"><script type="module" src="/assets/account.js"></script></head>
+<body><header><a href="/">Travel Research</a><span>Private pilot</span></header><main>
+<p class="eyebrow">YOUR TRIPS, ACROSS CONVERSATIONS</p><h1>Keep the research.<br>Make the decision.</h1>
+<p class="intro">Connect your assistant to one travel account. Keep your trip criteria, comparisons and decisions together.</p>
+<p class="notice">This pilot saves research and manual evidence. Live flight search and booking are not available yet.</p>
+<div id="status" role="status" aria-live="polite">Loading your account…</div>
+<section id="signin" hidden><h2>Sign in to your travel account</h2><p>Use the same email and sign-in method when connecting ChatGPT or Claude. Your Supabase dashboard login is a separate account.</p>
+<form id="login-form"><label>Email<input id="email" type="email" autocomplete="email" required maxlength="254"></label>
+<label>Password<input id="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128"></label>
+<div class="actions"><button type="submit">Sign in</button><button id="signup" class="secondary" type="button">Create account</button></div></form>
+<p class="small">Creating an account may require email confirmation. Then return here and sign in.</p></section>
+<section id="account" hidden><div class="account-heading"><div><h2>Your travel account</h2><p id="identity"></p><p class="small" id="account-id"></p></div><button id="signout" class="secondary">Sign out / switch account</button></div>
+<p>Connect your assistant using this server address:</p><code id="mcp-url"></code><p class="small">If a trip is missing in another assistant, check that it is connected to this same account.</p></section>
+<section id="consent" hidden><p class="eyebrow">CONNECTION REQUEST</p><h2 id="client-name"></h2><p>Client names are supplied by the requesting application. Check its client ID and destination before approving.</p>
+<dl><dt>Client ID</dt><dd id="client-id"></dd><dt>Return destination</dt><dd id="client-redirect"></dd><dt>Requested identity scopes</dt><dd id="client-scopes"></dd></dl>
+<fieldset><legend>Allow this assistant to</legend><label class="check"><input type="checkbox" checked disabled>Read all trips and saved research in this account</label>
+<label class="check"><input id="allow-write" type="checkbox">Create and update trips, decisions and manual evidence</label>
+<p class="small">This applies to all your current and future private trips. Search permission will be offered when a live provider is available. No permission here authorizes purchases.</p></fieldset>
+<div class="actions"><button id="approve">Approve connection</button><button id="deny" class="secondary">Deny</button></div></section>
+<section id="connections" hidden><h2>Connected assistants</h2><p>Revoke access here to stop an assistant using your saved trips.</p><div id="connection-list"></div></section>
+<footer><p>Passwords are sent to Supabase Auth. This site stores your trip research and the permissions you approve. Assistant apps receive data only through those permissions. Your browser session is kept in this tab’s session storage.</p></footer>
+</main></body></html>
