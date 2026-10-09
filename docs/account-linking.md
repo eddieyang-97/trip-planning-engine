@@ -40,6 +40,8 @@ The hook is restricted to `supabase_auth_admin`; anonymous and authenticated dat
 
 Automated tests cover direct-session/assistant-token separation, cross-account denial, origin checks, immutable client binding, denial, expiration, replay, invalid redirects, upstream failure, read-only grants, revocation and reconnect version checks. Build and all 19 tests pass on 9 October 2026. These use signed test JWTs, an embedded PostgreSQL database and a mocked Supabase consent provider.
 
+The implementation in commit `4fccad9` was pushed with PRD sync `cbae4a1` and deployed on 9 October. Hosted checks: `/health`, `/account`, `/assets/account.js` and `/account/config` returned 200; unauthenticated `/account/api/me` and `/mcp` returned 401. The account page rendered the sign-in form without browser console errors. Public Supabase JWKS advertises ES256. The available dashboard browser is signed out, so hook enablement and project URL settings have not been changed or verified. Browser screenshot capture was unavailable; visual verification was limited to the rendered page's accessibility state.
+
 Still required against the hosted service:
 
 1. Enable and verify the project settings above, then complete a real email sign-in.

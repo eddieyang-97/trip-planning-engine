@@ -2,7 +2,7 @@
 
 A persistent research backend exposed through MCP. The product helps people compare travel choices using explicit constraints, source evidence and repeatable searches. It does not generate a generic itinerary or make bookings.
 
-**Current milestone: runnable local flight research prototype using synthetic data.** The official MCP client is tested end to end. Hosted OAuth, real provider data and consumer-client connections are not yet validated. No infrastructure has been deployed.
+**Current milestone: hosted research prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), consent API and revocation controls are deployed. Health and unauthenticated endpoint checks pass. Supabase OAuth configuration and a real assistant sign-in remain unverified; live flight search is not available. Local synthetic tests cover the research workflow and the official MCP client.
 
 ## Run locally
 
@@ -78,6 +78,7 @@ The HTTP transport is stateless; application data is persistent. There is no SSE
 src/
   app.ts           MCP adapter and HTTP protections
   auth.ts          Local token / hosted JWT verification
+  accounts.ts      Direct-session sign-in verification, consent and revocation
   core.ts          Ownership, persistence, tools, fixture jobs
   domain.ts        Runtime TypeScript schemas and scoring
   database.ts      Embedded / external PostgreSQL adapters
@@ -85,6 +86,7 @@ src/
   acceptance.ts    Confirmed Flaine inputs and assumptions
   main.ts          Configuration and process lifecycle
 migrations/        Executable scaffold database schema
+web/               Account and OAuth consent page
 tests/             Domain, persistence, authorization and MCP tests
 scripts/           Demo, migration and build asset scripts
 docs/prd.md        Product requirements
@@ -96,4 +98,4 @@ The executable schema normalizes relationships and versions while storing valida
 
 ## Next milestone
 
-Deploy one Render Node service with Supabase PostgreSQL/Auth using [render.yaml](render.yaml), validate one real MCP client sign-in, then add a rights-cleared flight provider. The Blueprint selects Free compute, applies migrations at startup and leaves automatic deployments off. The service uses Render's assigned public URL, checks database availability on `/health`, and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation and deployment notes](docs/implementation.md). Collaboration, hotels, restaurants, reservation actions and a full web app remain later phases.
+Finish [Supabase account-linking setup and hosted acceptance](docs/account-linking.md), validate one real MCP client sign-in, then add a rights-cleared flight provider. The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is off, but Blueprint changes can still sync and trigger deployment. The service checks database availability on `/health` and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation notes](docs/implementation.md). The shared itinerary web app follows the flight slice, before hotel integrations.
