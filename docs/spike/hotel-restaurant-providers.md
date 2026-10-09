@@ -1,4 +1,4 @@
-# Hotel and restaurant API spike — 9 October 2026
+# Accommodation and restaurant API spike — 9 October 2026
 
 ## Recommendation
 
@@ -12,6 +12,8 @@ This spike prepares contracts and an isolated diagnostic command. It does not re
 
 ## Hotel providers
 
+Accommodation scope includes hotels, aparthotels, apartments, chalets, houses, villas, hostels and guest houses. Airbnb, Booking.com and Vrbo identify a source/seller, not a type of accommodation. The original hotel-only framing below is broadened by the rental options in the following section.
+
 | Provider | Access and cost | What it can establish | Fit and unresolved questions |
 | --- | --- | --- | --- |
 | Booking.com Demand | Managed Affiliate Partner, signed contract, Partner Centre access, API key and affiliate ID; no generally available self-service production free tier established | Accommodation search; supported integrations can redirect or book. Sandbox data is not live inventory | Strong eventual option, but the connected Booking.com tool available in this chat does not give our backend a Demand API credential or reuse rights |
@@ -20,6 +22,22 @@ This spike prepares contracts and an isolated diagnostic command. It does not re
 | LiteAPI / Nuitee Connect | Self-service sandbox; live onboarding/payment setup. Published core rate/prebook/book API access is free subject to terms and reasonable look-to-book use; optional price index is $0.05/request and Places $0.01/request | Hotel-rate search with room occupancies, rate plans and cancellation data; prebook/revalidation and booking are separate stages | Most promising direct hotel API to investigate next. Confirm whether search-only/external-booking use is supported. Guest nationality is a required search input and is not yet known for our test |
 
 Sources: [Booking.com prerequisites](https://developers.booking.com/demand/docs/getting-started/prerequisites), [Demand overview](https://developers.booking.com/demand/docs), [Booking.com sandbox](https://developers.booking.com/demand/docs/getting-started/try-out-the-api), [Expedia Rapid setup](https://developers.expediagroup.com/rapid/setup), [SerpApi Google Hotels API](https://serpapi.com/google-hotels-api), [LiteAPI rates](https://docs.liteapi.travel/reference/post_hotels-rates), [LiteAPI pricing](https://docs.liteapi.travel/reference/api-pricing-usage-costs), [LiteAPI booking workflow](https://docs.liteapi.travel/docs/booking-a-room). Prices and access conditions are a dated snapshot, not an account-specific quote.
+
+## Apartments, chalets, Airbnb and other rentals
+
+| Route | Documented capability | Pilot decision |
+| --- | --- | --- |
+| Booking.com Demand | Accommodation-type filters include apartments, villas, guest houses and other stays | Test non-hotel inventory alongside hotels when access is available; the previous connector trial already returned an apartment as one of two results |
+| SerpApi Google Hotels / Vacation Rentals | `vacation_rentals=true` enables rental results; rental filters include minimum bedrooms and bathrooms | Include a separate rental query in the proposed diagnostic. Google-indexed rental coverage does not establish Airbnb coverage; inspect each actual seller and dated offer |
+| Expedia Rapid with Vrbo enabled | Vrbo inventory is available only on enabled partner profiles, with distinct content, pricing and launch requirements | Possible later direct-rate integration; do not assume standard Rapid access includes Vrbo. Preserve approximate-location display restrictions |
+| Expedia Travel Redirect API | Lodging discovery with handoff to Expedia, Hotels.com or Vrbo | Potentially better aligned with our external-booking product than a full booking API. Partner access, eligible markets and commercial terms remain to be validated |
+| Airbnb | Published API programs describe scoped partner integrations, primarily supporting hosts and hospitality operations | No open self-service consumer-search API established. Include saved Airbnb URLs and user-reported details in the accommodation design; no automated Airbnb provider is implemented or promised |
+
+Sources: [Booking.com accommodation filters](https://developers.booking.com/demand/docs/accommodations/filter-sorting), [SerpApi rental parameters](https://serpapi.com/google-hotels-api), [Vrbo on Rapid](https://developers.expediagroup.com/rapid/lodging/vacation-rentals/vrbo-integration-guide), [Vrbo launch requirements](https://developers.expediagroup.com/rapid/setup/launch-requirements/vrbo-launch-requirements), [Travel Redirect API](https://developers.expediagroup.com/xap-apis/api), [Airbnb API programs](https://www.airbnb.com/help/article/3418). These additions are documentation research, not successful live rental API tests. No partner application was submitted.
+
+For Flaine, investigate **two rooms for the party versus one entire apartment/chalet for the party** as separate illustrative configurations. Two rooms, adult ages and sleeping arrangements remain unconfirmed. Compare the total for 18–20 December, including mandatory cleaning, service, linen and local-tax charges where evidenced. Show refundable security deposits separately. Verify bedrooms, actual beds (including sofa beds), bathrooms, kitchen, minimum-stay restrictions, cancellation and late check-in. Unknown fields remain unresolved. A map pin may be approximate and cannot establish an exact walk to a lift.
+
+Airbnb links and user-reported facts can participate in the proposed comparison without requiring a live API. They retain `user_reported` provenance and do not inherit API-verified availability. Accommodation persistence/comparison is still a future integration; the current executable decision model remains flight-specific.
 
 ## Restaurant discovery and availability
 
@@ -51,8 +69,8 @@ Confirmed user inputs are the travel dates, four travelers and destination. Four
 
 [`src/stay-dining.ts`](../../src/stay-dining.ts) defines proposed TypeScript interfaces, not runtime-validated public input schemas:
 
-- `HotelSearch` specifies each room's adults and child ages. Hard requirements are separate from preference priority. Guest nationality may be unknown until a provider requires it.
-- `HotelRateObservation` separates requested from quoted occupancy, rate plan, meals, payment timing, cancellation penalties and late-arrival evidence. An amount has an explicit basis; unknown taxes or room allocation prevent claiming a complete all-room stay total.
+- `AccommodationSearch` specifies the party and alternative arrangements (allocated rooms, an entire place, or flexible). Hard requirements are separate from preference priority. Guest nationality may be unknown until a provider requires it. A future runtime validator must require room allocations to match the party.
+- `AccommodationRateObservation` separates requested from quoted occupancy/arrangement, property type, sleeping layout, rate plan, meals, payment timing, cancellation penalties and late-arrival evidence. An amount has an explicit basis; unknown taxes or unit allocation prevent claiming a complete stay total. Charge breakdowns carry inclusion flags to avoid double counting; security deposits are separate.
 - `SourceEvidence` distinguishes sandbox, production and connector observations, timestamps, attribution and retention review. Unknown expiry remains null; no supplier validity window is invented.
 - `PlaceDiscoveryProvider` returns directory evidence. `RestaurantAvailabilityProvider` separately returns slots for a date, party and time zone. No returned slots means only that the provider returned none for that request, not that the restaurant is fully booked everywhere.
 
@@ -72,7 +90,7 @@ Successful results are written only to ignored `.data/places-probe/` files. Fail
 
 ## Next acceptance gates
 
-1. With a SerpApi key available, run a bounded hotel diagnostic using the Flaine dates. Inspect both initial search and selected property details; record request count and which quote fields are genuinely present. Keep this budget separate from the existing six-search flight allowance.
+1. With a SerpApi key available, run a bounded accommodation diagnostic using the Flaine dates, covering both hotel and vacation-rental modes. Inspect both initial search and selected property details; record request count and which quote fields are genuinely present. Keep this budget separate from the existing six-search flight allowance. Explicitly report unsupported sellers, room arrangements and property types as coverage gaps.
 2. Confirm actual room occupancy and guest nationality before testing a provider that requires them. If SerpApi cannot establish a comparable room configuration, evaluate LiteAPI sandbox, then a small production rate search once its access and search-only commercial fit are established. Sandbox success must never count as live availability validation.
 3. Obtain one successful dated restaurant discovery response and inspect Flaine coverage. Retain source links and attribution; use provider-approved fields and retention. Do not add automatic refresh jobs or another service for the pilot.
 4. Add runtime validation, ownership, provider-specific budgets, persistent evidence and bounded query tools only after these observations support a usable capability. Hotel/dining tools should inherit the existing MCP permissions and decision model.

@@ -1,6 +1,6 @@
 # Travel Research Engine — PRD
 
-Version: 0.3 · 8 October 2026 · Status: proposed product requirements
+Version: 0.3.1 · 9 October 2026 · Status: proposed product requirements
 
 This document defines product requirements; it is not an implementation-status report. The first vertical slice remains single-owner flight research through MCP. A shared web itinerary follows as the next product milestone, before hotel search integrations. This revision covers PRD changes only.
 
@@ -312,10 +312,12 @@ The technical/product spike and remaining validation must:
 | 2 — Flight vertical slice | MCP tools for trip → criteria → live search → comparison → selection → repeat search | Flaine workflow passes in ChatGPT and Claude, including recovery and shared account state |
 | 3 — Shared web itinerary | Day-by-day plan, manual trip items, invitations, item comments, proposed changes and organizer approval; shared state with MCP | Organizer maintains and shares the Flaine trip without a parallel Google Doc; a friend collaborates on a phone without an assistant; permissions and conflict handling pass |
 | 4 — Pilot and refinement | Real trip decisions and shared itineraries, usability fixes and measured search cost | Evidence of improved decisions or reduced repeated effort, successful replacement of the working Google Doc and known operational costs |
-| 5 — Hotels | Room/rate comparison, party occupancy, cancellation and check-in conditions | Provider access validated and demand demonstrated in the pilot |
+| 5 — Accommodation | Hotels, apartments, chalets, aparthotels and holiday rentals; compare whole-party stay cost, sleeping layout, cancellation and check-in conditions | Provider access validated and demand demonstrated in the pilot; unsupported sources can be represented by links and user-reported evidence |
 | 6 — Further expansion | Restaurants/places, then reservations where access permits | Each addition has a recurring decision need and an honest data-access model |
 
 MCP is part of the first flight slice. The shared itinerary and direct collaboration are the next committed product milestone, before hotel search integrations. Start with manual accommodation, transfer and activity entries. A standalone web comparison interface, custom embedded UI, voting, simultaneous document editing and scheduled alerts remain later tracks driven by pilot demand.
+
+Accommodation research includes Airbnb-style entire-place stays as well as hotel rooms. Model property type separately from seller/platform. For Flaine, consider alternative configurations such as two rooms or one apartment/chalet for four, without treating either configuration as a confirmed preference. Include mandatory cleaning/service fees, linen and local taxes in comparable stay cost only when supported by evidence; show refundable security deposits separately. Preserve bedrooms, actual bed layout, bathrooms, kitchen, minimum stays, location precision and late-arrival conditions. Airbnb links and user-reported details are in scope even if automated Airbnb search is unavailable. Provider coverage must state which sources and stay configurations were actually searched.
 
 ## 13. Open questions and decision log
 
