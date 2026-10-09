@@ -14,6 +14,7 @@
     "check": "tsc --noEmit",
     "demo": "tsx scripts/demo.ts",
     "probe:flights": "tsx --env-file-if-exists=.env scripts/probe-flights.ts",
+    "probe:places": "tsx scripts/probe-places.ts",
     "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts"
   },
   "dependencies": {

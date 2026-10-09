@@ -47,6 +47,8 @@ This verifies deployment and database connectivity, not authenticated end-to-end
 
 ## Provider integration requirements
 
+The parallel [hotel/restaurant spike](spike/hotel-restaurant-providers.md) adds proposed rate/availability contracts and a bounded OpenStreetMap diagnostic adapter. Build and all 35 tests pass. A connected Booking.com search returned two Flaine stays using labelled test occupancy assumptions; reusable backend access remains unavailable. All three public Overpass live attempts failed before discovery. These additions are isolated from the hosted MCP tools and applied database schema.
+
 The current `FlightProvider` boundary accepts frozen criteria and returns validated offers plus coverage. Its only implementation is `fixture`; production provider types, capabilities and evidence provenance must be added explicitly. The schema deliberately rejects claims of live provider evidence today.
 
 The fixture runner persists queued/running/completed/failed state, uses a lease and fences late results by generation. Automatic retry of an expired lease is safe for fixtures. **Do not apply that retry policy to a paid provider**: add provider idempotency/reconciliation, an `outcome_unknown` path for uncertain external outcomes, cost budgets, grant rechecks, timeout/cancellation, bounded retention and provider-specific expansion/caching rules first. Add evidence for query parameters, units, requested party, fare family, baggage, full return legs, timestamps and incomplete airport coverage.
