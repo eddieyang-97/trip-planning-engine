@@ -4,9 +4,11 @@ import { canonical, criteriaSchema, DomainError, evaluate, identity, mutation, o
   tripInput, uuid, type Actor, type Criteria, type Offer, type Permission, type Provenance } from './domain.js';
 import type { Database, Queryable } from './database.js';
 import type { FlightProvider } from './providers.js';
+import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
 
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
+  ...policySchemas,
   list_trips: z.strictObject({ limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).default(0) }),
   create_trip: tripInput,
   get_trip: z.strictObject({ tripId: uuid }),
@@ -16,14 +18,14 @@ export const schemas = {
   start_search: z.strictObject({ ...edit, criteriaVersion: z.number().int().positive(), provider: z.enum(['fixture', 'live']) }),
   get_search_run: z.strictObject({ runId: uuid }),
   save_candidate: z.strictObject({ ...edit, offer: offerSchema }),
-  compare_candidates: z.strictObject({ decisionId: uuid, observationIds: z.array(uuid).min(1).max(20), criteriaVersion: z.number().int().positive() }),
+  compare_candidates: z.strictObject({ decisionId: uuid, observationIds: z.array(uuid).min(1).max(20), criteriaVersion: z.number().int().positive(), policyReferences: policyReferencesSchema }),
   compare_search_runs: z.strictObject({ previousRunId: uuid, currentRunId: uuid }),
   set_candidate_disposition: z.strictObject({ ...edit, candidateId: uuid, disposition: z.enum(['neutral', 'saved', 'rejected']) }),
-  select_candidate: z.strictObject({ ...edit, observationId: uuid, rationale: z.string().min(1).max(2000), acknowledgeConditional: z.boolean().default(false) }),
+  select_candidate: z.strictObject({ ...edit, observationId: uuid, rationale: z.string().min(1).max(2000), acknowledgeConditional: z.boolean().default(false), policyReferences: policyReferencesSchema }),
   record_booking: z.strictObject({ ...edit, selectionId: uuid, bookedAt: z.iso.datetime({ offset: true }), note: z.string().min(1).max(1000) }),
 };
 export type ToolName = keyof typeof schemas;
-const reads = new Set<ToolName>(['list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
+const reads = new Set<ToolName>(['list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
 export const isRead = (name: ToolName) => reads.has(name);
 function fail(code: string, message: string): never { throw new DomainError(code, message); }
 
@@ -89,6 +91,7 @@ export class Core {
     return { ...row, observations };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor): Promise<Record<string, any>> {
+    if (Object.hasOwn(policySchemas,name)) return dispatchPolicy(tx,name as keyof typeof policySchemas,a,actor.userId);
     if (name === 'list_trips') return { trips: (await tx.query('select * from trips where owner_id=$1 order by created_at,id limit $2 offset $3', [actor.userId, a.limit, a.offset])).rows };
     if (name === 'create_trip') {
       const { idempotencyKey: _, ...payload } = a;
@@ -102,6 +105,10 @@ export class Core {
       for (const d of decisions) {
         d.criteria = await criteria(tx, d.id);
         d.selections = (await tx.query('select * from selections where decision_id=$1 and superseded_at is null', [d.id])).rows;
+        for (const selection of d.selections) {
+          const refs = (await tx.query('select note_id as "noteId",version from selection_policy_notes where selection_id=$1 order by note_id',[selection.id])).rows;
+          selection.policyNotes = await readPolicyReferences(tx,actor.userId,refs as {noteId:string;version:number}[]);
+        }
         d.bookings = (await tx.query('select b.* from booking_records b join selections s on b.selection_id=s.id where s.decision_id=$1', [d.id])).rows;
       }
       return { trip, decisions };
@@ -147,6 +154,7 @@ export class Core {
     if (!isRead(name) && a.expectedRevision !== decision.revision) fail('REVISION_CONFLICT', 'Reload the decision before changing it');
     if (name === 'compare_candidates') {
       const version = await criteria(tx, decision.id, a.criteriaVersion);
+      const policyNotes = await readPolicyReferences(tx,actor.userId,a.policyReferences);
       const results = [];
       for (const id of a.observationIds) {
         const row = (await tx.query('select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id where o.id=$1 and o.decision_id=$2', [id, decision.id])).rows[0];
@@ -156,7 +164,7 @@ export class Core {
       }
       const order = { eligible: 0, conditional: 1, ineligible: 2 };
       results.sort((a, b) => order[a.eligibility] - order[b.eligibility] || b.score.lower - a.score.lower || a.observationId.localeCompare(b.observationId));
-      return { criteriaVersion: version.version, results,
+      return { criteriaVersion: version.version, results, policyNotes,
         ordering: 'Eligibility first, then conservative score bound descending. Overlapping score intervals do not establish a winner.',
         assumptions: version.payload.assumptions,
         warning: 'Flight/equipment comparison only; transfer feasibility is unresolved. Synthetic examples are not bookable.' };
@@ -181,6 +189,7 @@ export class Core {
       if (!updated.rows.length) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');
       result = { candidateId: a.candidateId, disposition: a.disposition };
     } else if (name === 'select_candidate') {
+      const policyNotes = await readPolicyReferences(tx,actor.userId,a.policyReferences);
       const offer = (await tx.query('select * from observations where id=$1 and decision_id=$2', [a.observationId, decision.id])).rows[0];
       if (!offer) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');
       const assessment = evaluate(offer.payload, active.payload);
@@ -190,7 +199,10 @@ export class Core {
       const id = randomUUID();
       await tx.query('insert into selections(id,decision_id,observation_id,criteria_version,rationale,evaluation) values($1,$2,$3,$4,$5,$6)',
         [id, decision.id, offer.id, active.version, a.rationale, JSON.stringify(assessment)]);
-      result = { selectionId: id, provenance: offer.provenance, booked: false, assessment };
+      for (const ref of a.policyReferences) {
+        await tx.query('insert into selection_policy_notes(selection_id,note_id,version) values($1,$2,$3)',[id,ref.noteId,ref.version]);
+      }
+      result = { selectionId: id, provenance: offer.provenance, booked: false, assessment, policyNotes };
     } else if (name === 'record_booking') {
       const selection = (await tx.query('select s.id,o.provenance from selections s join observations o on o.id=s.observation_id where s.id=$1 and s.decision_id=$2', [a.selectionId, decision.id])).rows[0];
       if (!selection) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');

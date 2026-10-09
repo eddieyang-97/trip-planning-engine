@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { createApp } from './app.js';
 import { hostedAuthentication, localActor, localAuthentication } from './auth.js';
 import { Core, runOneJob } from './core.js';
-import { embedded, migrate, postgres } from './database.js';
+import { embedded, migrate, postgres, schemaVersion } from './database.js';
 import { FixtureProvider } from './providers.js';
 import { configuration } from './config.js';
 import { accountRoutes, supabaseAccounts } from './accounts.js';
@@ -31,7 +31,7 @@ if (local) {
   await db.query(`insert into client_grants(owner_id,client_id,permissions) values($1,$2,$3)
     on conflict do nothing`, [localActor.userId, localActor.clientId, ['read', 'write', 'search']]);
 } else {
-  const migration = await db.query('select version from app_schema_migrations where version=2');
+  const migration = await db.query('select version from app_schema_migrations where version=$1',[schemaVersion]);
   if (!migration.rows.length) throw new Error('Run migrations before starting hosted mode');
 }
 if (!local) await db.query(`insert into oauth_resource(singleton,audience) values(true,$1)

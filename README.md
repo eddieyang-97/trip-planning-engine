@@ -65,12 +65,15 @@ Mutations require an idempotency key. Decision mutations also require the last o
 | Purpose | Tools |
 | --- | --- |
 | Trips and evidence | `list_trips`, `create_trip`, `get_trip`, `get_decision` |
+| Private policy notes | `create_policy_note`, `update_policy_note`, `get_policy_note`, `list_policy_notes` |
 | Decision criteria | `create_decision`, `update_decision_criteria` |
 | Search | `start_search`, `get_search_run` |
 | Research | `save_candidate`, `compare_candidates`, `compare_search_runs` |
 | Outcomes | `set_candidate_disposition`, `select_candidate`, `record_booking` |
 
 The HTTP transport is stateless; application data is persistent. There is no SSE subscription or server session to recover. Clients poll saved runs. Tool errors are structured, with `isError: true`; transport authentication failures are HTTP 401.
+
+[Private policy notes](docs/policy-notes.md) retain manually curated airline rules with sources, applicability and review dates. Updates append versions; comparisons and selections can reference an exact version. Notes are reusable across the owner's trips and remain separate from quote totals and availability. This addition is tested locally and awaiting the next hosted deployment.
 
 ## Repository
 
@@ -83,6 +86,7 @@ src/
   domain.ts        Runtime TypeScript schemas and scoring
   database.ts      Embedded / external PostgreSQL adapters
   providers.ts     Provider boundary and synthetic examples
+  policies.ts      Private, versioned policy notes and review reminders
   acceptance.ts    Confirmed Flaine inputs and assumptions
   main.ts          Configuration and process lifecycle
 migrations/        Executable scaffold database schema

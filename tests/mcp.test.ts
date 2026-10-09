@@ -38,20 +38,29 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     assert.equal(reboundStatus, 403);
     assert.equal((await fetch(`${origin}/mcp`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{' })).status, 400);
     await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
-    const tools = await client.listTools(); assert.equal(tools.tools.length, 14);
+    const tools = await client.listTools(); assert.equal(tools.tools.length, 18);
     assert.ok(tools.tools.every(t => t.inputSchema.type === 'object'));
     const call = async (name: string, args: Record<string, unknown>) => {
       const result = await client.callTool({ name, arguments: args });
       assert.ok(!result.isError, JSON.stringify(result)); return result.structuredContent as Record<string, any>;
     };
     const t = await call('create_trip', { ...flaineTrip, idempotencyKey: randomUUID() });
+    const policy = await call('create_policy_note', { idempotencyKey:randomUUID(),note:{
+      airline:'Test Air',topic:'sports_equipment',summary:'TEST: check equipment with airline',
+      applicability:'Synthetic test only',sourceUrl:'https://example.com/policy',
+      verifiedAt:'2020-01-01T00:00:00Z',reviewAfter:'2020-02-01T00:00:00Z',
+      effectiveFrom:null,effectiveTo:null,effectiveDateBasis:'unspecified',
+    } });
+    const savedPolicy = await call('get_policy_note',{noteId:policy.noteId,version:1});
+    assert.equal(savedPolicy.reviewStatus,'review_due');
     const d = await call('create_decision', { tripId: t.tripId, title: 'Flaine flights', criteria: flaineCriteria, idempotencyKey: randomUUID() });
     const r = await call('start_search', { decisionId: d.decisionId, expectedRevision: 1, criteriaVersion: 1, provider: 'fixture', idempotencyKey: randomUUID() });
     assert.equal(r.status, 'queued');
     await runOneJob(db, new FixtureProvider());
     const ready = await call('get_search_run', { runId: r.runId });
     assert.equal(ready.status, 'complete'); assert.equal(ready.observations.length, 3);
-    const compared = await call('compare_candidates', { decisionId: d.decisionId, criteriaVersion: 1, observationIds: ready.observations.map((o: any) => o.id) });
+    const compared = await call('compare_candidates', { decisionId: d.decisionId, criteriaVersion: 1, observationIds: ready.observations.map((o: any) => o.id),policyReferences:[{noteId:policy.noteId,version:1}] });
+    assert.equal(compared.policyNotes[0].noteId,policy.noteId);
     assert.equal(compared.results.filter((o: any) => o.eligibility === 'eligible').length, 1);
     const denied = await client.callTool({ name: 'get_trip', arguments: { tripId: randomUUID() } });
     assert.equal(denied.isError, true); assert.equal((denied.structuredContent as any).code, 'FORBIDDEN_OR_NOT_FOUND');

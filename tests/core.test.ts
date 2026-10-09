@@ -135,17 +135,26 @@ test('live search is unavailable and rolls back rather than producing a fake run
   assert.equal((await db.query('select id from search_runs where decision_id=$1', [d.decisionId])).rows.length, 0);
 });
 
-test('embedded PostgreSQL persists trips across close/reopen and migration is repeatable', async () => {
+test('embedded PostgreSQL persists trips and policy notes across close/reopen; migration is repeatable', async () => {
   const path = join(await mkdtemp(join(tmpdir(), 'travel-engine-test-')), 'db');
   const first = await embedded(path); let second: Database | undefined;
   const a = { userId: randomUUID(), clientId: 'restart-test' };
+  let policyId: string;
   try {
     await migrate(first);
     await first.query('insert into client_grants values($1,$2,$3,null)', [a.userId, a.clientId, ['read', 'write']]);
     await new Core(first, true).call('create_trip', { ...key(), ...flaineTrip }, a);
+    const policy = await new Core(first,true).call('create_policy_note',{...key(),note:{
+      airline:'Test Air',topic:'sports_equipment',summary:'Persistence test note',applicability:'Test only',
+      sourceUrl:'https://example.com/policy',verifiedAt:'2020-01-01T00:00:00Z',reviewAfter:'2020-02-01T00:00:00Z',
+      effectiveFrom:null,effectiveTo:null,effectiveDateBasis:'unspecified',
+    }},a);
+    policyId=policy.noteId;
   } finally { await first.close(); }
   try {
     second = await embedded(path); await migrate(second);
     assert.equal((await new Core(second, true).call('list_trips', {}, a)).trips[0].payload.name, flaineTrip.name);
+    const restored=await new Core(second,true).call('get_policy_note',{noteId:policyId!,version:1},a);
+    assert.equal(restored.note.summary,'Persistence test note');assert.equal(restored.reviewStatus,'review_due');
   } finally { await second?.close(); }
 });

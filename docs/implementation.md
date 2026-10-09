@@ -2,7 +2,9 @@
 
 ## Delivered
 
-The local scaffold implements the flight decision model, a persistent PostgreSQL database through PGlite, immutable criteria and observations, explicit coverage gaps, repeat comparisons, conservative scoring, saved/rejected candidates, selections and user-reported booking records. Fourteen tools are available through the official MCP TypeScript SDK with Streamable HTTP.
+The local scaffold implements the flight decision model, a persistent PostgreSQL database through PGlite, immutable criteria and observations, explicit coverage gaps, repeat comparisons, conservative scoring, saved/rejected candidates, selections and user-reported booking records. Eighteen tools are implemented through the official MCP TypeScript SDK with Streamable HTTP, including four private policy-note tools awaiting the next hosted deployment.
+
+The [policy-note slice](policy-notes.md) adds account-owned manual reference notes with sources, applicability, review dates and immutable versions. Comparisons include exact note versions as separate context; selections retain their references. Notes never fill missing offer costs or establish equipment availability. Build and 23 tests pass, including the official MCP client, ownership, revision conflicts, unchanged scoring and migration from the previously deployed schema. Review reminders are evaluated on read; no scheduled scraping or notifications are enabled.
 
 The acceptance inputs retain the user's confirmed Flaine dates, party count, snowboard requirement and all-airport scope. No previous connector prices are used as current fares. Test fixtures are synthetic and have one-hour fixture expiries; those expiries do not represent a supplier guarantee.
 
