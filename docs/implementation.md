@@ -2,7 +2,7 @@
 
 ## Architecture-review corrections
 
-[Budget, airport-local time/identity and read-snapshot fixes](correctness-fixes.md) address the first three architecture-review findings. The local build and 54 tests pass, with one dedicated pooled PostgreSQL test deferred to CI's isolated PostgreSQL service. No schema migration or hosted deployment is part of this correction. The reviewed airport catalogue currently covers the six London airports and Geneva; other zones remain unknown rather than guessed.
+[Budget, airport-local time/identity and read-snapshot fixes](correctness-fixes.md) address the first three architecture-review findings. The local build and 54 tests pass; CI passed all 55 tests, including the dedicated pooled PostgreSQL test, with none skipped. No schema migration or hosted deployment is part of this correction. The reviewed airport catalogue currently covers the six London airports and Geneva; other zones remain unknown rather than guessed.
 
 ## Itinerary web update
 

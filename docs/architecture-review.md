@@ -6,7 +6,7 @@ The architecture is a sound research prototype. Keep one Node service, Supabase 
 
 This review distinguishes reproduced defects, risks inferred from implementation, and deliberate prototype gaps. It does not certify hosted OAuth, external PostgreSQL behavior or live provider access.
 
-**Implementation follow-up, 11 October:** Findings 1–3 have subsequent fixes and regression tests documented in [correctness-fixes.md](correctness-fixes.md). The original findings below describe baseline `6b352e1` and are preserved as the review record. Pooled PostgreSQL validation is configured in CI; check its result separately from local tests. Findings 4–13 remain open or milestone-gated as described.
+**Implementation follow-up, 11 October:** Findings 1–3 have subsequent fixes and regression tests documented in [correctness-fixes.md](correctness-fixes.md). The original findings below describe baseline `6b352e1` and are preserved as the review record. CI verified all 55 tests, including controlled pooled PostgreSQL concurrency, with none skipped. Findings 4–13 remain open or milestone-gated as described.
 
 ## Prioritized findings
 
