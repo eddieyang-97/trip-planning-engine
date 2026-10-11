@@ -12,7 +12,7 @@ npm run probe:accommodation
 npm run probe:accommodation -- --live
 ```
 
-The runner reads `SERPAPI_API_KEY`. Never put it in a command argument or chat. No key was configured during the 11 October implementation check, so no live accommodation request has run through this runner. Earlier Booking.com connector results are a separate capability test, not evidence that this code works against live SerpApi data.
+The runner reads `SERPAPI_API_KEY`. Never put it in a command argument or chat. The first live run on 11 October passed the active Free-plan/quota checks but stopped after its first hotel search returned `provider_reported_error`. No observations were accepted; rental, Airbnb and detail requests were not attempted. The ledger is preserved and no search was retried. See [live probe findings](spike/live-probe-results-2026-10-11.md). Earlier Booking.com connector results are a separate capability test, not evidence that this code works against live SerpApi data.
 
 Validation on 11 October: TypeScript build, all 42 offline tests and the zero-network plan passed. Seven new tests cover query budgets, context/property matching, price uncertainty, failures, output bounds and direct-detail responses.
 

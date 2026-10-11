@@ -4,7 +4,7 @@ This standalone command tests SerpApi's actual response shape before implementin
 
 ## Current status
 
-The runner and offline tests are complete. Build and all 30 tests passed on 9 October 2026. The plan-only command completed with zero requests. No provider key was configured, so no live flight search has been run. Airline coverage, actual price basis and equipment availability remain unverified.
+The first live run completed on 11 October 2026, using all six permitted search requests after passing the active Free-plan/quota checks. Both cycles returned the same easyJet flight pair and seller figures. This establishes a working diagnostic response flow, not a verified party price, equipment quote or production integration. See [live probe findings](spike/live-probe-results-2026-10-11.md). Earlier offline build/tests and the zero-network plan had passed.
 
 ## Run
 
