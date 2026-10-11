@@ -1,5 +1,9 @@
 # Implementation status — 11 October 2026
 
+## Architecture-review corrections
+
+[Budget, airport-local time/identity and read-snapshot fixes](correctness-fixes.md) address the first three architecture-review findings. The local build and 54 tests pass, with one dedicated pooled PostgreSQL test deferred to CI's isolated PostgreSQL service. No schema migration or hosted deployment is part of this correction. The reviewed airport catalogue currently covers the six London airports and Geneva; other zones remain unknown rather than guessed.
+
 ## Itinerary web update
 
 The first [organizer itinerary slice](itinerary-web.md) is implemented locally: responsive display, manual item management, reported booking labels, open questions and persistent history. Web and five new MCP tools use the same trip data and revision checks. Migration 004 is additive. Build and all 46 tests pass; browser interactions and a 390px layout check pass, while screenshot capture is unavailable. No hosted deployment or real Supabase web sign-in was performed in this update. Invitations, discussion, proposals and selected-research linking remain later increments.

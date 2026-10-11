@@ -7,7 +7,7 @@ export interface Queryable {
   execute(sql: string): Promise<void>;
 }
 export interface Database extends Queryable {
-  transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T>;
+  transaction<T>(fn: (tx: Queryable) => Promise<T>,options?:{readOnly?:boolean}): Promise<T>;
   close(): Promise<void>;
 }
 export async function embedded(path?: string): Promise<Database> {
@@ -16,7 +16,10 @@ export async function embedded(path?: string): Promise<Database> {
   return {
     query: (sql, params) => db.query(sql, params),
     execute: async sql => { await db.exec(sql); },
-    transaction: fn => db.transaction(tx => fn({ query: (sql, params) => tx.query(sql, params), execute: async sql => { await tx.exec(sql); } })),
+    transaction: (fn,options) => db.transaction(async tx => {
+      if(options?.readOnly)await tx.exec('set transaction isolation level repeatable read read only');
+      return fn({ query: (sql, params) => tx.query(sql, params), execute: async sql => { await tx.exec(sql); } });
+    }),
     close: () => db.close(),
   };
 }
@@ -31,13 +34,18 @@ export async function postgres(url: string, caPath?: string): Promise<Database> 
     rejectUnauthorized: true, ...(caPath ? { ca: await readFile(caPath, 'utf8') } : {}),
   } });
   pool.on('error', () => { console.error('An idle PostgreSQL connection failed; a later request will reconnect.'); });
+  return pooledDatabase(pool);
+}
+// Shared transaction implementation. Tests supply an isolated loopback PostgreSQL pool;
+// production pools are always constructed above with verified TLS.
+export function pooledDatabase(pool:pg.Pool):Database {
   return {
     query: async (sql, params) => { const result = await pool.query(sql, params); return { rows: result.rows }; },
     execute: async sql => { await pool.query(sql); },
-    transaction: async fn => {
+    transaction: async (fn,options) => {
       const client = await pool.connect();
       try {
-        await client.query('begin');
+        await client.query(options?.readOnly?'begin isolation level repeatable read read only':'begin');
         const result = await fn({ query: (sql, params) => client.query(sql, params), execute: async sql => { await client.query(sql); } });
         await client.query('commit'); return result;
       }

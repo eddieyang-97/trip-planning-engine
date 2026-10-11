@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { canonical, criteriaSchema, DomainError, evaluate, identity, mutation, offerSchema,
-  tripInput, uuid, type Actor, type Criteria, type Offer, type Permission, type Provenance } from './domain.js';
+  tripInput, uuid, normalizeOfferTimes, type Actor, type Criteria, type Offer, type Permission, type Provenance } from './domain.js';
 import type { Database, Queryable } from './database.js';
 import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
@@ -54,12 +54,25 @@ async function criteria(tx: Queryable, decisionId: string, version?: number): Pr
   return result.rows[0] as { version: number; payload: Criteria } ?? fail('FORBIDDEN_OR_NOT_FOUND', 'Criteria not found');
 }
 async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, provenance: Provenance, runId: string | null) {
-  const key = createHash('sha256').update(identity(offer)).digest('hex');
+  // Serialize candidate identity reconciliation, including worker writes, within this decision.
+  await tx.query('select id from decisions where id=$1 for update',[decisionId]);
+  const normalizedIdentity=identity(offer);
+  const key = 'airport-local-v2:'+createHash('sha256').update(normalizedIdentity).digest('hex');
+  if(!(await tx.query('select id from candidates where decision_id=$1 and identity_key=$2',[decisionId,key])).rows.length) {
+    const legacy=(await tx.query(`select c.id,o.payload from candidates c join observations o on o.candidate_id=c.id
+      where c.decision_id=$1 and c.identity_key not like 'airport-local-v2:%'`,[decisionId])).rows;
+    const identities=new Map<string,Set<string>>();
+    for(const row of legacy){const values=identities.get(row.id)??new Set<string>();values.add(identity(row.payload));identities.set(row.id,values);}
+    const matches=[...identities].filter(([,values])=>values.has(normalizedIdentity));
+    if(matches.length>1||matches.some(([,values])=>values.size>1))fail('IDENTITY_REVIEW_REQUIRED','Legacy flight identities are ambiguous; review saved candidates before adding another observation');
+    // Keep the candidate ID, dispositions, observations, selections and booking links intact.
+    if(matches[0])await tx.query('update candidates set identity_key=$2 where id=$1',[matches[0][0],key]);
+  }
   await tx.query('insert into candidates(id,decision_id,identity_key) values($1,$2,$3) on conflict(decision_id,identity_key) do nothing', [randomUUID(), decisionId, key]);
   const candidateId = (await tx.query('select id from candidates where decision_id=$1 and identity_key=$2', [decisionId, key])).rows[0]!.id;
   const observationId = randomUUID();
   await tx.query('insert into observations(id,decision_id,candidate_id,run_id,provenance,payload) values($1,$2,$3,$4,$5,$6)',
-    [observationId, decisionId, candidateId, runId, provenance, JSON.stringify(offer)]);
+    [observationId, decisionId, candidateId, runId, provenance, JSON.stringify(normalizeOfferTimes(offer))]);
   return { candidateId, observationId, provenance };
 }
 
@@ -91,7 +104,7 @@ export class Core {
       const result = await work();
       await tx.query('update mutation_requests set response=$4 where owner_id=$1 and operation=$2 and key=$3', [actor.userId, name, args.idempotencyKey, JSON.stringify(result)]);
       return result;
-    });
+    },{readOnly:isRead(name)});
   }
   private async run(tx: Queryable, actor: Actor, id: string): Promise<Record<string, any> & { observations: Record<string, any>[] }> {
     const row = (await tx.query(`select r.* from search_runs r join decisions d on r.decision_id=d.id

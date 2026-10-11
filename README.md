@@ -60,6 +60,8 @@ flowchart LR
 
 Hard constraints produce pass/fail/unknown verdicts before preference scoring. Utility uses fixed cost and duration anchors, so adding a candidate does not change existing scores. Missing costs produce score intervals, never zero-priced equipment. Comparisons list eligible options before conditional and ineligible ones, then order by the lower score bound. Overlapping intervals do not establish a winner. Repeated searches compare like-for-like fare bases; changed criteria suppress price deltas. Missing results are never labelled sold out.
 
+The [architecture-review corrections](docs/correctness-fixes.md) make known over-budget costs fail even when equipment costs are missing, derive flight-local times from a reviewed airport-zone catalogue, and return Core reads from one database snapshot. Historical evidence remains intact. Broader airport coverage, hosted acceptance and the review's later milestones remain outstanding.
+
 Mutations require an idempotency key. Decision mutations also require the last observed revision. Retrying identical input returns the original result; reusing the key with different input fails. Every call checks the authenticated owner and a stored client grant. Supplier/user text is treated as evidence, not instructions.
 
 ## MCP tools
