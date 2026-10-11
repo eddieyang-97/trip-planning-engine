@@ -1,5 +1,7 @@
 # Accommodation and restaurant API spike — 9 October 2026
 
+**11 October update:** The [bounded accommodation probe](../accommodation-probe.md) is implemented for Google Hotels, Google vacation rentals and SerpApi's third-party Airbnb engine. The latter was missed in the initial research: lack of an open official Airbnb search API does not rule out a third-party diagnostic. No SerpApi key was configured at the latest check, so this runner has not made a live search. Original 9 October test results below remain historical.
+
 ## Recommendation
 
 Continue this as a small parallel provider spike. Keep the existing Render service and Supabase database; no additional infrastructure is needed. Separate three capabilities: property/place discovery, dated hotel rates, and dated restaurant table availability. A place listing or booking link proves neither a room nor a table is available.
@@ -32,6 +34,7 @@ Sources: [Booking.com prerequisites](https://developers.booking.com/demand/docs/
 | Expedia Rapid with Vrbo enabled | Vrbo inventory is available only on enabled partner profiles, with distinct content, pricing and launch requirements | Possible later direct-rate integration; do not assume standard Rapid access includes Vrbo. Preserve approximate-location display restrictions |
 | Expedia Travel Redirect API | Lodging discovery with handoff to Expedia, Hotels.com or Vrbo | Potentially better aligned with our external-booking product than a full booking API. Partner access, eligible markets and commercial terms remain to be validated |
 | Airbnb | Published API programs describe scoped partner integrations, primarily supporting hosts and hospitality operations | No open self-service consumer-search API established. Include saved Airbnb URLs and user-reported details in the accommodation design; no automated Airbnb provider is implemented or promised |
+| SerpApi Airbnb search (added 11 October) | Third-party extraction of Airbnb search results for specified dates and guests | Included in the diagnostic, separate from an official Airbnb API. Requires the same pending key; actual coverage, final pricing and production retention remain unverified. [Documentation](https://serpapi.com/airbnb-search-api) |
 
 Sources: [Booking.com accommodation filters](https://developers.booking.com/demand/docs/accommodations/filter-sorting), [SerpApi rental parameters](https://serpapi.com/google-hotels-api), [Vrbo on Rapid](https://developers.expediagroup.com/rapid/lodging/vacation-rentals/vrbo-integration-guide), [Vrbo launch requirements](https://developers.expediagroup.com/rapid/setup/launch-requirements/vrbo-launch-requirements), [Travel Redirect API](https://developers.expediagroup.com/xap-apis/api), [Airbnb API programs](https://www.airbnb.com/help/article/3418). These additions are documentation research, not successful live rental API tests. No partner application was submitted.
 
@@ -90,7 +93,7 @@ Successful results are written only to ignored `.data/places-probe/` files. Fail
 
 ## Next acceptance gates
 
-1. With a SerpApi key available, run a bounded accommodation diagnostic using the Flaine dates, covering both hotel and vacation-rental modes. Inspect both initial search and selected property details; record request count and which quote fields are genuinely present. Keep this budget separate from the existing six-search flight allowance. Explicitly report unsupported sellers, room arrangements and property types as coverage gaps.
+1. With a SerpApi key available, run the implemented five-search accommodation diagnostic using the Flaine dates, covering hotel, vacation-rental and third-party Airbnb modes. Inspect initial results and selected Google property details; record which quote fields are genuinely present. Keep this budget separate from the existing six-search flight allowance. Explicitly report unsupported sellers, room arrangements and property types as coverage gaps.
 2. Confirm actual room occupancy and guest nationality before testing a provider that requires them. If SerpApi cannot establish a comparable room configuration, evaluate LiteAPI sandbox, then a small production rate search once its access and search-only commercial fit are established. Sandbox success must never count as live availability validation.
 3. Obtain one successful dated restaurant discovery response and inspect Flaine coverage. Retain source links and attribution; use provider-approved fields and retention. Do not add automatic refresh jobs or another service for the pilot.
 4. Add runtime validation, ownership, provider-specific budgets, persistent evidence and bounded query tools only after these observations support a usable capability. Hotel/dining tools should inherit the existing MCP permissions and decision model.

@@ -47,6 +47,8 @@ This verifies deployment and database connectivity, not authenticated end-to-end
 
 ## Provider integration requirements
 
+On 11 October, the [accommodation diagnostic](accommodation-probe.md) added a Free-plan-gated five-search runner for Google Hotels, Google vacation rentals and third-party Airbnb search. It preserves unknown allocation/charges, requires matching request context and property-detail identity, and avoids automatic retries. No key is configured and live execution remains pending. This is isolated diagnostic code, not a production `AccommodationRateProvider` or a new hosted capability.
+
 The parallel [hotel/restaurant spike](spike/hotel-restaurant-providers.md) adds proposed rate/availability contracts and a bounded OpenStreetMap diagnostic adapter. Build and all 35 tests pass. A connected Booking.com search returned two Flaine stays using labelled test occupancy assumptions; reusable backend access remains unavailable. All three public Overpass live attempts failed before discovery. These additions are isolated from the hosted MCP tools and applied database schema.
 
 The current `FlightProvider` boundary accepts frozen criteria and returns validated offers plus coverage. Its only implementation is `fixture`; production provider types, capabilities and evidence provenance must be added explicitly. The schema deliberately rejects claims of live provider evidence today.
