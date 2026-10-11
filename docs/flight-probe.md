@@ -4,7 +4,7 @@ This standalone command tests SerpApi's actual response shape before implementin
 
 ## Current status
 
-The first live run completed on 11 October 2026, using all six permitted search requests after passing the active Free-plan/quota checks. Both cycles returned the same easyJet flight pair and seller figures. This establishes a working diagnostic response flow, not a verified party price, equipment quote or production integration. See [live probe findings](spike/live-probe-results-2026-10-11.md). Earlier offline build/tests and the zero-network plan had passed.
+The first live run completed on 11 October 2026, using all six permitted search requests after passing the active Free-plan/quota checks. Both cycles returned the same easyJet flight pair and seller figures. A subsequent browser check confirmed that Google labels the easyJet £452 figure as the total for four adults, including required taxes and fees. The airline handoff reached easyJet but its flight selection/basket did not populate, so airline repricing and snowboard carriage remain unverified. This is a working diagnostic flow, not a production integration. See [live probe findings](spike/live-probe-results-2026-10-11.md).
 
 ## Run
 
@@ -37,7 +37,7 @@ Each response must echo the route, dates, party, currency, trip type and cabin. 
 
 ## Budget and output
 
-The CLI exclusively creates `.data/provider-probe/serpapi-attempts.jsonl` and refuses a concurrent or accidental second run. Each request is recorded and flushed before transmission. The file contains only our stage, attempt count, status and timestamp. It never stores keys, response payloads, prices, seller tokens, account details or booking POST data.
+The CLI exclusively creates `.data/provider-probe/serpapi-attempts.jsonl` and refuses a concurrent or accidental second run. Each request is recorded and flushed before transmission. The file contains our stage, attempt count, status and timestamp. Failures can also include an HTTP status, an allowlisted error category and a validated hexadecimal provider search ID for archive investigation. It never stores keys, raw error messages, response payloads, prices, seller tokens, account details or booking POST data.
 
 Timeouts and uncertain responses stop as `outcome_unknown`. There is no automatic retry or resume. Keep the ledger after interruption; inspect reserved attempts before explicitly authorizing another run. Re-running with a new budget requires deliberate handling of the old ledger, not an automatic reset.
 

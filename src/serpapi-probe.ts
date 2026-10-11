@@ -1,11 +1,12 @@
 // Standalone capability probe. This is deliberately not a production FlightProvider.
+import { serpApiDiagnostic, type SerpApiDiagnostic } from './serpapi-diagnostics.js';
 export const probeQuery = Object.freeze({ engine:'google_flights',departure_id:'LGW',arrival_id:'GVA',
   outbound_date:'2026-12-18',return_date:'2026-12-20',adults:'4',currency:'GBP',type:'1',
   travel_class:'1',hl:'en',gl:'uk',stops:'1',no_cache:'true' });
 export const probeLimit = 6;
 type Json = Record<string, any>;
 type Stage = 'outbound' | 'return' | 'booking';
-export interface ProbeEvent { cycle: number; stage: Stage; attempt: number; status: 'reserved' | 'success' | 'failed' | 'outcome_unknown' }
+export interface ProbeEvent { cycle: number; stage: Stage; attempt: number; status: 'reserved' | 'success' | 'failed' | 'outcome_unknown';diagnostic?:SerpApiDiagnostic }
 interface ProbeOptions {
   apiKey: string;
   send?: typeof fetch;
@@ -13,7 +14,7 @@ interface ProbeOptions {
   record: (event: ProbeEvent) => Promise<void>;
 }
 class ProbeStop extends Error {
-  constructor(readonly reason: string,readonly outcome: 'blocked' | 'stopped' | 'outcome_unknown' = 'stopped') { super(reason); }
+  constructor(readonly reason: string,readonly outcome: 'blocked' | 'stopped' | 'outcome_unknown' = 'stopped',readonly diagnostic?:SerpApiDiagnostic) { super(reason); }
 }
 const object = (value:unknown): Json => value && typeof value==='object' && !Array.isArray(value) ? value as Json : {};
 const array = (value:unknown): Json[] => Array.isArray(value) ? value.map(object) : [];
@@ -104,10 +105,13 @@ export async function runSerpApiProbe(options:ProbeOptions) {
     let response:Response;
     try{response=await send(url,{redirect:'error',signal:AbortSignal.timeout(30000)});}
     catch{throw new ProbeStop('network_outcome_unknown','outcome_unknown');}
-    if(!response.ok)throw new ProbeStop(`provider_http_${response.status}`,response.status>=500?'outcome_unknown':'stopped');
     let body:Json;
-    try{body=object(await response.json());}catch{throw new ProbeStop('unreadable_provider_response','outcome_unknown');}
-    if(body.error)throw new ProbeStop('provider_reported_error');
+    try{body=object(await response.json());}catch{
+      if(!response.ok)throw new ProbeStop(`provider_http_${response.status}`,response.status>=500?'outcome_unknown':'stopped',serpApiDiagnostic({},response.status,options.apiKey));
+      throw new ProbeStop('unreadable_provider_response','outcome_unknown');
+    }
+    if(!response.ok)throw new ProbeStop(`provider_http_${response.status}`,response.status>=500?'outcome_unknown':'stopped',serpApiDiagnostic(body,response.status,options.apiKey));
+    if(body.error)throw new ProbeStop('provider_reported_error','stopped',serpApiDiagnostic(body,response.status,options.apiKey));
     return body;
   }
   async function search(cycle:number,stage:Stage,tokens:Record<string,string>={}) {
@@ -123,7 +127,8 @@ export async function runSerpApiProbe(options:ProbeOptions) {
         if(String(object(result.search_parameters)[name])!==probeQuery[name])throw new ProbeStop('request_echo_missing_or_mismatched');
       }
     }catch(error){
-      await options.record({...event,status:error instanceof ProbeStop&&error.outcome==='outcome_unknown'?'outcome_unknown':'failed'});
+      await options.record({...event,status:error instanceof ProbeStop&&error.outcome==='outcome_unknown'?'outcome_unknown':'failed',
+        ...(error instanceof ProbeStop&&error.diagnostic?{diagnostic:error.diagnostic}:{})});
       throw error;
     }
     await options.record({...event,status:'success'});
@@ -148,7 +153,7 @@ export async function runSerpApiProbe(options:ProbeOptions) {
     return {...baseReport,status:'completed',reason:'two_same_itinerary_observations_captured',requestsAttempted:attempts,cycles,
       verifiedLiveIntegration:false,comparison:'Same flight pair requested twice; price basis, fare equivalence and seller handoff still require manual validation. No confirmed price delta calculated.'};
   }catch(error) {
-    return {...baseReport,status:error instanceof ProbeStop?error.outcome:'stopped',reason:error instanceof ProbeStop?error.reason:'probe_failed',requestsAttempted:attempts,cycles,verifiedLiveIntegration:false};
+    return {...baseReport,status:error instanceof ProbeStop?error.outcome:'stopped',reason:error instanceof ProbeStop?error.reason:'probe_failed',diagnostic:error instanceof ProbeStop?error.diagnostic??null:null,requestsAttempted:attempts,cycles,verifiedLiveIntegration:false};
   }
 }
 

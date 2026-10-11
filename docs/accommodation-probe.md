@@ -12,7 +12,7 @@ npm run probe:accommodation
 npm run probe:accommodation -- --live
 ```
 
-The runner reads `SERPAPI_API_KEY`. Never put it in a command argument or chat. The first live run on 11 October passed the active Free-plan/quota checks but stopped after its first hotel search returned `provider_reported_error`. No observations were accepted; rental, Airbnb and detail requests were not attempted. The ledger is preserved and no search was retried. See [live probe findings](spike/live-probe-results-2026-10-11.md). Earlier Booking.com connector results are a separate capability test, not evidence that this code works against live SerpApi data.
+The runner reads `SERPAPI_API_KEY`. Never put it in a command argument or chat. The first live run on 11 October stopped after its first hotel search returned `provider_reported_error`. After the user continued the investigation, its ledger was preserved and a deliberate five-search follow-up completed all three modes plus both Google detail requests. The original failure's cause remains unknown. Airbnb's source page independently matched one £633 displayed total for four guests on the requested dates. Hotel allocation, mandatory charges and final checkout validation remain incomplete. See [live probe findings](spike/live-probe-results-2026-10-11.md).
 
 Validation on 11 October: TypeScript build, all 42 offline tests and the zero-network plan passed. Seven new tests cover query budgets, context/property matching, price uncertainty, failures, output bounds and direct-detail responses.
 
@@ -29,7 +29,7 @@ One account preflight checks for an active zero-monthly-cost plan, at least five
 
 The maximum is **five search calls plus one account check**. This allowance is separate from the six-search flight probe but uses the same account quota. Avoid concurrent use of the key: the provider's account check does not reserve credits against other clients. The command buys no credits and enables no overages.
 
-The CLI exclusively creates `.data/provider-probe/accommodation-attempts.jsonl`. Each attempt is recorded and flushed before transmission. The ledger stores only our stage, mode, attempt, status and timestamp. It prevents automatic reruns; preserve it after an interruption and inspect the previous attempt before authorizing another budget. Network uncertainty consumes its reserved attempt, stops the run and never triggers a retry. The runner ignores pagination and never follows provider-supplied API URLs.
+The CLI exclusively creates `.data/provider-probe/accommodation-attempts.jsonl`. Each attempt is recorded and flushed before transmission. The ledger stores our stage, mode, attempt, status and timestamp. Failures may also record an HTTP status, allowlisted error category and validated hexadecimal provider search ID; raw error messages remain suppressed. It prevents automatic reruns; preserve it after an interruption and inspect the previous attempt before authorizing another budget. Network uncertainty consumes its reserved attempt, stops the run and never triggers a retry. The runner ignores pagination and never follows provider-supplied API URLs.
 
 ## What the output means
 

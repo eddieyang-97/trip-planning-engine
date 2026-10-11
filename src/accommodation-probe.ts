@@ -1,9 +1,10 @@
 // Diagnostic only: no database writes, bookings, pagination or production provider registration.
 import { reportedMinor } from './serpapi-probe.js';
+import { serpApiDiagnostic, type SerpApiDiagnostic } from './serpapi-diagnostics.js';
 
 type Json = Record<string, unknown>;
 export type StayMode = 'hotels'|'rentals'|'airbnb';
-export interface StayProbeEvent { mode:StayMode;stage:'search'|'detail';attempt:number;status:'reserved'|'success'|'failed'|'outcome_unknown' }
+export interface StayProbeEvent { mode:StayMode;stage:'search'|'detail';attempt:number;status:'reserved'|'success'|'failed'|'outcome_unknown';diagnostic?:SerpApiDiagnostic }
 export const accommodationProbeLimit=5;
 export const stayDates=Object.freeze({check_in_date:'2026-12-18',check_out_date:'2026-12-20'});
 export function accommodationQuery(mode:StayMode):Record<string,string> {
@@ -55,7 +56,7 @@ export function accommodationEvidence(raw:unknown,mode:StayMode) {
   };
 }
 class Stop extends Error {
-  constructor(readonly reason:string,readonly outcome:'blocked'|'stopped'|'outcome_unknown'='stopped'){super(reason);}
+  constructor(readonly reason:string,readonly outcome:'blocked'|'stopped'|'outcome_unknown'='stopped',readonly diagnostic?:SerpApiDiagnostic){super(reason);}
 }
 function validToken(value:unknown):value is string {return typeof value==='string'&&value.length>0&&value.length<=30000;}
 export async function runAccommodationProbe(options:{apiKey:string;send?:typeof fetch;record:(event:StayProbeEvent)=>Promise<void>}) {
@@ -75,10 +76,13 @@ export async function runAccommodationProbe(options:{apiKey:string;send?:typeof 
     let response:Response;
     try{response=await send(url,{redirect:'error',signal:AbortSignal.timeout(30000)});}
     catch{throw new Stop('network_outcome_unknown','outcome_unknown');}
-    if(!response.ok)throw new Stop(`provider_http_${response.status}`,response.status>=500?'outcome_unknown':'stopped');
     let body:Json;
-    try{body=object(await response.json());}catch{throw new Stop('unreadable_provider_response','outcome_unknown');}
-    if(body.error)throw new Stop('provider_reported_error');
+    try{body=object(await response.json());}catch{
+      if(!response.ok)throw new Stop(`provider_http_${response.status}`,response.status>=500?'outcome_unknown':'stopped',serpApiDiagnostic({},response.status,options.apiKey));
+      throw new Stop('unreadable_provider_response','outcome_unknown');
+    }
+    if(!response.ok)throw new Stop(`provider_http_${response.status}`,response.status>=500?'outcome_unknown':'stopped',serpApiDiagnostic(body,response.status,options.apiKey));
+    if(body.error)throw new Stop('provider_reported_error','stopped',serpApiDiagnostic(body,response.status,options.apiKey));
     return body;
   }
   async function search(mode:StayMode,token?:string) {
@@ -98,7 +102,8 @@ export async function runAccommodationProbe(options:{apiKey:string;send?:typeof 
       await options.record({...event,status:'success'});
       return body;
     }catch(error){
-      await options.record({...event,status:error instanceof Stop&&error.outcome==='outcome_unknown'?'outcome_unknown':'failed'});
+      await options.record({...event,status:error instanceof Stop&&error.outcome==='outcome_unknown'?'outcome_unknown':'failed',
+        ...(error instanceof Stop&&error.diagnostic?{diagnostic:error.diagnostic}:{})});
       throw error;
     }
   }
@@ -130,5 +135,5 @@ export async function runAccommodationProbe(options:{apiKey:string;send?:typeof 
     }
     return {...base,status:'completed',reason:'bounded_responses_captured',requestsAttempted:attempts,results};
   }catch(error){return {...base,status:error instanceof Stop?error.outcome:'stopped',
-    reason:error instanceof Stop?error.reason:'probe_failed',requestsAttempted:attempts,results};}
+    reason:error instanceof Stop?error.reason:'probe_failed',diagnostic:error instanceof Stop?error.diagnostic??null:null,requestsAttempted:attempts,results};}
 }
