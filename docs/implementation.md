@@ -1,8 +1,12 @@
-# Implementation status — 9 October 2026
+# Implementation status — 11 October 2026
+
+## Itinerary web update
+
+The first [organizer itinerary slice](itinerary-web.md) is implemented locally: responsive display, manual item management, reported booking labels, open questions and persistent history. Web and five new MCP tools use the same trip data and revision checks. Migration 004 is additive. Build and all 46 tests pass; browser interactions and a 390px layout check pass, while screenshot capture is unavailable. No hosted deployment or real Supabase web sign-in was performed in this update. Invitations, discussion, proposals and selected-research linking remain later increments.
 
 ## Delivered
 
-The local scaffold implements the flight decision model, a persistent PostgreSQL database through PGlite, immutable criteria and observations, explicit coverage gaps, repeat comparisons, conservative scoring, saved/rejected candidates, selections and user-reported booking records. Eighteen tools are implemented through the official MCP TypeScript SDK with Streamable HTTP, including four private policy-note tools awaiting the next hosted deployment.
+The local scaffold implements the flight decision model, a persistent PostgreSQL database through PGlite, immutable criteria and observations, explicit coverage gaps, repeat comparisons, conservative scoring, saved/rejected candidates, selections and user-reported booking records. Twenty-three tools are implemented through the official MCP TypeScript SDK with Streamable HTTP, including four private policy-note tools and five itinerary tools awaiting the next hosted deployment.
 
 The [policy-note slice](policy-notes.md) adds account-owned manual reference notes with sources, applicability, review dates and immutable versions. Comparisons include exact note versions as separate context; selections retain their references. Notes never fill missing offer costs or establish equipment availability. Build and 23 tests pass, including the official MCP client, ownership, revision conflicts, unchanged scoring and migration from the previously deployed schema. Review reminders are evaluated on read; no scheduled scraping or notifications are enabled.
 

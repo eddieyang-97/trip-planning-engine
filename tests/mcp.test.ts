@@ -38,13 +38,19 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     assert.equal(reboundStatus, 403);
     assert.equal((await fetch(`${origin}/mcp`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{' })).status, 400);
     await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
-    const tools = await client.listTools(); assert.equal(tools.tools.length, 18);
+    const tools = await client.listTools(); assert.equal(tools.tools.length, 23);
     assert.ok(tools.tools.every(t => t.inputSchema.type === 'object'));
     const call = async (name: string, args: Record<string, unknown>) => {
       const result = await client.callTool({ name, arguments: args });
       assert.ok(!result.isError, JSON.stringify(result)); return result.structuredContent as Record<string, any>;
     };
     const t = await call('create_trip', { ...flaineTrip, idempotencyKey: randomUUID() });
+    const plan=await call('get_itinerary',{tripId:t.tripId});assert.equal(plan.revision,1);assert.deepEqual(plan.items,[]);
+    await call('add_itinerary_item',{tripId:t.tripId,expectedRevision:1,idempotencyKey:randomUUID(),item:{
+      type:'note',title:'MCP itinerary note',startDate:null,startTime:null,endDate:null,endTime:null,timeZone:null,endTimeZone:null,
+      location:'',url:null,notes:'Manual note',openQuestion:'',status:'tentative',bookingNote:'',
+    }});
+    assert.equal((await call('get_itinerary',{tripId:t.tripId})).items[0].payload.title,'MCP itinerary note');
     const policy = await call('create_policy_note', { idempotencyKey:randomUUID(),note:{
       airline:'Test Air',topic:'sports_equipment',summary:'TEST: check equipment with airline',
       applicability:'Synthetic test only',sourceUrl:'https://example.com/policy',

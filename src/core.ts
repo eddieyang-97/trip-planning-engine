@@ -5,9 +5,11 @@ import { canonical, criteriaSchema, DomainError, evaluate, identity, mutation, o
 import type { Database, Queryable } from './database.js';
 import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
+import { dispatchItinerary, itinerarySchemas } from './itinerary.js';
 
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
+  ...itinerarySchemas,
   ...policySchemas,
   list_trips: z.strictObject({ limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).default(0) }),
   create_trip: tripInput,
@@ -25,7 +27,7 @@ export const schemas = {
   record_booking: z.strictObject({ ...edit, selectionId: uuid, bookedAt: z.iso.datetime({ offset: true }), note: z.string().min(1).max(1000) }),
 };
 export type ToolName = keyof typeof schemas;
-const reads = new Set<ToolName>(['list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
+const reads = new Set<ToolName>(['get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
 export const isRead = (name: ToolName) => reads.has(name);
 function fail(code: string, message: string): never { throw new DomainError(code, message); }
 
@@ -64,9 +66,17 @@ async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, proven
 export class Core {
   constructor(readonly db: Database, readonly fixtureEnabled: boolean) {}
   async call(name: ToolName, input: unknown, actor: Actor): Promise<Record<string, any>> {
+    return this.execute(name,input,actor,true);
+  }
+  // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
+  async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
+    if(!['list_trips','create_trip',...Object.keys(itinerarySchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
+  }
+  private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
     const args = schemas[name].parse(input) as any;
     return this.db.transaction(async tx => {
-      await grant(tx, actor, isRead(name) ? 'read' : 'write');
+      if(checkGrant)await grant(tx, actor, isRead(name) ? 'read' : 'write');
       if (name === 'start_search') await grant(tx, actor, 'search');
       const work = () => this.dispatch(tx, name, args, actor);
       if (isRead(name)) return work();
@@ -91,6 +101,7 @@ export class Core {
     return { ...row, observations };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor): Promise<Record<string, any>> {
+    if(Object.hasOwn(itinerarySchemas,name))return dispatchItinerary(tx,name as keyof typeof itinerarySchemas,a,actor.userId);
     if (Object.hasOwn(policySchemas,name)) return dispatchPolicy(tx,name as keyof typeof policySchemas,a,actor.userId);
     if (name === 'list_trips') return { trips: (await tx.query('select * from trips where owner_id=$1 order by created_at,id limit $2 offset $3', [actor.userId, a.limit, a.offset])).rows };
     if (name === 'create_trip') {

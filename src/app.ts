@@ -8,6 +8,11 @@ import type { Authenticate } from './auth.js';
 import type { Router } from 'express';
 
 const descriptions: Record<ToolName, string> = {
+  get_itinerary:'Read the owner’s manually organized itinerary and latest 50 change events. Dates, times and bookings remain as reported; no supplier verification is implied.',
+  add_itinerary_item:'Add a manual flight, accommodation, transfer, activity, restaurant or note to the same itinerary shown on the web. Requires current itinerary revision. Leave unknown dates/times null. A reported booking requires a user-supplied booking note; never infer one from a selection.',
+  update_itinerary_item:'Replace a manual itinerary item after reviewing the current revision. Keeps earlier values in history. Never infer booking status or unknown schedule details.',
+  remove_itinerary_item:'Remove an item from the plan while preserving its change history. Does not cancel a supplier booking. Requires current itinerary revision.',
+  move_itinerary_item:'Move an item up or down within its start-date group. Does not alter times or supplier bookings. Requires current itinerary revision.',
   create_policy_note: 'Save a private, manually curated airline policy note with source, applicability, verification and review dates. Record a factual summary, not a copy of a webpage. This does not fetch or verify the source, prove availability, or create a quoted price.',
   update_policy_note: 'Append a policy-note version after a manual review or correction; requires expectedVersion. Set status withdrawn when a note should no longer be used. Earlier versions and selection references are preserved.',
   get_policy_note: 'Read a private policy note, optionally at an exact historical version. Reports when review is due, whether a newer version exists and whether the latest version is withdrawn. No automatic applicability guarantee.',
@@ -51,7 +56,7 @@ function serverFor(core: Core, actor: Actor) {
   return server;
 }
 
-export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void>; accounts?: Router }) {
+export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void>; accounts?: Router; itinerary?:Router }) {
   const origin = new URL(options.publicOrigin);
   if (origin.origin !== options.publicOrigin) throw new Error('PUBLIC_ORIGIN must be an origin without a trailing slash');
   const app = express();
@@ -73,6 +78,7 @@ export function createApp(options: { core: Core; authenticate: Authenticate; pub
       resource: `${origin.origin}/mcp`, authorization_servers: [options.issuer], bearer_methods_supported: ['header'],
     }));
   }
+  if (options.itinerary) app.use(options.itinerary);
   if (options.accounts) app.use(options.accounts);
   app.use('/mcp', async (req, res, next) => {
     try { res.locals.actor = await options.authenticate(req.headers.authorization); next(); }

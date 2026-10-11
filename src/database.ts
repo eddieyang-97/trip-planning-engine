@@ -47,7 +47,7 @@ export async function postgres(url: string, caPath?: string): Promise<Database> 
     close: () => pool.end(),
   };
 }
-const migrations = ['001_initial.sql', '002_account_linking.sql', '003_policy_notes.sql'];
+const migrations = ['001_initial.sql', '002_account_linking.sql', '003_policy_notes.sql', '004_itinerary.sql'];
 export const schemaVersion = migrations.length;
 export async function migrate(db: Database) {
   await db.transaction(async tx => {

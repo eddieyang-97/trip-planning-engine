@@ -6,6 +6,8 @@ A persistent research backend exposed through MCP. The product helps people comp
 
 ## Run locally
 
+The [itinerary web app](docs/itinerary-web.md) now provides a manual organizer view at `/itinerary`, with the same persistent trip state as MCP. After building and starting locally, open `/itinerary?demo=1` for a labelled, editable Flaine preview. Its example data resets on reload. Hosted release and real-account acceptance remain pending; this is the first itinerary slice, before invitations and discussion.
+
 Requires Node.js 24 and npm. No provider account or database installation is needed.
 
 ```sh
@@ -65,6 +67,7 @@ Mutations require an idempotency key. Decision mutations also require the last o
 | Purpose | Tools |
 | --- | --- |
 | Trips and evidence | `list_trips`, `create_trip`, `get_trip`, `get_decision` |
+| Manual itinerary | `get_itinerary`, `add_itinerary_item`, `update_itinerary_item`, `remove_itinerary_item`, `move_itinerary_item` |
 | Private policy notes | `create_policy_note`, `update_policy_note`, `get_policy_note`, `list_policy_notes` |
 | Decision criteria | `create_decision`, `update_decision_criteria` |
 | Search | `start_search`, `get_search_run` |
@@ -82,6 +85,8 @@ src/
   app.ts           MCP adapter and HTTP protections
   auth.ts          Local token / hosted JWT verification
   accounts.ts      Direct-session sign-in verification, consent and revocation
+  itinerary.ts     Shared manual itinerary validation, persistence and history
+  itinerary-web.ts Direct-session web API and itinerary asset routes
   core.ts          Ownership, persistence, tools, fixture jobs
   domain.ts        Runtime TypeScript schemas and scoring
   database.ts      Embedded / external PostgreSQL adapters
