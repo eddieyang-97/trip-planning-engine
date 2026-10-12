@@ -23,7 +23,7 @@ const descriptions: Record<ToolName, string> = {
   get_decision: 'Read a decision, current criteria, paginated evidence including manually saved offers, and up to 20 recent search runs.',
   create_decision: 'Create a flight decision with explicit constraints, assumptions and scoring preferences.',
   update_decision_criteria: 'Append immutable criteria; requires the current decision revision. Earlier search evidence is retained.',
-  start_search: 'Queue a search and return a run ID to poll. Only local SYNTHETIC Flaine fixtures are implemented; live requests fail without making a provider request.',
+  start_search: 'Queue a search and return a run ID to poll. When enabled, live pilot samples one direct easyJet LGW–GVA pair for four adults, 18–20 Dec 2026 (maximum three SerpApi requests). Other London airports are not searched. Prices, equipment and supplier availability remain unverified. Local fixture searches are synthetic.',
   get_search_run: 'Poll a search run and read observations with source, dates, provenance and coverage. Synthetic offers are never bookable.',
   save_candidate: 'Record a user-supplied offer as unverified user-reported evidence. This does not verify price or availability.',
   compare_candidates: 'Evaluate observations against a frozen criteria version. Optionally include versioned policyReferences as separate context. Policy notes never fill missing quote prices, change eligibility or prove availability; unknown costs stay unknown.',
@@ -40,7 +40,7 @@ function serverFor(core: Core, actor: Actor) {
   for (const name of Object.keys(schemas) as ToolName[]) {
     server.registerTool(name, {
       description: descriptions[name], inputSchema: schemas[name],
-      annotations: { readOnlyHint: isRead(name), destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: isRead(name), destructiveHint: false, idempotentHint: true, openWorldHint: name==='start_search' },
     }, async (args: unknown) => {
       try {
         const result = await core.call(name, args, actor);
@@ -70,7 +70,7 @@ export function createApp(options: { core: Core; authenticate: Authenticate; pub
     next();
   });
   app.get('/health', async (_req, res) => {
-    try { await options.ready?.(); res.json({ status: 'ok', liveSearch: false }); }
+    try { await options.ready?.(); res.json({ status: 'ok', liveSearch: options.core.liveEnabled }); }
     catch { res.status(503).json({ status: 'unavailable', liveSearch: false }); }
   });
   if (options.issuer) {

@@ -60,7 +60,7 @@ export function normalizeOfferTimes(offer:Offer):Offer {
   const normalize=(leg:Offer['outbound'])=>leg.map(s=>({...s,departureTimeZone:airportTimeZone(s.origin),arrivalTimeZone:airportTimeZone(s.destination)}));
   return {...offer,outbound:normalize(offer.outbound),inbound:normalize(offer.inbound)};
 }
-export type Provenance = 'synthetic' | 'user_reported';
+export type Provenance = 'synthetic' | 'user_reported' | 'provider_reported';
 export type Permission = 'read' | 'write' | 'search';
 export interface Actor { userId: string; clientId: string; grantVersion?: string }
 export class DomainError extends Error {

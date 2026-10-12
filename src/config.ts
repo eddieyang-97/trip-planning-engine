@@ -23,8 +23,11 @@ export function configuration(env: NodeJS.ProcessEnv = process.env) {
   const migrateOnStart = env.MIGRATE_ON_START ?? 'false';
   if (!['true', 'false'].includes(migrateOnStart)) throw new Error('MIGRATE_ON_START must be true or false');
   const databaseUrl = local ? undefined : databaseConnection(env);
+  const liveSearch=env.LIVE_SEARCH_ENABLED??'false';
+  if(!['true','false'].includes(liveSearch))throw new Error('LIVE_SEARCH_ENABLED must be true or false');
+  if(liveSearch==='true'&&!env.SERPAPI_API_KEY?.trim())throw new Error('Live search requires SERPAPI_API_KEY');
   if (env.SUPABASE_PUBLISHABLE_KEY && !/^sb_publishable_[A-Za-z0-9_-]+$/.test(env.SUPABASE_PUBLISHABLE_KEY)) throw new Error('Use a Supabase publishable key, never a secret/service-role key');
-  return { mode, local, port, origin, migrateOnStart: migrateOnStart === 'true',
+  return { mode, local, port, origin, migrateOnStart: migrateOnStart === 'true',liveSearch:liveSearch==='true',
     databaseUrl, databaseCaFile: env.DATABASE_CA_FILE,
     publishableKey: env.SUPABASE_PUBLISHABLE_KEY,
     issuer: local ? undefined : required('SUPABASE_AUTH_ISSUER'),

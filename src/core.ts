@@ -6,6 +6,7 @@ import type { Database, Queryable } from './database.js';
 import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
 import { dispatchItinerary, itinerarySchemas } from './itinerary.js';
+import {queueLiveSearch} from './live-search.js';
 
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
@@ -53,7 +54,7 @@ async function criteria(tx: Queryable, decisionId: string, version?: number): Pr
     ${version ? 'and version=$2' : ''} order by version desc limit 1`, version ? [decisionId, version] : [decisionId]);
   return result.rows[0] as { version: number; payload: Criteria } ?? fail('FORBIDDEN_OR_NOT_FOUND', 'Criteria not found');
 }
-async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, provenance: Provenance, runId: string | null) {
+export async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, provenance: Provenance, runId: string | null) {
   // Serialize candidate identity reconciliation, including worker writes, within this decision.
   await tx.query('select id from decisions where id=$1 for update',[decisionId]);
   const normalizedIdentity=identity(offer);
@@ -77,7 +78,7 @@ async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, proven
 }
 
 export class Core {
-  constructor(readonly db: Database, readonly fixtureEnabled: boolean) {}
+  constructor(readonly db: Database, readonly fixtureEnabled: boolean,readonly liveEnabled=false) {}
   async call(name: ToolName, input: unknown, actor: Actor): Promise<Record<string, any>> {
     return this.execute(name,input,actor,true);
   }
@@ -111,7 +112,8 @@ export class Core {
       join trips t on d.trip_id=t.id where r.id=$1 and t.owner_id=$2`, [id, actor.userId])).rows[0];
     if (!row) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');
     const observations = (await tx.query('select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id where o.run_id=$1 order by o.id', [id])).rows;
-    return { ...row, observations };
+    const attempts=(await tx.query('select attempt,stage,status,reserved_at,finished_at,diagnostic from provider_attempts where run_id=$1 order by attempt',[id])).rows;
+    return { ...row, observations, attempts };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor): Promise<Record<string, any>> {
     if(Object.hasOwn(itinerarySchemas,name))return dispatchItinerary(tx,name as keyof typeof itinerarySchemas,a,actor.userId);
@@ -198,14 +200,17 @@ export class Core {
       await tx.query('insert into criteria_versions values($1,$2,$3)', [decision.id, active.version + 1, JSON.stringify(a.criteria)]);
       result = { criteriaVersion: active.version + 1 };
     } else if (name === 'start_search') {
-      if (a.provider === 'live') fail('PROVIDER_ACCESS_REQUIRED', 'Live search is not implemented in this scaffold; no provider request was made');
-      if (!this.fixtureEnabled) fail('PROVIDER_ACCESS_REQUIRED', 'Synthetic provider is disabled in hosted mode');
+      if (a.provider === 'live'&&!this.liveEnabled) fail('PROVIDER_ACCESS_REQUIRED', 'Live search is disabled; no provider request was made');
+      if (a.provider === 'fixture'&&!this.fixtureEnabled) fail('PROVIDER_ACCESS_REQUIRED', 'Synthetic provider is disabled in hosted mode');
       if (a.criteriaVersion !== active.version) fail('REVISION_CONFLICT', 'Start a new run using the current criteria version');
       const pending = (await tx.query("select count(*)::int as n from search_runs where decision_id=$1 and status in ('queued','running')", [decision.id])).rows[0]!.n;
       if (pending >= 3) fail('BUDGET_EXCEEDED', 'This decision already has three unfinished searches');
-      const id = randomUUID();
-      await tx.query("insert into search_runs(id,decision_id,criteria_version,provider,status) values($1,$2,$3,'fixture','queued')", [id, decision.id, active.version]);
-      result = { runId: id, status: 'queued', provenance: 'synthetic' };
+      if(a.provider==='live')result=await queueLiveSearch(tx,actor,decision.id,active.version,active.payload);
+      else {
+        const id = randomUUID();
+        await tx.query("insert into search_runs(id,decision_id,criteria_version,provider,status) values($1,$2,$3,'fixture','queued')", [id, decision.id, active.version]);
+        result = { runId: id, status: 'queued', provenance: 'synthetic' };
+      }
     } else if (name === 'save_candidate') {
       result = await saveOffer(tx, decision.id, a.offer, 'user_reported', null);
     } else if (name === 'set_candidate_disposition') {

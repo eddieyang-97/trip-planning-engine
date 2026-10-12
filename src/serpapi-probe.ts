@@ -9,6 +9,7 @@ type Stage = 'outbound' | 'return' | 'booking';
 export interface ProbeEvent { cycle: number; stage: Stage; attempt: number; status: 'reserved' | 'success' | 'failed' | 'outcome_unknown';diagnostic?:SerpApiDiagnostic }
 interface ProbeOptions {
   apiKey: string;
+  cycles?:1|2;
   send?: typeof fetch;
   // Called before every potentially metered request and after its response.
   record: (event: ProbeEvent) => Promise<void>;
@@ -90,10 +91,11 @@ export function bookingEvidence(response:Json,outbound:Json,inbound:Json) {
 }
 
 export async function runSerpApiProbe(options:ProbeOptions) {
+  const cycleCount=options.cycles??2,requestLimit=cycleCount*3;
   let attempts=0;
   const cycles:Json[]=[];
   const send=options.send??fetch;
-  const baseReport={query:probeQuery,maximumSearchRequests:probeLimit,
+  const baseReport={query:probeQuery,maximumSearchRequests:requestLimit,
     assumptions:['Four adults; traveler ages are unconfirmed.','Nonstop LGW–GVA only for this initial probe.','One snowboard remains an assumption; this API probe does not verify its carriage.'],
     coverage:{complete:false,requestedAirports:['LGW'],notRequestedAirports:['LHR','LTN','STN','LCY','SEN']},
     warning:'Provider observations are unverified research evidence. No supplier hold, complete party price, snowboard availability, booking or production integration is established.'};
@@ -115,7 +117,7 @@ export async function runSerpApiProbe(options:ProbeOptions) {
     return body;
   }
   async function search(cycle:number,stage:Stage,tokens:Record<string,string>={}) {
-    if(attempts>=probeLimit)throw new ProbeStop('request_limit_reached');
+    if(attempts>=requestLimit)throw new ProbeStop('request_limit_reached');
     const event={cycle,stage,attempt:attempts+1};
     await options.record({...event,status:'reserved'}); // Fail before spending if the ledger cannot be written.
     attempts++;
@@ -139,19 +141,19 @@ export async function runSerpApiProbe(options:ProbeOptions) {
     const account=await get('/account.json',{});
     // The probe is approved for Free credits only. Never buy credits or enable an overage.
     if(account.account_status!=='Active'||account.plan_monthly_price!==0)throw new ProbeStop('active_zero_cost_plan_required','blocked');
-    if(!Number.isInteger(account.plan_searches_left)||account.plan_searches_left<probeLimit)throw new ProbeStop('insufficient_included_credits','blocked');
+    if(!Number.isInteger(account.plan_searches_left)||account.plan_searches_left<requestLimit)throw new ProbeStop('insufficient_included_credits','blocked');
     if(!Number.isInteger(account.account_rate_limit_per_hour)||!Number.isInteger(account.this_hour_searches)
-      ||account.account_rate_limit_per_hour-account.this_hour_searches<probeLimit)throw new ProbeStop('insufficient_hourly_capacity','blocked');
+      ||account.account_rate_limit_per_hour-account.this_hour_searches<requestLimit)throw new ProbeStop('insufficient_hourly_capacity','blocked');
     let previousOutbound:string|undefined,previousInbound:string|undefined;
-    for(const cycle of [1,2]) {
+    for(let cycle=1;cycle<=cycleCount;cycle++) {
       const outbound=selectLeg(await search(cycle,'outbound'),'outbound',previousOutbound);
       const inbound=selectLeg(await search(cycle,'return',{departure_token:outbound.departure_token}),'return',previousInbound);
       const booking=await search(cycle,'booking',{booking_token:inbound.booking_token});
       cycles.push({cycle,...bookingEvidence(booking,outbound,inbound)});
       previousOutbound=legKey(outbound);previousInbound=legKey(inbound);
     }
-    return {...baseReport,status:'completed',reason:'two_same_itinerary_observations_captured',requestsAttempted:attempts,cycles,
-      verifiedLiveIntegration:false,comparison:'Same flight pair requested twice; price basis, fare equivalence and seller handoff still require manual validation. No confirmed price delta calculated.'};
+    return {...baseReport,status:'completed',reason:cycleCount===2?'two_same_itinerary_observations_captured':'single_itinerary_observation_captured',requestsAttempted:attempts,cycles,
+      verifiedLiveIntegration:false,comparison:cycleCount===2?'Same flight pair requested twice; price basis, fare equivalence and seller handoff still require manual validation. No confirmed price delta calculated.':'One flight pair sampled; price basis and supplier availability remain unverified.'};
   }catch(error) {
     return {...baseReport,status:error instanceof ProbeStop?error.outcome:'stopped',reason:error instanceof ProbeStop?error.reason:'probe_failed',diagnostic:error instanceof ProbeStop?error.diagnostic??null:null,requestsAttempted:attempts,cycles,verifiedLiveIntegration:false};
   }

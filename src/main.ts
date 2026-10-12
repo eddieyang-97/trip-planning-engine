@@ -3,7 +3,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { createApp } from './app.js';
 import { hostedAuthentication, localActor, localAuthentication } from './auth.js';
-import { Core, runOneJob } from './core.js';
+import { Core, runOneJob,saveOffer } from './core.js';
+import {SerpApiFlightProvider} from './live-provider.js';
+import {runOneLiveJob} from './live-search.js';
 import { embedded, migrate, postgres, schemaVersion } from './database.js';
 import { FixtureProvider } from './providers.js';
 import { configuration } from './config.js';
@@ -37,7 +39,7 @@ if (local) {
 }
 if (!local) await db.query(`insert into oauth_resource(singleton,audience) values(true,$1)
   on conflict(singleton) do update set audience=excluded.audience`, [config.audience]);
-const core=new Core(db,local);
+const core=new Core(db,local,config.liveSearch);
 const accounts=!local&&config.publishableKey?supabaseAccounts(issuer!,config.publishableKey):undefined;
 const app = createApp({ core, authenticate, publicOrigin: origin, issuer,
   itinerary:itineraryRoutes({core,origin,local,authenticate:local?authenticate:accounts?.authenticate,
@@ -46,14 +48,18 @@ const app = createApp({ core, authenticate, publicOrigin: origin, issuer,
     provider:accounts! }) : undefined,
   ready: async () => { await db.query('select 1'); } });
 const server = app.listen(port, local ? '127.0.0.1' : '0.0.0.0', () => {
-  console.log(`Travel decision MCP listening at ${origin}/mcp (${mode}; live search unavailable)`);
+  console.log(`Travel decision MCP listening at ${origin}/mcp (${mode}; live pilot ${config.liveSearch?'enabled':'disabled'})`);
 });
 server.requestTimeout = 30_000;
 let active: Promise<unknown> | undefined;
 const provider = new FixtureProvider();
-const timer = local ? setInterval(() => {
-  if (!active) active = runOneJob(db, provider).catch(() => console.error('Fixture worker failed')).finally(() => { active = undefined; });
-}, 500) : undefined;
+const liveProvider=config.liveSearch?new SerpApiFlightProvider(process.env.SERPAPI_API_KEY!):undefined;
+const timer = local||liveProvider ? setInterval(() => {
+  if (!active) active = (async()=>{
+    if(liveProvider)await runOneLiveJob(db,liveProvider,saveOffer);
+    if(local)await runOneJob(db,provider);
+  })().catch(() => console.error('Search worker failed; persisted run state will be recovered without retrying live requests.')).finally(() => { active = undefined; });
+}, 1000) : undefined;
 let stopping = false;
 async function stop() {
   if (stopping) return; stopping = true;

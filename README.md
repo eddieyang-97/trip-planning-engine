@@ -2,7 +2,7 @@
 
 A persistent research backend exposed through MCP. The product helps people compare travel choices using explicit constraints, source evidence and repeatable searches. It does not generate a generic itinerary or make bookings.
 
-**Current milestone: hosted research prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), consent API and revocation controls are deployed. Health and unauthenticated endpoint checks pass. Supabase OAuth configuration and a real assistant sign-in remain unverified; live flight search is not available. Local synthetic tests cover the research workflow and the official MCP client.
+**Current milestone: hosted research prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), consent API and revocation controls are deployed. The [bounded live flight pilot](docs/hosted-live-search.md) is implemented, with deployment/real-account acceptance tracked in that document. Supabase OAuth configuration and a real assistant sign-in remain unverified. Local tests cover the research workflow and the official MCP client.
 
 ## Run locally
 
@@ -18,7 +18,7 @@ npm run dev
 
 `demo` uses a temporary in-memory PostgreSQL database, runs the Flaine example and prints the comparison. `dev` starts a persistent database in `.data/postgres` and serves MCP at `http://127.0.0.1:3000/mcp`. Settings are in `.env.example`; copy it to `.env` if needed. A local bearer token is generated in `.data/local-token` unless `LOCAL_TOKEN` is set. Configure a compatible **local HTTP MCP client** to send `Authorization: Bearer <that token>`. The token is never printed to service logs. This endpoint is reachable only on this computer; a cloud chat client cannot reach it.
 
-The fixture worker runs in the same process. `start_search` returns a run ID; use `get_search_run` to poll. All synthetic fares are labelled and use example.com links. `provider: live` returns `PROVIDER_ACCESS_REQUIRED` without any external request.
+The job runners use the same process. `start_search` returns a run ID; use `get_search_run` to poll. All synthetic fares are labelled and use example.com links. `provider: live` requires explicit `LIVE_SEARCH_ENABLED=true` and a backend `SERPAPI_API_KEY`; it samples one direct easyJet LGW–GVA pair for four adults on 18–20 December 2026. It saves up to ten seller observations with `provider_reported` provenance and unresolved price/equipment fields. This is partial coverage; the other London airports are not searched.
 
 ```sh
 npm test
