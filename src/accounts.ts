@@ -45,7 +45,7 @@ function redirectURL(value: unknown, expected?: string): string {
   if (expected) { const base = new URL(expected); if (base.origin !== url.origin || base.pathname !== url.pathname) throw new Error('Redirect mismatch'); }
   return url.href;
 }
-export function accountRoutes(options: { db: Database; provider: AccountProvider; origin: string; issuer: string; publishableKey: string }) {
+export function accountRoutes(options: { db: Database; provider: AccountProvider; origin: string; issuer: string; publishableKey: string; liveSearch?: boolean }) {
   const router = Router(), { db, provider, origin } = options;
   router.use((_req, res, next) => {
     res.setHeader('Content-Security-Policy', `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${new URL(options.issuer).origin}; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`);
@@ -54,7 +54,7 @@ export function accountRoutes(options: { db: Database; provider: AccountProvider
   router.get(['/','/account','/oauth/consent'], async (_req,res) => res.type('html').send(await readFile(new URL('../web/account.html',import.meta.url),'utf8')));
   router.get('/assets/account.js', async (_req,res) => res.type('application/javascript').send(await readFile(resolve('dist/web/account.js'),'utf8')));
   router.get('/assets/account.css', async (_req,res) => res.type('text/css').send(await readFile(new URL('../web/account.css',import.meta.url),'utf8')));
-  router.get('/account/config', (_req,res) => res.json({ supabaseUrl: new URL(options.issuer).origin, publishableKey: options.publishableKey, mcpUrl: `${origin}/mcp` }));
+  router.get('/account/config', (_req,res) => res.json({ supabaseUrl: new URL(options.issuer).origin, publishableKey: options.publishableKey, mcpUrl: `${origin}/mcp`, liveSearch: options.liveSearch === true }));
   router.use('/account/api', async (req,res,next) => {
     // No cookie authentication: a caller needs a direct-session bearer token.
     // Cross-origin writes are forbidden even if a caller supplies credentials.
@@ -87,6 +87,7 @@ export function accountRoutes(options: { db: Database; provider: AccountProvider
   router.post('/account/api/consent', async (req,res) => {
     const input = consentInput.parse(req.body), identity: AccountIdentity = res.locals.identity;
     if (input.action === 'approve' && (!input.permissions.includes('read') || (input.permissions.includes('search') && !input.permissions.includes('write')))) { res.status(400).json({ error:'Approval requires read access; searches also require write access.' }); return; }
+    if (input.action === 'approve' && input.permissions.includes('search') && options.liveSearch !== true) { res.status(400).json({ error:'Live search is unavailable. Approve read or write access instead.' }); return; }
     const outcome = await db.transaction(async tx => {
       const pending = (await tx.query(`select * from oauth_consent_requests where id=$1 and owner_id=$2
         and expires_at>now() and consumed_at is null for update`, [input.requestId,identity.userId])).rows[0];

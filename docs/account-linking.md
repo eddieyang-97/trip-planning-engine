@@ -1,6 +1,6 @@
 # Account linking pilot
 
-The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. This milestone does not enable live flight search or bookings.
+The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. The [bounded live flight pilot](hosted-live-search.md) is enabled on Render; a real authenticated search is still pending. Booking is unavailable.
 
 ## Deployment and Supabase configuration
 
@@ -28,7 +28,7 @@ The assistant connects to `https://trip-planning-engine.onrender.com/mcp`. Disco
 
 Account APIs accept a signed direct Supabase session with audience `authenticated`, a session ID, and no OAuth client ID. They check the current confirmed user with Supabase. Assistant tokens cannot manage grants. Mutations require the exact site Origin and an 8 KB JSON limit.
 
-Consent is bound server-side to the authenticated user and verified authorization details. Requests expire after ten minutes and can be consumed once. Users approve read access to all their trips and may additionally approve writes. Search is unavailable in this pilot. Provider identity scopes are displayed separately from application permissions.
+Consent is bound server-side to the authenticated user and verified authorization details. Requests expire after ten minutes and can be consumed once. Users approve read access to all their trips and may additionally approve writes. When live search is enabled, a separate unchecked search option requires write access and explains the narrow Flaine scope and request limits. Writes alone do not grant searches. Disabled deployments reject search consent before contacting Supabase. Existing grants are not expanded automatically; revoke the existing connection (including the Supabase grant) and reconnect to explicitly approve new permissions. Provider identity scopes are displayed separately from application permissions.
 
 Only active application consent lets the token hook issue the `/mcp` resource audience and a grant-version UUID. MCP validates signature, issuer, audience, expiry, user and client, then rechecks current permissions and version on every tool call. Approval rotates the version; old access tokens remain invalid after reconnection. Refresh-token revocation also depends on Supabase: a failed upstream revocation is shown to the user with a retry action, while application access remains revoked locally.
 
@@ -48,6 +48,8 @@ Still required against the hosted service:
 2. Connect a real assistant using OAuth PKCE. Inspect claim names and resource audience without logging token values.
 3. Create and retrieve the confirmed Flaine acceptance trip; reconnect a second assistant to the same travel account and retrieve it there.
 4. Verify a second travel account cannot read the first account's trip. Revoke during a session, test refresh rejection, reconnect, and verify old access tokens remain rejected.
-5. Test read-only consent with an attempted mutation. No booking or live-search claims are valid at this milestone.
+5. Test read-only consent with an attempted mutation, then separately approve write/search and complete the bounded Flaine live search. Do not claim hosted live acceptance until that real flow succeeds. Booking remains unavailable.
+
+On 12 October dashboard inspection confirmed OAuth Server and Dynamic OAuth Apps were already enabled, with authorization path `/oauth/consent`. The Site URL was still `http://localhost:3000`, the redirect allowlist was empty, and no auth hooks were configured. The hosted Site URL and `public.travel_access_token_hook` are being prepared for review; this inspection does not establish successful sign-in or assistant connection.
 
 Supabase references: [OAuth server setup](https://supabase.com/docs/guides/auth/oauth-server/getting-started), [MCP authentication](https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication), [token hooks](https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook).

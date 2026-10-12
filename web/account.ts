@@ -6,6 +6,14 @@ const authorization = new URL(location.href).searchParams.get('authorization_id'
 const configResponse = await fetch('/account/config');
 if (!configResponse.ok) throw new Error('Account configuration unavailable');
 const config = await configResponse.json();
+const liveSearch=config.liveSearch===true;
+el('pilot-notice').textContent=liveSearch?'Live flight research is available for the Flaine pilot: four adults, 18–20 Dec 2026, one direct easyJet Gatwick–Geneva pair. Other London airports, snowboard costs and bookable totals remain unverified. Booking is unavailable.':'This pilot saves research and manual evidence. Live search and booking are unavailable.';
+el('search-option').hidden=!liveSearch;
+el('search-scope').textContent=liveSearch?'Searches sample one Gatwick–Geneva flight pair for four adults, 18–20 Dec 2026. Each run uses up to three provider requests; at most two runs per account per day, subject to shared limits. Prices and snowboard costs remain unverified.':'Live search is unavailable.';
+el<HTMLInputElement>('allow-write').onchange=()=>{
+  const search=el<HTMLInputElement>('allow-search');search.disabled=!liveSearch||!el<HTMLInputElement>('allow-write').checked;
+  if(search.disabled)search.checked=false;
+};
 const supabase = createClient(config.supabaseUrl, config.publishableKey, { auth:{ storage:sessionStorage, storageKey:'travel-account', flowType:'pkce', persistSession:true, autoRefreshToken:true, detectSessionInUrl:true } });
 let requestId:string|undefined;
 async function api(path:string, body?:unknown) {
@@ -42,7 +50,7 @@ async function render() {
   if(authorization){const details=await api('authorization',{authorization_id:authorization});
     if(details.redirectUrl){redirect(details.redirectUrl);return;}
     requestId=details.requestId;el('client-name').textContent=`Connect ${details.clientName}?`;el('client-id').textContent=details.clientId;
-    el('client-redirect').textContent=details.redirectUri;el('client-scopes').textContent=details.scope||'None';el<HTMLInputElement>('allow-write').checked=false;el('consent').hidden=false;
+    el('client-redirect').textContent=details.redirectUri;el('client-scopes').textContent=details.scope||'None';el<HTMLInputElement>('allow-write').checked=false;el<HTMLInputElement>('allow-search').checked=false;el<HTMLInputElement>('allow-search').disabled=true;el('consent').hidden=false;
   }
   status('');
 }
@@ -58,7 +66,7 @@ el<HTMLButtonElement>('signout').onclick=()=>busy(el('signout'),async()=>{await 
 for(const action of ['approve','deny'] as const)el<HTMLButtonElement>(action).onclick=()=>busy(el(action),async()=>{
   if(!requestId)throw new Error('Restart the connection from your assistant.');
   el<HTMLButtonElement>(action==='approve'?'deny':'approve').disabled=true;
-  try{const permissions=action==='deny'?[]:el<HTMLInputElement>('allow-write').checked?['read','write']:['read'];const result=await api('consent',{requestId,action,permissions});redirect(result.redirectUrl);}
+  try{const permissions=action==='deny'?[]:['read'];if(action==='approve'&&el<HTMLInputElement>('allow-write').checked){permissions.push('write');if(liveSearch&&el<HTMLInputElement>('allow-search').checked)permissions.push('search');}const result=await api('consent',{requestId,action,permissions});redirect(result.redirectUrl);}
   finally{el<HTMLButtonElement>(action==='approve'?'deny':'approve').disabled=false;}
 });
 try{await render();}catch(error){
