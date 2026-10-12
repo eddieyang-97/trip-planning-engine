@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { accountAuthError } from './account-errors.js';
 const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getElementById(id) as T;
 const status = (text:string) => { el('status').textContent=text; };
 async function initialize() {
@@ -25,7 +26,9 @@ async function api(path:string, body?:unknown) {
   const result=await response.json(); if(!response.ok) throw new Error(result.error??'Please try again.');return result;
 }
 async function busy(button:HTMLButtonElement, work:()=>Promise<void>) {
-  button.disabled=true;status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.disabled=false;}
+  const loginButtons=button.closest('#login-form')?.querySelectorAll<HTMLButtonElement>('button')??[];
+  for(const control of loginButtons)control.disabled=true;
+  button.disabled=true;status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.disabled=false;for(const control of loginButtons)control.disabled=false;}
 }
 function redirect(value:string) { location.assign(value); }
 async function connections() {
@@ -55,11 +58,12 @@ async function render() {
   status('');
 }
 el<HTMLFormElement>('login-form').onsubmit=event=>{event.preventDefault();const button=el('login-form').querySelector<HTMLButtonElement>('button[type=submit]')!;
-  void busy(button,async()=>{const {error}=await supabase.auth.signInWithPassword({email:el<HTMLInputElement>('email').value.trim(),password:el<HTMLInputElement>('password').value});el<HTMLInputElement>('password').value='';if(error)throw new Error('Sign-in failed. Check your email, password and email confirmation.');await render();});};
+  void busy(button,async()=>{status('Signing in…');const {error}=await supabase.auth.signInWithPassword({email:el<HTMLInputElement>('email').value.trim(),password:el<HTMLInputElement>('password').value});el<HTMLInputElement>('password').value='';if(error)throw new Error(accountAuthError(error,'signin'));await render();});};
 el<HTMLButtonElement>('signup').onclick=()=>busy(el('signup'),async()=>{
   if(!el<HTMLFormElement>('login-form').reportValidity())return;
+  status('Creating your account…');
   const {error}=await supabase.auth.signUp({email:el<HTMLInputElement>('email').value.trim(),password:el<HTMLInputElement>('password').value,options:{emailRedirectTo:`${location.origin}/account`}});
-  el<HTMLInputElement>('password').value='';if(error)throw new Error('Unable to create the account. Check the details or try again later.');
+  el<HTMLInputElement>('password').value='';if(error)throw new Error(accountAuthError(error,'signup'));
   status('Check your email to confirm your account, then return here to sign in. If you already have an account, use Sign in.');
 });
 el<HTMLButtonElement>('signout').onclick=()=>busy(el('signout'),async()=>{await supabase.auth.signOut({scope:'local'});await render();});
