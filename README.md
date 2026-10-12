@@ -2,11 +2,11 @@
 
 A persistent research backend exposed through MCP. The product helps people compare travel choices using explicit constraints, source evidence and repeatable searches. It does not generate a generic itinerary or make bookings.
 
-**Current milestone: hosted research prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), consent API and revocation controls are deployed. The [bounded live flight pilot](docs/hosted-live-search.md) is implemented, with deployment/real-account acceptance tracked in that document. Supabase OAuth configuration and a real assistant sign-in remain unverified. Local tests cover the research workflow and the official MCP client.
+**Current milestone: hosted research prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), manual itinerary, consent/revocation controls and [bounded live flight pilot](docs/hosted-live-search.md) are deployed. Health reports live search enabled; unauthenticated MCP remains protected. CI passes all 63 tests. A real Supabase OAuth assistant connection and authenticated hosted search remain unverified.
 
 ## Run locally
 
-The [itinerary web app](docs/itinerary-web.md) now provides a manual organizer view at `/itinerary`, with the same persistent trip state as MCP. After building and starting locally, open `/itinerary?demo=1` for a labelled, editable Flaine preview. Its example data resets on reload. Hosted release and real-account acceptance remain pending; this is the first itinerary slice, before invitations and discussion.
+The [itinerary web app](docs/itinerary-web.md) provides a deployed manual organizer view at `/itinerary`, with the same persistent trip state as MCP. Open `/itinerary?demo=1` for a labelled, editable Flaine preview. Its example data resets on reload. Real-account acceptance remains pending; this is the first itinerary slice, before invitations and discussion.
 
 Requires Node.js 24 and npm. No provider account or database installation is needed.
 
@@ -78,7 +78,7 @@ Mutations require an idempotency key. Decision mutations also require the last o
 
 The HTTP transport is stateless; application data is persistent. There is no SSE subscription or server session to recover. Clients poll saved runs. Tool errors are structured, with `isError: true`; transport authentication failures are HTTP 401.
 
-[Private policy notes](docs/policy-notes.md) retain manually curated airline rules with sources, applicability and review dates. Updates append versions; comparisons and selections can reference an exact version. Notes are reusable across the owner's trips and remain separate from quote totals and availability. This addition is tested locally and awaiting the next hosted deployment.
+[Private policy notes](docs/policy-notes.md) retain manually curated airline rules with sources, applicability and review dates. Updates append versions; comparisons and selections can reference an exact version. Notes are reusable across the owner's trips and remain separate from quote totals and availability. They are included in the current hosted release; real-account acceptance remains pending.
 
 ## Repository
 

@@ -1,6 +1,6 @@
 # Hosted live flight pilot
 
-Updated 12 October 2026. Implementation is ready for deployment validation; successful hosted acceptance has not yet been recorded.
+Updated 12 October 2026. Commit `a6d4c849181cbed175a15944778e6d58e9697aa6` is deployed on the existing Free Render service with live search enabled. Deployment/readiness checks pass; a real authenticated hosted search is still pending.
 
 ## Scope
 
@@ -51,4 +51,18 @@ Rollback: set `LIVE_SEARCH_ENABLED=false` and restart/deploy. Evidence and ledge
 
 ## Validation so far
 
-On 12 October the TypeScript build passed and the full local suite passed 61 tests with one opt-in PostgreSQL test skipped. New tests cover durable reservation before transmission, retry idempotency, per-owner allowance, expired work, revocation between stages, network uncertainty, explicit opt-in and DST conversion. Hosted deployment and live authenticated acceptance remain pending.
+On 12 October the TypeScript build passed and the full local suite passed 61 tests with one opt-in PostgreSQL test skipped. New tests cover durable reservation before transmission, retry idempotency, per-owner allowance, expired work, revocation between stages, network uncertainty, explicit opt-in and DST conversion. After adding the PostgreSQL admission test, [CI run 38298508888](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38298508888) passed all 63 tests, zero skipped. Concurrent requests from six different owners over pooled connections admitted exactly four runs / twelve reserved requests; duplicate retry created no extra run.
+
+The user entered and saved the provider secret in Render. The existing Free service then deployed the tested commit in [deployment dep-db6jd2lg1s2s739ianh0](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db6jd2lg1s2s739ianh0), reporting Live at 20:36 UK time on 12 October. Startup checks confirm migration 005 was applied before listening and the live pilot flag was enabled. No secret was printed or committed.
+
+Post-deployment HTTP checks:
+
+| Endpoint | Observed result |
+| --- | --- |
+| `/health` | 200, `status: ok`, `liveSearch: true` |
+| `/account` | 200 |
+| `/itinerary` | 200 |
+| `/itinerary/config` | 200, mode `hosted` |
+| `/mcp`, unauthenticated | 401 with authentication challenge |
+
+No hosted supplier search was submitted during these readiness checks. A real user/client OAuth connection and one authenticated `start_search` → `get_search_run` flow remain necessary to complete end-to-end hosted acceptance. Local live probes and offline regression tests do not substitute for that check.
