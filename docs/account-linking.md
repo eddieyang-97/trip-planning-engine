@@ -1,6 +1,6 @@
 # Account linking pilot
 
-The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. The [bounded live flight pilot](hosted-live-search.md) completed its first real authenticated hosted search on 13 October 2026 through the official MCP SDK. ChatGPT/Claude-specific acceptance remains pending. Booking is unavailable.
+The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. The [bounded live flight pilot](hosted-live-search.md) completed its first real authenticated hosted search on 13 October 2026 through the official MCP SDK. ChatGPT linking and saved-research retrieval subsequently succeeded, followed by direct connected-tool verification in this Codex chat. Claude and refresh/revocation acceptance remain pending. Booking is unavailable.
 
 ## Deployment and Supabase configuration
 
@@ -44,7 +44,7 @@ The implementation in commit `4fccad9` was pushed with PRD sync `cbae4a1` and de
 
 Remaining hosted acceptance after the successful official-SDK run on 13 October:
 
-1. Connect the intended ChatGPT/Claude client through its own registration and OAuth PKCE flow, then retrieve the existing Flaine trip. Reconnect a second assistant to the same account and retrieve it there.
+1. Connect a second intended assistant (such as Claude) to the same account and retrieve the existing Flaine trip. ChatGPT connection and initial saved-trip retrieval have succeeded; see the evidence below.
 2. Verify a second travel account cannot read the first account's trip. Revoke during a session, test refresh rejection, reconnect, and verify old access tokens remain rejected.
 3. Test a hosted read-only connection with an attempted mutation. These permission checks already have automated coverage, but that does not substitute for the real hosted flow.
 
@@ -76,6 +76,14 @@ Later on 13 October a real user completed direct sign-in. A fresh official-SDK O
 
 The acceptance created a named Flaine trip and decision, admitted one live run, and repeated the identical mutation to confirm it returned the same run. Persisted status became `complete`, with three successful attempts (outbound, return, seller options) and ten observations. Every observation passed the `provider_reported`, unknown price-basis and `exactPartyQuoted: false` assertions. See the [hosted acceptance record](hosted-live-search.md#real-hosted-acceptance--13-october-2026). The SDK's optional streaming request returned 405 without preventing connection or tool execution. Chrome blocked the final loopback `/done` display, but the callback, token exchange and full acceptance process had already succeeded with exit code 0; no browser security warning was bypassed.
 
-The test client retains its approved read/write/search connection until revoked. In-memory tokens were cleared and the loopback listener closed when the helper exited. No booking, selection or passenger submission was made. This establishes official-SDK hosted acceptance, not a completed ChatGPT/Claude integration or verified fares.
+The test client retains its approved read/write/search connection until revoked. In-memory tokens were cleared and the loopback listener closed when the helper exited. No booking, selection or passenger submission was made. This establishes official-SDK hosted acceptance, not verified fares.
+
+## ChatGPT saved-research retrieval — 13 October 2026
+
+After the user connected the custom MCP server, direct browser inspection of the account page showed a **ChatGPT** connection with read/write/search grants. This Codex chat did not have that plugin's tools exposed, so retrieval was tested in ChatGPT itself. The user supplied its resulting response: it opened the same named Flaine acceptance trip, reported the observations saved at 21:28 London time, and listed ten sellers for U2 8487 outbound and U2 8156 return. It explicitly stated that no new search was run and preserved the unknown price basis, exact-party quote, snowboard, transfer and airport-coverage caveats. It reported no selected/booked flight and an empty manual itinerary.
+
+The **Trip Planning** tools then became available in this Codex chat. Read-only `get_trip`, `get_search_run`, `get_itinerary` and `get_decision` calls succeeded directly through the connected plugin. They confirmed the same owner/trip, immutable criteria version 1, decision revision 2, ten seller observations with prices matching the supplied response, no selections/bookings and an empty itinerary at revision 1. The recent-run list contained only the original completed run; its ledger retained exactly three successful attempts. No search or mutation tool was called during this check.
+
+This establishes initial ChatGPT linking, reported ChatGPT retrieval and independently verified connected-tool retrieval. It does not establish ChatGPT write/search behavior, token refresh, revocation, second-account isolation, Claude compatibility or a bookable quote. Recorded seller prices are research evidence with unknown party basis and must not be ranked as verified trip totals.
 
 Supabase references: [OAuth server setup](https://supabase.com/docs/guides/auth/oauth-server/getting-started), [MCP authentication](https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication), [token hooks](https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook).

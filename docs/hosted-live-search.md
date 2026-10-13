@@ -1,6 +1,6 @@
 # Hosted live flight pilot
 
-Updated 13 October 2026. Implementation `4ff852239c87742dae5b5bf5696437622e3fbd3e`, including the live pilot introduced in `a6d4c849181cbed175a15944778e6d58e9697aa6`, is deployed on the existing Free Render service. One real authenticated hosted search has completed through the official MCP SDK. Intended assistant clients and broader airport coverage still need acceptance.
+Updated 13 October 2026. Implementation `4ff852239c87742dae5b5bf5696437622e3fbd3e`, including the live pilot introduced in `a6d4c849181cbed175a15944778e6d58e9697aa6`, is deployed on the existing Free Render service. One real authenticated hosted search has completed through the official MCP SDK, followed by user-reported ChatGPT retrieval of the saved research. Broader airport coverage, exact quote validation and remaining assistant acceptance still need work.
 
 ## Scope
 
@@ -83,4 +83,6 @@ After direct sign-in and explicit approval of the **Travel hosted acceptance** p
 
 This run used the established Flaine dates and four-adult party with provisional Geneva gateway and one deterministic direct easyJet Gatwick–Geneva pair. The user permits all London airports and requires snowboard carriage; this narrow pilot does not cover those requirements fully. Four adults, one board and Geneva are test assumptions where the confirmed inputs do not establish those details.
 
-Assertions verified `priceBasis: unknown` and `exactPartyQuoted: false` for every saved observation. Snowboard carriage/costs, supplier expiry, exact bookable totals and actual seller handoff remain unverified. No candidates were selected, passenger details submitted or bookings made. Ten seller observations are evidence for this sampled pair, not ten fully validated itineraries. ChatGPT/Claude-specific OAuth, refresh/revocation and hosted second-account isolation remain separate acceptance work.
+Assertions verified `priceBasis: unknown` and `exactPartyQuoted: false` for every saved observation. Snowboard carriage/costs, supplier expiry, exact bookable totals and actual seller handoff remain unverified. No candidates were selected, passenger details submitted or bookings made. Ten seller observations are evidence for this sampled pair, not ten fully validated itineraries. Claude compatibility, assistant write/search flows, refresh/revocation and hosted second-account isolation remain separate acceptance work.
+
+The user subsequently connected ChatGPT and supplied its successful retrieval response for the saved trip, observations and unresolved constraints, explicitly reporting no new search. The account page independently showed the ChatGPT read/write/search grant. Once the Trip Planning tools became available here, direct read-only calls verified the trip, all ten seller observations, the empty itinerary and the existing three-attempt ledger. The recent-run list contained only the original completed search. See the [ChatGPT acceptance evidence and its limits](account-linking.md#chatgpt-saved-research-retrieval--13-october-2026).
