@@ -1,6 +1,6 @@
 # Hosted live flight pilot
 
-Updated 12 October 2026. Commit `a6d4c849181cbed175a15944778e6d58e9697aa6` is deployed on the existing Free Render service with live search enabled. Deployment/readiness checks pass; a real authenticated hosted search is still pending.
+Updated 13 October 2026. Implementation `4ff852239c87742dae5b5bf5696437622e3fbd3e`, including the live pilot introduced in `a6d4c849181cbed175a15944778e6d58e9697aa6`, is deployed on the existing Free Render service. One real authenticated hosted search has completed through the official MCP SDK. Intended assistant clients and broader airport coverage still need acceptance.
 
 ## Scope
 
@@ -65,4 +65,22 @@ Post-deployment HTTP checks:
 | `/itinerary/config` | 200, mode `hosted` |
 | `/mcp`, unauthenticated | 401 with authentication challenge |
 
-No hosted supplier search was submitted during these readiness checks. A real user/client OAuth connection and one authenticated `start_search` → `get_search_run` flow remain necessary to complete end-to-end hosted acceptance. Local live probes and offline regression tests do not substitute for that check.
+No hosted supplier search was submitted during the 12 October readiness checks. The real authenticated flow completed the following day as recorded below.
+
+## Real hosted acceptance — 13 October 2026
+
+After direct sign-in and explicit approval of the **Travel hosted acceptance** public client, `npx tsx scripts/acceptance-hosted.ts --live` completed discovery, S256 PKCE, token verification and official-SDK MCP calls against the deployed service. The token's issuer, resource audience, client binding and grant version passed validation. The helper exited with code 0 and cleared its in-memory credentials.
+
+| Record | Persisted ID / result |
+| --- | --- |
+| Trip | `3a9da81c-f69d-4482-93bd-6e3a5e2a34b8` |
+| Flight decision | `00c66a7c-3a2c-4503-9131-0f3b66d71f11` |
+| Search run | `0f984b0a-4d3b-4c80-8771-78c5b7d4dd6e` |
+| Status | `complete` |
+| Durable attempts | 1 outbound: success; 2 return: success; 3 seller options: success |
+| Observations | 10, all `provider_reported` |
+| Identical mutation retry | Returned the same run ID; no additional run or provider search |
+
+This run used the established Flaine dates and four-adult party with provisional Geneva gateway and one deterministic direct easyJet Gatwick–Geneva pair. The user permits all London airports and requires snowboard carriage; this narrow pilot does not cover those requirements fully. Four adults, one board and Geneva are test assumptions where the confirmed inputs do not establish those details.
+
+Assertions verified `priceBasis: unknown` and `exactPartyQuoted: false` for every saved observation. Snowboard carriage/costs, supplier expiry, exact bookable totals and actual seller handoff remain unverified. No candidates were selected, passenger details submitted or bookings made. Ten seller observations are evidence for this sampled pair, not ten fully validated itineraries. ChatGPT/Claude-specific OAuth, refresh/revocation and hosted second-account isolation remain separate acceptance work.

@@ -1,6 +1,6 @@
 # Account linking pilot
 
-The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. The [bounded live flight pilot](hosted-live-search.md) is enabled on Render; a real authenticated search is still pending. Booking is unavailable.
+The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. The [bounded live flight pilot](hosted-live-search.md) completed its first real authenticated hosted search on 13 October 2026 through the official MCP SDK. ChatGPT/Claude-specific acceptance remains pending. Booking is unavailable.
 
 ## Deployment and Supabase configuration
 
@@ -42,13 +42,13 @@ Automated tests cover direct-session/assistant-token separation, cross-account d
 
 The implementation in commit `4fccad9` was pushed with PRD sync `cbae4a1` and deployed on 9 October. Hosted checks: `/health`, `/account`, `/assets/account.js` and `/account/config` returned 200; unauthenticated `/account/api/me` and `/mcp` returned 401. The account page rendered the sign-in form without browser console errors. Public Supabase JWKS advertises ES256. The available dashboard browser is signed out, so hook enablement and project URL settings have not been changed or verified. Browser screenshot capture was unavailable; visual verification was limited to the rendered page's accessibility state.
 
-Still required against the hosted service:
+Remaining hosted acceptance after the successful official-SDK run on 13 October:
 
-1. Enable and verify the project settings above, then complete a real email sign-in.
-2. Connect a real assistant using OAuth PKCE. Inspect claim names and resource audience without logging token values.
-3. Create and retrieve the confirmed Flaine acceptance trip; reconnect a second assistant to the same travel account and retrieve it there.
-4. Verify a second travel account cannot read the first account's trip. Revoke during a session, test refresh rejection, reconnect, and verify old access tokens remain rejected.
-5. Test read-only consent with an attempted mutation, then separately approve write/search and complete the bounded Flaine live search. Do not claim hosted live acceptance until that real flow succeeds. Booking remains unavailable.
+1. Connect the intended ChatGPT/Claude client through its own registration and OAuth PKCE flow, then retrieve the existing Flaine trip. Reconnect a second assistant to the same account and retrieve it there.
+2. Verify a second travel account cannot read the first account's trip. Revoke during a session, test refresh rejection, reconnect, and verify old access tokens remain rejected.
+3. Test a hosted read-only connection with an attempted mutation. These permission checks already have automated coverage, but that does not substitute for the real hosted flow.
+
+Project configuration, real direct sign-in, public client registration, S256 PKCE exchange, token validation, MCP access and the separately approved bounded live search have now succeeded. Booking remains unavailable.
 
 On 12 October dashboard inspection confirmed OAuth Server and Dynamic OAuth Apps were already enabled, with authorization path `/oauth/consent`. The Site URL was still `http://localhost:3000`, the redirect allowlist was empty, and no auth hooks were configured. The hosted Site URL and `public.travel_access_token_hook` are being prepared for review; this inspection does not establish successful sign-in or assistant connection.
 
@@ -71,5 +71,11 @@ The account form now handles reported existing accounts, neutral signup response
 Build and six targeted tests pass. [CI run 38462240434](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38462240434) for implementation `4ff852239c87742dae5b5bf5696437622e3fbd3e` passed all 67 tests, none skipped, including both pooled PostgreSQL checks. Chrome checks against an isolated loopback service with simulated responses verified explicit existing-account guidance, neutral signup guidance, unconfirmed-email feedback, resend throttling, expired confirmation links, and recovery from an invalid session. No real account, email or provider search was created by these UI checks. The real interactive acceptance process was interrupted before sign-in completed; a fresh authorization is required before resuming hosted acceptance.
 
 The same implementation [deployed successfully on 13 October](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db796idg1s2s739k01p0), taking 40.2 seconds and reporting Live at 21:24 UK time. The service remains Free; startup reports hosted mode with the live pilot enabled. Post-deployment checks returned 200 for `/health` and `/account/config`, both with `liveSearch: true`, and 401 for unauthenticated `/account/api/me` and `/mcp`; the MCP authentication challenge remained present. The live account page includes Resend confirmation. These checks do not establish successful real signup, OAuth token exchange or hosted flight acceptance.
+
+Later on 13 October a real user completed direct sign-in. A fresh official-SDK OAuth request reached the verified consent screen for **Travel hosted acceptance**, showing the registered public client, exact loopback return URL, `openid` scope and separate read/write/search application permissions. The user approved that exact connection. The S256 PKCE exchange succeeded; token verification confirmed the configured issuer, exact `/mcp` audience, registered client ID and grant version without printing token values. MCP connected and listed 23 tools.
+
+The acceptance created a named Flaine trip and decision, admitted one live run, and repeated the identical mutation to confirm it returned the same run. Persisted status became `complete`, with three successful attempts (outbound, return, seller options) and ten observations. Every observation passed the `provider_reported`, unknown price-basis and `exactPartyQuoted: false` assertions. See the [hosted acceptance record](hosted-live-search.md#real-hosted-acceptance--13-october-2026). The SDK's optional streaming request returned 405 without preventing connection or tool execution. Chrome blocked the final loopback `/done` display, but the callback, token exchange and full acceptance process had already succeeded with exit code 0; no browser security warning was bypassed.
+
+The test client retains its approved read/write/search connection until revoked. In-memory tokens were cleared and the loopback listener closed when the helper exited. No booking, selection or passenger submission was made. This establishes official-SDK hosted acceptance, not a completed ChatGPT/Claude integration or verified fares.
 
 Supabase references: [OAuth server setup](https://supabase.com/docs/guides/auth/oauth-server/getting-started), [MCP authentication](https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication), [token hooks](https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook).
