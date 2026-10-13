@@ -7,9 +7,9 @@
 <p id="pilot-notice" class="notice">This pilot saves research and manual evidence. Booking is unavailable.</p>
 <div id="status" role="status" aria-live="polite">Loading your account…</div>
 <section id="signin" hidden><h2>Sign in to your travel account</h2><p>Use the same email and sign-in method when connecting ChatGPT or Claude. Your Supabase dashboard login is a separate account.</p>
-<form id="login-form"><label>Email<input id="email" type="email" autocomplete="email" required maxlength="254"></label>
-<label>Password<input id="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128"></label>
-<div class="actions"><button type="submit">Sign in</button><button id="signup" class="secondary" type="button">Create account</button></div></form>
+<form id="login-form" novalidate><label>Email<input id="email" type="email" autocomplete="email" required maxlength="254"></label>
+<label>Password<input id="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+<div class="actions"><button type="submit">Sign in</button><button id="signup" class="secondary" type="button">Create account</button><button id="resend" class="secondary" type="button">Resend confirmation</button></div></form>
 <p class="small">To create an account, enter your email and a new password above, then choose Create account. Feedback appears on this page. Confirm the email, then return here and sign in.</p></section>
 <section id="account" hidden><div class="account-heading"><div><h2>Your travel account</h2><p id="identity"></p><p class="small" id="account-id"></p></div><button id="signout" class="secondary">Sign out / switch account</button></div>
 <p><a href="/itinerary">Open your itineraries →</a></p><p>Connect your assistant using this server address:</p><code id="mcp-url"></code><p class="small">If a trip is missing in another assistant, check that it is connected to this same account.</p></section>
