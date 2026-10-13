@@ -1,6 +1,6 @@
 # Itinerary web app — organizer slice
 
-Updated 13 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. The deployed organizer supports manual itinerary display/editing; the new saved-research display is prepared for deployment. This does not complete membership, comments, proposals or automatic reconciliation of selected research with itinerary items.
+Updated 13 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. The deployed organizer supports manual itinerary display/editing and saved flight research review. This does not complete membership, comments, proposals or automatic reconciliation of selected research with itinerary items.
 
 ## What works
 
@@ -53,3 +53,11 @@ The UI now shows initial/loading feedback and bounded request timeouts. An unava
 Validation before deployment: build passed; the local regression suite passed 67 tests with the two external PostgreSQL checks skipped (69 total). New tests cover private read projection, bounded observations, retained older selection/booking evidence, no read-side mutation/search, airport-local overnight dates, tentative-only drafts and safe research links. An isolated loopback preview used copied Flaine evidence with live search disabled. Chrome verified unknown-basis seller labels, flight review, tentative save into the correct day, existing-item detection, and stale-trip-link recovery. At a 390px viewport, the page and editor fit without horizontal page overflow. Preview edits did not change the hosted trip. CI and hosted deployment verification are tracked below when complete.
 
 Next increments: shared invitations and membership, comments/proposals and organizer approval; durable research-to-itinerary links and reconciliation; history pagination/restoration. Public anonymous sharing is not enabled.
+
+## Hosted verification — 13 October 2026
+
+Implementation `70b884a54f7584b6d80919a601b35b2f72e30750` passed [CI run 38466213421](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38466213421): all 69 tests passed, none skipped, including both pooled PostgreSQL checks. That exact commit [deployed successfully](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db79l8ss728c73fm8fo0) to the existing Free service in 42.4 seconds, reporting Live at 21:55:42 London time. No new host, plan, migration or provider search was needed.
+
+After the user signed in, the actual hosted Flaine view displayed the saved direct Gatwick–Geneva pair, all ten seller observations, observation time, incomplete coverage, research source/review controls and research-derived open questions. The return review draft showed 20 December, 12:35 Europe/Zurich departure and 13:15 Europe/London arrival, with tentative status and no booking note. It was cancelled without saving. A real connected MCP `get_itinerary` call returned the same trip and ten `provider_reported` research observations, manual revision 1 and zero manual items. The isolated preview's saved flight did not affect the real trip.
+
+HTTP checks returned 200 for `/health` and `/itinerary`; health retained `liveSearch: true`. Unauthenticated `/mcp` returned 401 with its authentication challenge. Chrome visual capture verified the deployed research view. Phone-width editing/save/duplicate-detection checks were against the isolated preview, not a physical phone or a hosted write. Real manual itinerary writes, two-account browser isolation and the later collaboration milestone retain their separate acceptance work.
