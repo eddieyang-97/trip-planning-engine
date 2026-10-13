@@ -1,20 +1,26 @@
-# Travel Research Engine — PRD
+# Trip Planning Workspace — PRD
 
-Version: 0.3.1 · 9 October 2026 · Status: proposed product requirements
+Version: 0.4 · 13 October 2026 · Status: proposed product requirements
 
-This document defines product requirements; it is not an implementation-status report. The first vertical slice remains single-owner flight research through MCP. A shared web itinerary follows as the next product milestone, before hotel search integrations. This revision covers PRD changes only.
+This document defines product requirements; implementation status is tracked separately. The web app and hosted MCP interface are equally first-class product surfaces over the same trip workspace. The initial organizer foundation includes manual itinerary management and bounded flight research across both surfaces. Invitations, discussion and proposed changes follow that foundation, before accommodation search integrations.
+
+“Trip Planning Workspace” is the working product name. Repository, package and deployment identifiers remain unchanged. This revision records the user's decision to give web and MCP equal product standing; delivery status does not imply either surface has passed its acceptance gates.
 
 ## 1. Product thesis
 
 Help a traveler make a defensible travel decision: find feasible options, compare their real costs and practical consequences, keep the evidence, and repeat the search when circumstances change.
 
-Carry those decisions into a well-presented, shared itinerary that replaces the organizer's Google Doc. Research happens through the assistant; the web app gives the organizer and friends a persistent place to review the plan, discuss individual items and agree changes. Both surfaces use the same saved trip.
+Carry those decisions into a well-presented, shared itinerary that replaces the organizer's Google Doc. The organizer can research and manage the trip directly in the web app or through a connected assistant. Friends use the web app to review the plan, discuss individual items and agree changes. Both surfaces use the same saved trip.
 
-The core product is a persistent travel decision engine accessed primarily through a hosted MCP server from ChatGPT, Claude and other compatible assistants. The host assistant handles conversation, clarification and explanation; our backend owns trip state, live provider access, evidence, feasibility and deterministic ranking. V1 requires no separate backend LLM. Prices, availability, baggage allowances and booking status must come from evidence or explicit user input.
+The core product is a persistent trip planning workspace accessed through a web app and a hosted MCP server from ChatGPT, Claude and other compatible assistants. The web app provides direct controls and readable comparisons; a host assistant provides conversation, clarification and explanation. The shared service owns trip state, live provider access, evidence, feasibility and deterministic ranking. V1 requires no separate backend LLM. Prices, availability, baggage allowances and booking status must come from evidence or explicit user input.
 
 The initial job to be done:
 
 > When I have a trip with practical constraints, help me choose flights I can actually use, understand the trade-offs, and check whether my shortlist has changed without starting the research again.
+
+The connected itinerary job to be done:
+
+> Help me keep the whole trip organized in one place, see what is agreed or still open, and share a useful plan with friends without maintaining a separate document.
 
 The first differentiator to test is continuity between searches: the same trip, explicit requirements, comparable candidates, dated evidence and an intelligible history. A conventional flight results page already handles much of basic search. This product must demonstrate that retaining decision context and operational dependencies makes the next decision materially easier.
 
@@ -22,7 +28,7 @@ The first differentiator to test is continuity between searches: the same trip, 
 
 The first user is an individual organizing a short leisure trip, sometimes for several travelers. They may compare several departure airports, care about after-work departures, carry sports equipment and need onward transport to work with the flights.
 
-The initial user already uses a supported assistant and connects it to a travel account through sign-in and authorization. Private trips belong to that account and persist across conversations and connected clients. Several travelers can be represented without their own accounts. Users do not host a server, configure developer tools or supply travel-provider API keys. At the shared-itinerary milestone, friends join through a normal web link without an assistant account. A standalone web research interface remains a later capability.
+The organizer signs into a travel account to use the web app and may connect one or more supported assistants through authorization. The web app works independently of an assistant; MCP connects an assistant to the same account and trip state. Private trips persist across browser sessions, conversations and connected clients. Several travelers can be represented without their own accounts. Users do not host a server, configure developer tools or supply travel-provider API keys. At the collaboration milestone, friends join through a normal web link without an assistant account.
 
 Current research commonly leaves important context spread across browser tabs, screenshots, messages and notes:
 
@@ -37,7 +43,7 @@ These are product hypotheses to test with the first trip, rather than claims est
 
 ## 3. Outcomes and validation
 
-The primary outcome is a recorded decision supported by comparable evidence and an explicit reason for selecting it.
+The core outcomes are a recorded decision supported by comparable evidence and an explicit rationale, and a useful itinerary that the organizer can maintain in the web app and through MCP.
 
 Proposed pilot targets, to be measured rather than advertised:
 
@@ -49,18 +55,21 @@ Proposed pilot targets, to be measured rather than advertised:
 | Preserve trust | Every displayed price has a source, observation time, currency, passenger basis and completeness label |
 | Respect constraints | No candidate with a known hard-constraint failure appears as eligible; unknown required facts are visibly unresolved |
 | Reach a decision | Organizer records a selection and rationale, and can separately record an external booking |
+| Use the web app independently | Organizer creates a trip, maintains its manual itinerary and completes the bounded flight workflow without an assistant account |
+| Continue across surfaces | An itinerary edit or research selection made through web is visible through MCP, and vice versa, with the same evidence and permissions |
 
 The pilot should compare the workflow with the organizer's usual flight-search-plus-notes process. Continue investing if retained evidence and repeat searches save effort or expose a consequential missed cost or constraint. If the workspace adds effort without improving decisions, narrow or reconsider the product before expanding into hotels or AI features.
 
-For the shared-itinerary milestone, the primary outcome is that the organizer can organize and share the Flaine trip without maintaining a parallel Google Doc. The pilot must also show that a friend can open the itinerary on a phone, identify what is tentative versus booked, and comment or propose a change on the relevant item without using an assistant.
+For the collaboration milestone, the primary outcome is that the organizer can organize and share the Flaine trip without maintaining a parallel Google Doc. The pilot must also show that a friend can open the itinerary on a phone, identify what is tentative versus booked, and comment or propose a change on the relevant item without using an assistant.
 
 ## 4. Concrete v1 scope
 
-V1 is private, single-owner flight research through remote MCP, targeting ChatGPT and Claude first, for fixed-date round trips starting with London–Geneva for the Flaine weekend. Support a bounded selection of departure airports, a single destination airport, economy travel and adult travelers. Confirm actual route and airline coverage in the spike before committing to a provider.
+V1 is a private, single-owner organizer workspace with a web app and remote MCP, targeting ChatGPT and Claude as the first assistant clients. Both surfaces support core trip and manual itinerary management plus bounded flight research. Automated flight search starts with fixed-date round trips from London to Geneva for the Flaine weekend: a bounded selection of departure airports, a single destination airport, economy travel and adult travelers. Manual itinerary use does not require a flight decision or a live search provider. Confirm actual route and airline coverage in the spike before committing to a provider.
 
 | Included in v1 | Deferred |
 |---|---|
-| Hosted MCP tools, account linking and private trips | Shared itinerary, invitations, item comments and proposed changes: next milestone |
+| Web app, hosted MCP tools, shared account state and private trips | Invitations, item comments and proposed changes: collaboration milestone |
+| Manual itinerary presentation and editing through web and MCP | Voting, simultaneous document editing and complex permissions |
 | One or more flight decisions per trip | Hotel, restaurant and reservation search integrations |
 | Editable constraints and scoring preferences | Flexible-date calendars, multi-city travel, cabin mixing and complex traveler types |
 | One live flight search integration, subject to access validation | Multi-provider aggregation and claims of comprehensive market coverage |
@@ -69,30 +78,32 @@ V1 is private, single-owner flight research through remote MCP, targeting ChatGP
 | Manual notes and unresolved conditions for transfers and check-in | Live transfer inventory, automated routing and full dependency optimization |
 | On-demand repeat searches and material-change comparison | Scheduled monitoring, fare alerts and autonomous booking |
 | Transparent ranking and alternative sorts | Learned personalization and opaque AI scores |
-| Select, reject, restore and record externally booked options | Standalone web research interface, custom embedded UI and automatic itinerary generation |
+| Select, reject, restore and record externally booked options through web and MCP | Custom embedded assistant UI and automatic itinerary generation |
 
-At least one real connected search must work for the acceptance route before v1 is described as a live research product. Manual entry through a tool is a fallback; a manual-only build is a prototype. Validate account linking and the same core workflow in ChatGPT and Claude. Muse is a prospective client whose exact product and remote MCP compatibility must be established in the spike.
+At least one real connected search must work for the acceptance route before v1 is described as a live research product. Manual evidence entry through either surface is a research fallback; manual itinerary management is a core capability in its own right. Validate real-account web use, account linking and the same core workflow in ChatGPT and Claude. Muse is a prospective client whose exact product and remote MCP compatibility must be established in the spike.
 
 ## 5. Core experience
 
-The primary research surface is the user's existing assistant. A minimal website supports sign-in, account linking and connection management for the flight slice. The complete research workflow must work through structured MCP tools and readable results without a custom widget or full web app. The next milestone adds a companion web app for presenting and collaborating on the itinerary; a web comparison interface is a separate later possibility.
+The web app and connected assistant are two first-class ways to use the same workspace. The web app supplies direct trip controls, itinerary presentation and readable flight comparisons; MCP supplies structured tools and readable results for an assistant. Core trip, itinerary and flight workflows must be usable through each surface. Interfaces may differ to suit their users, but facts, validation, permissions and saved outcomes remain consistent. Neither an assistant account nor a custom embedded assistant widget is required to use the web app.
 
-1. **Create a trip.** Tell the assistant the name, destination, dates, traveler count and display currency. It creates or retrieves the persisted trip and its decisions through tools.
+The following research journey applies to both surfaces. Direct web controls perform the same operations as assistant tool calls; assistant-led clarification is represented by explicit web form fields, assumptions and unresolved conditions.
+
+1. **Create a trip.** Enter the name, destination, dates, traveler count and display currency in the web app, or tell the assistant. Create or retrieve the same persisted trip and its decisions through the shared service.
 2. **Define the flight decision.** Select airports, local departure/arrival windows, passenger count, baggage requirements and any maximum known total cost. Choose preferences such as lower cost, later Friday departure or more usable time at the destination.
-3. **Review the criteria.** The assistant presents structured hard constraints separately from preferences and asks about consequential ambiguity. Save explicit user requirements before searching; inferred assumptions remain visible. The backend validates criteria and never silently relaxes them.
+3. **Review the criteria.** Both surfaces present structured hard constraints separately from preferences and expose consequential ambiguity. The assistant asks for clarification; the web app provides explicit fields and unresolved-condition labels. Save explicit user requirements before searching; inferred assumptions remain visible. The backend validates criteria and never silently relaxes them.
 4. **Run a search.** Return the selected source, coverage limitations and a stable SearchRun ID. Pending searches can be checked later. Partial results, no results and provider failure remain distinct outcomes even if the conversation ends.
-5. **Compare candidates.** Return structured shortlist data and a concise text comparison for the assistant to present. Include local times, airport codes, stops, duration, cost breakdown, baggage, observation time, eligibility and unresolved conditions. Custom client UI is optional.
+5. **Compare candidates.** Present a readable comparison in the web app and return structured shortlist data plus concise text for the assistant. Include local times, airport codes, stops, duration, cost breakdown, baggage, observation time, eligibility and unresolved conditions. A custom embedded assistant UI is optional.
 6. **Inspect the evidence.** Open the underlying offer or source link, see which facts came from the provider or the user, and understand each ranking contribution.
 7. **Choose and repeat.** Save or reject candidates with a reason. Retrieve them in a new conversation or another connected client, re-run the saved criteria, and review changes. Retain the selection unless the user changes it.
-8. **Record the outcome.** Mark an option selected. Open the external booking page. After booking externally, the user may ask the assistant to record it as booked, with actual paid amount and a note. A click-out alone never marks it booked.
+8. **Record the outcome.** Mark an option selected. Open the external booking page. After booking externally, the user may record it as booked through web controls or the assistant, with actual paid amount and a note. A click-out alone never marks it booked.
 
 The assistant's comparison should answer four questions: Does this fit? What will it cost? Why might I prefer it? What still needs checking? A representative repeat request is: “Recheck my Flaine flights, include a snowboard, and tell me whether my selected option is still the best fit.”
 
-Each client connects by signing into the same travel account on the companion site. The authorization screen identifies that account; connection management shows linked clients. Trips are keyed to the verified account ID, not a chat identity or an inferred email match. If a trip is missing, show the signed-in account and offer account switching; never merge accounts or their trips automatically.
+Each assistant client connects by signing into the same travel account used by the web app. The authorization screen identifies that account; connection management shows linked clients. Trips are keyed to the verified account ID, not a chat identity or an inferred email match. If a trip is missing, show the signed-in account and offer account switching; never merge accounts or their trips automatically.
 
 Resolve trip references within the authenticated account. A stable trip ID is authoritative. For a name such as “my Flaine flights,” show matching trip names, dates and IDs; if more than one plausible match exists, ask the user to choose before starting a search or changing state. A fuzzy match must not silently select a trip. If no match exists, ask whether to create one.
 
-### Shared itinerary experience — next milestone
+### Itinerary experience and collaboration
 
 The web app presents a day-by-day itinerary with a clear trip overview. Flights, accommodation, transfers, activities and general notes are structured items with optional freeform detail. Show local dates and times, locations, useful links, practical notes and explicit tentative or booked status. Unscheduled items remain visible without inventing times. Support manual entries so the complete trip can be organized before hotel, activity or restaurant integrations exist.
 
@@ -102,7 +113,7 @@ The web app presents a day-by-day itinerary with a clear trip overview. Flights,
 4. **Agree a change.** The organizer accepts or declines the proposal. An accepted change updates the shared plan and records who proposed and approved it. Direct organizer edits also appear in the activity history. A proposed change never silently replaces an agreed or booked item.
 5. **Use the itinerary.** Everyone sees the latest agreed plan on a phone, including open questions. The organizer retrieves and updates the same trip through MCP; updates made in either surface are visible when the other reloads the trip.
 
-The initial milestone excludes simultaneous document editing, voting, complex permissions and automatic itinerary generation. The goal is to replace the organizer's working Google Doc with a clearer plan and discussion attached to the relevant items.
+Manual itinerary presentation and organizer editing belong to the initial foundation. Steps involving friends, discussion and approval belong to the collaboration milestone. That milestone excludes simultaneous document editing, voting, complex permissions and automatic itinerary generation. The goal is to replace the organizer's working Google Doc with a clearer plan and discussion attached to the relevant items.
 
 ## 6. Domain model
 
@@ -119,7 +130,7 @@ Use Trip → Decision → Candidate as the ownership structure. A Decision also 
 | Evidence | Provenance for a fact: provider response, link or manual note; observed time, scope and whether the fact is quoted, calculated or assumed |
 | BookingRecord | User-reported external booking, linked candidate and offer when known, actual paid amount and timestamp |
 
-The shared-itinerary milestone adds these objects to the same trip, without requiring a research decision for every manual item:
+The organizer foundation adds ItineraryItem to the same trip without requiring a research decision for every manual item. The collaboration milestone adds membership, comments and proposals, building on shared activity history:
 
 | Object | Meaning and essential information |
 |---|---|
@@ -174,13 +185,14 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 - When the selected offer is stale or has changed, prompt a refresh before external booking, without implying refresh reserves inventory.
 - Preserve a recorded booking independently of later search changes. Do not automatically alter booked plans.
 
-### Shared itinerary and collaboration — next milestone
+### Itinerary foundation and collaboration
 
 - Present the complete trip in a mobile-friendly day-by-day view with an overview, readable item detail and a visible place for unscheduled items. The organizer can add, edit, remove and reorder structured items and freeform notes.
 - Support flights, accommodation, transfers, activities and general notes without requiring live integrations for each type. Optional fields must stay optional; unknown times, costs and booking status must not be filled with invented values.
 - Keep tentative plans, user-reported bookings and unresolved conditions visibly distinct. Comments or proposal approval never constitute a booking.
 - Allow the organizer to add a selected candidate to the itinerary explicitly. Replacing a research selection flags a linked itinerary item for reconciliation; the organizer chooses whether to update the plan. Preserve the prior choice in history and never automatically modify a booked item.
-- Use the same authoritative trip state for web and MCP. The organizer can retrieve itinerary items and discussion, manage items and resolve proposals through either surface. Collaboration writes use the same permission and revision rules in both surfaces; the web workflow works without an assistant.
+- Use the same authoritative trip state for web and MCP. The organizer can create and retrieve trips, maintain manual itinerary items and complete the bounded flight workflow through either surface. Both expose consistent constraints, assumptions, cost completeness, evidence, ranking and saved outcomes. The web workflow works without an assistant.
+- At the collaboration milestone, let the organizer retrieve discussion and resolve proposals through either surface. Collaboration writes use the same permission and revision rules in both surfaces.
 - Let the organizer invite viewers or collaborators and revoke access. An invitation URL is a path to authenticated membership, not a public disclosure of the itinerary. Public anonymous sharing is outside the initial milestone.
 - Let collaborators comment on items or the trip and propose item additions, edits or removals. Viewers can read the plan and discussion. Only the organizer changes the agreed plan or resolves proposals in the initial milestone.
 - Record authors and timestamps for comments, proposals and plan changes. Retain discussions when items are removed, with a clear removed-item label. Show pending proposals and unresolved questions alongside the relevant item.
@@ -239,9 +251,9 @@ Acceptance setup: compare all London airports (LHR, LGW, LCY, LTN, STN and SEN) 
 | Provider fails | Failure is visible, historical results retain their original timestamps and retry is available |
 | Select and book externally | Selection and user-reported booking remain separate; external click-out does not imply a booking |
 
-A pilot passes when the organizer completes the core workflow through both ChatGPT and Claude, identifies a preferred flight with trade-offs and open conditions, and records the outcome. Create the trip in one client, retrieve the same persisted decision in the other, and repeat a search without re-entering criteria. Ending a conversation must not lose saved data. Verify retry deduplication, pending-run recovery, stale-revision handling and isolation between separate accounts. Muse joins acceptance testing only after compatibility is established. Use real integration checks plus controlled fixtures; future fares are not fixed test expectations.
+A pilot passes when the organizer completes the bounded flight workflow in the web app without an assistant and through both ChatGPT and Claude, identifies a preferred flight with trade-offs and open conditions, and records the outcome. Create the trip in one surface, retrieve the same persisted decision in another, and repeat a search without re-entering criteria. Make a manual itinerary edit in the web app and retrieve it through MCP; make another through MCP and retrieve it in the web app. Ending a conversation or browser session must not lose saved data. Verify retry deduplication, pending-run recovery, stale-revision handling and isolation between separate accounts on both surfaces. Muse joins acceptance testing only after compatibility is established. Use real integration checks plus controlled fixtures; future fares are not fixed test expectations.
 
-### Shared itinerary acceptance scenario — next milestone
+### Itinerary and collaboration acceptance scenario
 
 The organizer uses the same Flaine trip to assemble flights, accommodation, Friday and Sunday transfers, ski activities and practical notes. Entries may be manual; this scenario does not depend on adding hotel or activity providers.
 
@@ -259,40 +271,40 @@ The organizer uses the same Flaine trip to assemble flights, accommodation, Frid
 | Revoke a member or attempt access from another account | Revoked and nonmember accounts cannot retrieve the private trip through web or MCP; viewers cannot write comments or proposals |
 | Use the trip without a parallel Google Doc | The organizer can maintain the full plan and friends can review, discuss and propose changes entirely within the shared itinerary |
 
-The milestone passes when the organizer completes this scenario and can retire the Google Doc as the working itinerary. Verify one real friend collaboration session, role enforcement, revocation and conflicting edits, as well as web/MCP state continuity.
+The organizer foundation must pass itinerary assembly, explicit booking labels and web/MCP state continuity. The collaboration milestone passes when the organizer completes the full scenario and can retire the Google Doc as the working itinerary. Verify one real friend collaboration session, role enforcement, revocation and conflicting edits, as well as web/MCP state continuity.
 
 ## 10. Quality and operating requirements
 
-- Authenticate each MCP request and authorize access to the requested trip. Resolve identity from verified credentials, never a model-supplied user ID. Link each supported client to the same travel account through a tested OAuth flow. Keep provider credentials on the server and verify isolation using separate accounts.
+- Authenticate each web and MCP request and authorize access to the requested trip. Resolve identity from verified credentials, never a browser- or model-supplied user ID. Verify direct web account sessions and link each supported assistant client to the same travel account through a tested OAuth flow. Keep provider credentials on the server and verify isolation using separate accounts on both surfaces.
 - Keep data collection small: v1 does not need passports, payment cards, passenger legal names or booking-reference uploads to compare flights.
-- Return concise structured data plus readable text, with explicit status labels, source references and timestamps. The core workflow must not depend on client-specific widgets. Keep sign-in pages and any future comparison view accessible on phones, keyboards and screen readers.
+- Return concise structured data plus readable text through MCP and present the same facts through web controls, with explicit status labels, source references and timestamps. Assistant workflows must not depend on client-specific widgets. Keep the web app, comparisons and sign-in pages accessible on phones, keyboards and screen readers.
 - Persist pending search state and expose status retrieval through get_search_run. Bound provider timeouts and retries. Use idempotency keys for paid search starts and mutations; repeat delivery of the same request must not duplicate charges or records. Protect criteria and selection updates with expected revisions to prevent silent overwrites across clients.
 - Track provider request count, cost, latency, errors and search completion, plus client connection failures, tool-call failures and duplicate retries. Treat provider text as untrusted data; the server enforces permissions, budgets and constraints independently of assistant instructions.
 - Before enabling live searches, the spike must set a target searches-per-trip allowance and maximum provider cost per trip. Cost one all-London-airports search, a repeat search and bounded retries, including per-airport fan-out and any reprice or baggage calls. Publish the resulting allowance and spend ceiling as explicit launch settings; numeric values remain TBD until an accessible provider's pricing is verified. If normal repeat-search use exceeds the viable budget, change the provider, allowance or scope before launch. Display limits when reached; do not substitute invented results.
 - Deleting a trip removes its associated private records according to a documented retention policy. Provider restrictions may require earlier evidence expiry.
-- At the shared-itinerary milestone, apply trip membership and role authorization to every web and MCP read or write, including comments, proposals, history and linked evidence. Invitations and membership grants must be bounded and revocable. Keep private booking details out of the shared view unless the organizer explicitly includes them; comparing or presenting the itinerary does not require passports, payment details or booking-reference uploads.
+- At the collaboration milestone, apply trip membership and role authorization to every web and MCP read or write, including comments, proposals, history and linked evidence. Invitations and membership grants must be bounded and revocable. Keep private booking details out of the shared view unless the organizer explicitly includes them; comparing or presenting the itinerary does not require passports, payment details or booking-reference uploads.
 - Make the itinerary and collaboration controls usable on phones, keyboards and screen readers. Show local date/time context for overnight transfers and stays, including travel across time zones. Protect itinerary writes and proposal resolutions with expected revisions and idempotency where retrying could duplicate actions.
 
 ## 11. Architecture direction and spike brief
 
-The primary research entry point is a hosted HTTPS MCP endpoint. ChatGPT, Claude and other validated clients call its tools; they do not host our server. An application service owns criteria, provider queries, normalization, evidence and deterministic ranking. The next-milestone companion web app calls the same service for the shared itinerary, discussion and proposals with the same permissions. Client conversation and explanation are separate from backend authority and durable state.
+The product has two first-class entry points: the web app and a hosted HTTPS MCP endpoint. ChatGPT, Claude and other validated clients call MCP tools; they do not host our server. Both entry points call the same application service for trips, itinerary items, research and, at the collaboration milestone, discussion and proposals. The service owns criteria, provider queries, normalization, evidence, deterministic ranking and permission checks. Direct web sessions and authorized assistant clients use their appropriate authentication paths; neither bypasses the shared authorization rules. Client conversation and presentation remain separate from backend authority and durable state.
 
 ```mermaid
 flowchart LR
     Clients[ChatGPT / Claude / validated clients] --> MCP[Hosted MCP endpoint]
-    MCP --> Core[Decision and search service]
-    Web[Shared itinerary web app: next milestone] -.-> Core
+    MCP --> Core[Trip, itinerary and research service]
+    Web[Trip planning web app] --> Core
     Core --> Store[(Supabase: trips and evidence)]
     Core --> Adapter[Flight provider adapter]
     Adapter --> Provider[External flight source]
     Core --> Rank[Deterministic eligibility and ranking]
 ```
 
-The selected initial architecture is one Render service for the hosted MCP endpoint and application logic, with Supabase for Postgres and account identity. Use the approved free tiers for the prototype; no paid upgrade is authorized. The Supabase project exists and Render deployment is approved but awaits database-password entry. Account linking, live provider access and end-to-end hosted acceptance remain unverified. Minimal account pages should share the initial service where practical; add Vercel only if the companion web app needs it. Validate remote MCP transport, OAuth, request duration, pending-run recovery and cost. Add a separate worker only when measured search behavior requires it; never rely on work continuing after a hosting request has ended. MCP, application logic and provider adapters initially share one deployment.
+The selected initial architecture is one Render service for the web app, hosted MCP endpoint and application logic, with Supabase for Postgres and account identity. Use the approved free tiers for the prototype; no paid upgrade is authorized. Track deployment and acceptance status in the implementation documents. Keep web assets and account pages on the initial service where practical; add another host only for a demonstrated need. Validate real-account web sessions, remote MCP transport, OAuth, request duration, pending-run recovery and cost. Add a separate worker only when measured search behavior requires it; never rely on work continuing after a hosting request has ended. Web, MCP, application logic and provider adapters initially share one deployment.
 
 Initial tool contract: list_trips, create_trip and get_trip retrieve durable context; create_decision and update_decision_criteria manage versioned requirements; start_search and get_search_run manage live queries; compare_candidates and compare_search_runs expose trade-offs and changes; save_candidate and set_candidate_disposition support manual evidence, saving, rejection and restoration; select_candidate and record_booking record distinct outcomes. Each tool needs validated inputs, typed outputs, explicit effects and bounded results. Return stable IDs, source references, observation times, completeness and verification status. Keep full evidence retrievable without returning every historical record on each call.
 
-At the shared-itinerary milestone, extend the service and MCP contract to retrieve and manage itinerary items, comments, proposals and membership. Define exact tool names and schemas during milestone design. Web and MCP must reference the same item IDs and revisions; presenting the itinerary does not require a separate backend LLM.
+The organizer foundation exposes itinerary management through web and MCP alongside flight research. At the collaboration milestone, extend the service and MCP contract for comments, proposals and membership. Define exact tool names and schemas during milestone design. Web and MCP must reference the same item IDs and revisions; neither surface requires a separate backend LLM for these workflows.
 
 The technical/product spike and remaining validation must:
 
@@ -309,13 +321,13 @@ The technical/product spike and remaining validation must:
 |---|---|---|
 | 0 — Product definition | This PRD and confirmed acceptance-trip assumptions | Core problem, v1 boundaries and success criteria are clear |
 | 1 — Technical/product spike | Repository and provider research, MCP/auth compatibility proof and concrete architecture | Live-data and baggage access, permitted retention/redisplay, viable searches-per-trip budget, working client authentication and a justified backend host; otherwise explicit rescope |
-| 2 — Flight vertical slice | MCP tools for trip → criteria → live search → comparison → selection → repeat search | Flaine workflow passes in ChatGPT and Claude, including recovery and shared account state |
-| 3 — Shared web itinerary | Day-by-day plan, manual trip items, invitations, item comments, proposed changes and organizer approval; shared state with MCP | Organizer maintains and shares the Flaine trip without a parallel Google Doc; a friend collaborates on a phone without an assistant; permissions and conflict handling pass |
+| 2 — Organizer workspace | Web and MCP trip/itinerary management plus criteria → live flight search → comparison → selection → repeat search | Independent web workflow and ChatGPT/Claude workflows pass, including manual itinerary use, recovery, permissions and state continuity between surfaces |
+| 3 — Collaboration | Invitations, item comments, proposed changes and organizer approval across the shared workspace | Organizer maintains and shares the Flaine trip without a parallel Google Doc; a friend collaborates on a phone without an assistant; permissions and conflict handling pass |
 | 4 — Pilot and refinement | Real trip decisions and shared itineraries, usability fixes and measured search cost | Evidence of improved decisions or reduced repeated effort, successful replacement of the working Google Doc and known operational costs |
 | 5 — Accommodation | Hotels, apartments, chalets, aparthotels and holiday rentals; compare whole-party stay cost, sleeping layout, cancellation and check-in conditions | Provider access validated and demand demonstrated in the pilot; unsupported sources can be represented by links and user-reported evidence |
 | 6 — Further expansion | Restaurants/places, then reservations where access permits | Each addition has a recurring decision need and an honest data-access model |
 
-MCP is part of the first flight slice. The shared itinerary and direct collaboration are the next committed product milestone, before hotel search integrations. Start with manual accommodation, transfer and activity entries. A standalone web comparison interface, custom embedded UI, voting, simultaneous document editing and scheduled alerts remain later tracks driven by pilot demand.
+Web and MCP are both part of the organizer foundation. Deliver small slices of manual itinerary management and flight research across both; manual trip use can be validated while provider access is still being established. Collaboration follows the foundation, before accommodation search integrations. Start with manual accommodation, transfer and activity entries. Custom embedded assistant UI, voting, simultaneous document editing and scheduled alerts remain later tracks driven by pilot demand.
 
 Accommodation research includes Airbnb-style entire-place stays as well as hotel rooms. Model property type separately from seller/platform. For Flaine, consider alternative configurations such as two rooms or one apartment/chalet for four, without treating either configuration as a confirmed preference. Include mandatory cleaning/service fees, linen and local taxes in comparable stay cost only when supported by evidence; show refundable security deposits separately. Preserve bedrooms, actual bed layout, bathrooms, kitchen, minimum stays, location precision and late-arrival conditions. Airbnb links and user-reported details are in scope even if automated Airbnb search is unavailable. Provider coverage must state which sources and stay configurations were actually searched.
 
@@ -330,10 +342,11 @@ Accommodation research includes Airbnb-style entire-place stays as well as hotel
 | Will the product outperform existing flight search plus notes? | Test saved context, complete cost and repeated searches | Pilot review |
 | Can we access relevant live inventory economically? | Unknown | Technical spike, before implementation commitment |
 | Is a separate backend LLM required at launch? | No; supported clients supply conversational intelligence | Revisit only for a demonstrated backend need |
-| When do itinerary presentation and collaboration arrive? | User approved the shared web itinerary as the next milestone after the flight slice, before hotel search integrations | Shared-itinerary milestone |
+| What is the product name and how do web and MCP relate? | Working name: Trip Planning Workspace; user confirmed web and MCP are both first-class product surfaces over the same trip state | Resolved for this product definition |
+| When do itinerary presentation and collaboration arrive? | Organizer itinerary and flight research are foundation capabilities through web and MCP; collaboration follows, before accommodation integrations | Organizer and collaboration milestones |
 | What should the shared itinerary replace? | The organizer's working Google Doc; friends review and collaborate on the itinerary directly without an assistant account | Shared-itinerary acceptance pilot |
 | Who controls changes to the agreed plan? | Organizer edits directly and accepts or declines collaborator proposals; viewers read only | Shared-itinerary design |
 | How much Google Docs functionality is required? | Structured items and freeform notes; simultaneous document editing, voting and complex permissions are deferred | Revisit from shared-itinerary pilot feedback |
-| Which infrastructure and open-source code should be used? | Render service plus Supabase selected on free tiers; Supabase created and Render deployment pending password entry; no committed project-code reuse | Hosted acceptance and component-level license review |
+| Which infrastructure and open-source code should be used? | One Render service for web and MCP plus Supabase on free tiers; delivery status tracked in implementation documents; no committed project-code reuse | Hosted acceptance and component-level license review |
 
-Delivery order: validate live flight data, retention rights, search economics, remote MCP access and cross-client account continuity; complete the flight research slice; then deliver the shared web itinerary and collaboration before adding hotel search integrations. Application implementation and deployment status are tracked separately from this requirements document.
+Delivery order: validate account access and shared state for web and MCP, alongside live flight data, retention rights and search economics; complete the organizer foundation across both surfaces; then deliver collaboration before adding accommodation search integrations. Manual itinerary validation need not wait for live-provider approval. Application implementation and deployment status are tracked separately from this requirements document.

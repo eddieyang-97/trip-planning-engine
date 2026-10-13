@@ -1,12 +1,25 @@
-# Travel decision engine
+# Trip Planning Workspace
 
-A persistent research backend exposed through MCP. The product helps people compare travel choices using explicit constraints, source evidence and repeatable searches. It does not generate a generic itinerary or make bookings.
+A shared trip planning product with two first-class surfaces: a web app for researching, organizing and collaborating on trips, and a hosted MCP interface for working on those same trips through an assistant. Both use the same accounts, saved plans, decisions and evidence.
 
-**Current milestone: hosted research prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), manual itinerary, consent/revocation controls and [bounded live flight pilot](docs/hosted-live-search.md) are deployed. Health reports live search enabled; unauthenticated MCP remains protected. CI passes all 63 tests. A real Supabase OAuth assistant connection and authenticated hosted search remain unverified.
+The product helps people compare travel choices, retain their reasoning and turn decisions into a clear itinerary that replaces a separate Google Doc. Research uses explicit constraints, dated source evidence and repeatable searches. Bookings happen externally and are recorded separately from selected plans.
+
+“Trip Planning Workspace” is the working product name. The repository, package and deployment identifiers remain `trip-planning-engine`.
+
+## Product surfaces
+
+| Surface | Product role | Current slice |
+| --- | --- | --- |
+| Web app | Use the trip directly: research and compare options, manage the itinerary, and collaborate with friends without an assistant account | Manual organizer itinerary, trip creation, item editing, notes, reported booking status and history; web research and collaboration are further increments |
+| MCP | Let a connected assistant retrieve and update the same trip, research options, explain trade-offs and manage the plan | Persistent flight decisions, bounded searches, comparisons, selections, itinerary tools and private policy notes; real hosted assistant acceptance remains pending |
+
+Both surfaces are core to the product. Their interfaces can suit different tasks, while shared operations retain the same permissions, facts and revision rules. Delivery proceeds in small slices across both surfaces; invitations, comments and proposed changes follow the organizer foundation, before accommodation integrations. The [PRD](docs/prd.md) defines the target behavior; [implementation notes](docs/implementation.md) track delivered behavior and acceptance gaps.
+
+**Current milestone: hosted trip planning prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), manual itinerary, consent/revocation controls and [bounded live flight pilot](docs/hosted-live-search.md) are deployed. Recorded deployment checks report live search enabled and unauthenticated MCP protected. Real-account web acceptance, a Supabase OAuth assistant connection and authenticated hosted search remain acceptance gates.
 
 ## Run locally
 
-The [itinerary web app](docs/itinerary-web.md) provides a deployed manual organizer view at `/itinerary`, with the same persistent trip state as MCP. Open `/itinerary?demo=1` for a labelled, editable Flaine preview. Its example data resets on reload. Real-account acceptance remains pending; this is the first itinerary slice, before invitations and discussion.
+The [itinerary web app](docs/itinerary-web.md) provides a manual organizer view at `/itinerary`, with the same persistent trip state as MCP. Open `/itinerary?demo=1` for a labelled, editable Flaine preview. Its example data resets on reload. Hosted users sign in through `/account`; using the web app requires no MCP client or assistant account. Real-account acceptance remains pending; this is the first itinerary slice, before invitations and discussion.
 
 Requires Node.js 24 and npm. No provider account or database installation is needed.
 
@@ -47,9 +60,10 @@ These are invented test cases, not researched fares. Even the complete example d
 
 ```mermaid
 flowchart LR
+  B[Web app] -->|Direct account session| A
   C[Local MCP client] -->|Bearer token / Streamable HTTP| M[Node MCP adapter]
-  M --> A[Ownership and client grants]
-  A --> D[Decision domain service]
+  M --> A[Account permissions and MCP client grants]
+  A --> D[Shared trip, itinerary and research service]
   D --> P[(Embedded PostgreSQL)]
   P --> W[In-process fixture job runner]
   W --> F[Synthetic flight provider]
@@ -97,7 +111,7 @@ src/
   acceptance.ts    Confirmed Flaine inputs and assumptions
   main.ts          Configuration and process lifecycle
 migrations/        Executable scaffold database schema
-web/               Account and OAuth consent page
+web/               Itinerary app, account and OAuth consent pages
 tests/             Domain, persistence, authorization and MCP tests
 scripts/           Demo, migration and build asset scripts
 docs/prd.md        Product requirements
@@ -113,4 +127,6 @@ The [six-search flight capability probe](docs/flight-probe.md) is ready to run i
 
 The parallel [accommodation and restaurant API spike](docs/spike/hotel-restaurant-providers.md) covers hotels, apartments, chalets and holiday rentals. The [five-search accommodation probe](docs/accommodation-probe.md) now tests hotel, Google vacation-rental and third-party Airbnb response shapes; `npm run probe:accommodation` prints a zero-network plan. Live execution requires a Free SerpApi key and remains unverified. `npm run probe:places` prints a zero-network discovery plan; `-- --live` attempts two public Overpass queries. Current live map trials failed, and the successful Booking.com connector check does not grant backend API access. These diagnostics add no hosted MCP tools or database migrations.
 
-Finish [Supabase account-linking setup and hosted acceptance](docs/account-linking.md), validate one real MCP client sign-in, then add a rights-cleared flight provider. The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is off, but Blueprint changes can still sync and trigger deployment. The service checks database availability on `/health` and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation notes](docs/implementation.md). The shared itinerary web app follows the flight slice, before hotel integrations.
+Validate real-account web use and [Supabase account linking](docs/account-linking.md) for one MCP client, including an edit round trip between surfaces. Complete rights-cleared flight research and its web workflow, then add invitations, discussion and organizer-approved proposals before accommodation integrations. Shared state and permissions are acceptance requirements for both surfaces.
+
+The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is off, but Blueprint changes can still sync and trigger deployment. The service checks database availability on `/health` and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation notes](docs/implementation.md).
