@@ -1,6 +1,6 @@
 # Itinerary web app — organizer slice
 
-Implemented locally on 11 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. This slice delivers manual itinerary display/editing. It does not complete the later membership, comment, proposal or selected-research-linking requirements in the PRD.
+Updated 13 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. The deployed organizer supports manual itinerary display/editing; the new saved-research display is prepared for deployment. This does not complete membership, comments, proposals or automatic reconciliation of selected research with itinerary items.
 
 ## What works
 
@@ -20,7 +20,7 @@ npm run dev
 
 Open `http://127.0.0.1:3000/itinerary?demo=1` for the deliberately labelled Flaine example. It contains no confirmed bookings, invented fares or invented flight times. Four adults and the Geneva gateway are labelled or noted assumptions. Demo changes live only in page memory and reset on reload; no private trip is loaded or written. This is an interactive design preview, not the user's saved itinerary.
 
-The actual `/itinerary` view uses the existing travel-account session and directs signed-out hosted users to `/account`. The account page links back to itineraries. Sign in and follow that link in the same tab because the existing session uses tab-scoped session storage. No MCP client or provider API key is needed to use the hosted web app. Account sign-in still needs real hosted acceptance; the Supabase dashboard account is separate.
+The actual `/itinerary` view uses the existing travel-account session and directs signed-out hosted users to `/account`. The account page links back to itineraries. Sign in and follow that link in the same tab because the existing session uses tab-scoped session storage. No MCP client or provider API key is needed to use the hosted web app. Real account sign-in passed on 13 October; the Supabase dashboard account is separate.
 
 Local development accepts the existing local bearer token through a password field. That token is held only in memory, not embedded in the page or written to browser storage. It remains a developer option; friends use hosted sign-in. In this work session the review server uses port 3084 and the isolated `.data/itinerary-preview` database.
 
@@ -40,4 +40,16 @@ TypeScript build and all 46 tests pass. Tests cover schemas, ownership, assistan
 
 Before hosted release, deploy the built assets and migration together and test real Supabase sign-in, two independent accounts and a web-to-MCP edit round trip on external PostgreSQL. The current GitHub push does not claim a new Render deployment.
 
-Next product increments: explicit insertion of selected research with reconciliation when the selection changes; authenticated invitations and membership; comments/proposals; organizer approval. Trip editing, history pagination/restoration and richer accessibility/phone checks can follow pilot feedback. Public anonymous sharing is not enabled.
+## Saved research display — 13 October 2026
+
+`get_itinerary` now adds a typed, owner-scoped research projection within the same repeatable-read transaction as the manual plan. It shows up to five decisions by title, twenty newest candidate/seller/fare observations per decision and twenty pinned selection/booking records. Older selected/booked evidence remains visible within those limits even when a newer fare observation exists. Limit notices are explicit. Provider request tokens, OAuth grants and attempt ledgers are excluded from this presentation payload. No migration or expanded web-operation allowlist is needed.
+
+The page shows the saved flight pair, airport-local dates/times and zones, observation dates, provenance, incomplete coverage, source links and recorded seller amounts. Unknown party basis stays unknown; prices are not presented as comparable verified trip totals. Current selection and booking reports appear separately from the manual plan. Rejected and synthetic research cannot be copied through the review buttons. The unresolved-questions panel includes research assumptions and missing price/equipment/airport coverage.
+
+Review outbound/return opens the existing item editor with a tentative draft. Nothing is persisted until the user saves. Copying never selects a candidate or makes a booking; no price is guessed or carried into the manual item. A matching existing flight (route/location, dates and local times) opens for editing rather than adding another copy. This is a manual snapshot with a source link and research note, not a durable observation-ID link or automatic update mechanism. Changed research must be reconciled by the organizer. The research section starts open on an empty itinerary and collapsed once plan items exist, keeping the day-by-day view prominent.
+
+The UI now shows initial/loading feedback and bounded request timeouts. An unavailable trip URL falls back to an available owner trip with an explanatory message. A failed reload retains the previous plan and reports the failure; the editor stays open if a mutation or its subsequent reload fails.
+
+Validation before deployment: build passed; the local regression suite passed 67 tests with the two external PostgreSQL checks skipped (69 total). New tests cover private read projection, bounded observations, retained older selection/booking evidence, no read-side mutation/search, airport-local overnight dates, tentative-only drafts and safe research links. An isolated loopback preview used copied Flaine evidence with live search disabled. Chrome verified unknown-basis seller labels, flight review, tentative save into the correct day, existing-item detection, and stale-trip-link recovery. At a 390px viewport, the page and editor fit without horizontal page overflow. Preview edits did not change the hosted trip. CI and hosted deployment verification are tracked below when complete.
+
+Next increments: shared invitations and membership, comments/proposals and organizer approval; durable research-to-itinerary links and reconciliation; history pagination/restoration. Public anonymous sharing is not enabled.

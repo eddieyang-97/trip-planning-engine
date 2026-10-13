@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { DomainError, mutation, uuid } from './domain.js';
 import type { Queryable } from './database.js';
+import {itineraryResearch} from './itinerary-research.js';
 
 const localTime=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable();
 const zone=z.string().max(80).refine(value=>{try{new Intl.DateTimeFormat('en',{timeZone:value});return true;}catch{return false;}},'Use a valid time zone').nullable();
@@ -40,7 +41,8 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
   if(!trip)fail('FORBIDDEN_OR_NOT_FOUND','Access denied or trip not found');
   if(read)return {trip,revision:trip.itinerary_revision,
     items:(await tx.query('select * from itinerary_items where trip_id=$1 and removed_at is null order by position,id',[a.tripId])).rows,
-    history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows};
+    history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows,
+    research:await itineraryResearch(tx,a.tripId)};
   if(a.expectedRevision!==trip.itinerary_revision)fail('REVISION_CONFLICT','The plan changed. Reload it before saving your edit.');
   let before:any=null,after:any=null,itemId=a.itemId,action='';
   if(name==='add_itinerary_item') {

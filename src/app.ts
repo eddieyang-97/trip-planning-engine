@@ -8,7 +8,7 @@ import type { Authenticate } from './auth.js';
 import type { Router } from 'express';
 
 const descriptions: Record<ToolName, string> = {
-  get_itinerary:'Read the owner’s manually organized itinerary and latest 50 change events. Dates, times and bookings remain as reported; no supplier verification is implied.',
+  get_itinerary:'Read the owner’s itinerary, latest 50 change events and bounded saved flight research. Research remains separate from manual plans. Dates, times and bookings remain as reported; no supplier verification is implied.',
   add_itinerary_item:'Add a manual flight, accommodation, transfer, activity, restaurant or note to the same itinerary shown on the web. Requires current itinerary revision. Leave unknown dates/times null. A reported booking requires a user-supplied booking note; never infer one from a selection.',
   update_itinerary_item:'Replace a manual itinerary item after reviewing the current revision. Keeps earlier values in history. Never infer booking status or unknown schedule details.',
   remove_itinerary_item:'Remove an item from the plan while preserving its change history. Does not cancel a supplier booking. Requires current itinerary revision.',

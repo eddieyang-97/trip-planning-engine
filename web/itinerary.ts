@@ -1,9 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ItineraryItem } from '../src/itinerary.js';
+import type {ItineraryResearch} from '../src/itinerary-research.js';
+import {renderResearch,researchQuestions} from './itinerary-research.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
 type Trip={id:string;payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
-type Plan={trip:Trip;revision:number;items:Row[];history:any[]};
+type Plan={trip:Trip;revision:number;items:Row[];history:any[];research?:ItineraryResearch};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
@@ -22,11 +24,15 @@ function date(value:string,options:Intl.DateTimeFormatOptions={day:'numeric',mon
 }
 function message(text:string){$('status').textContent=text;}
 function errorText(error:unknown){return error instanceof Error?error.message:'Unable to finish. Please try again.';}
+function showPlan(id:string){void loadPlan(id).catch(error=>message(errorText(error)));}
 async function api(operation:string,input:unknown){
   let token=localToken;
   if(client){const {data:{session},error}=await client.auth.getSession();if(error||!session)throw Error('Sign in to your travel account again.');token=session.access_token;}
-  const response=await fetch(`/itinerary-api/${operation}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(input)});
-  const result=await response.json();if(!response.ok)throw Error(result.error??'Unable to finish. Please try again.');return result;
+  let response:Response;
+  try{response=await fetch(`/itinerary-api/${operation}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(input),signal:AbortSignal.timeout(60_000)});}
+  catch{throw Error('The itinerary service did not respond. Refresh to check saved changes before trying again.');}
+  let result:any;try{result=await response.json();}catch{throw Error('Unable to read the itinerary response. Refresh to check saved changes.');}
+  if(!response.ok)throw Error(result.error??'Unable to finish. Please try again.');return result;
 }
 async function mutate(operation:string,args:Record<string,unknown>){
   const signature=JSON.stringify([operation,args]);
@@ -40,16 +46,20 @@ async function loadTrips(selectId?:string){
     for(let offset=0;;offset+=50){const page=await api('list_trips',{limit:50,offset});trips.push(...page.trips);if(page.trips.length<50)break;}
   }
   $('workspace').hidden=false;$('access').hidden=true;
-  const id=selectId??new URL(location.href).searchParams.get('trip')??trips[0]?.id;
-  if(id){await loadPlan(id);}else{plan=null;render();}
+  const requested=selectId??new URL(location.href).searchParams.get('trip');
+  const available=requested&&trips.some(trip=>trip.id===requested);
+  const id=available?requested:trips[0]?.id;
+  render();
+  if(id){await loadPlan(id);}else{plan=null;render();message('');}
+  if(requested&&!available)message('The requested trip is not available in this account. Choose one of your trips, or create a new one.');
 }
 async function loadPlan(id:string){
-  if(loading)return;loading=true;
+  if(loading)return;loading=true;message('Loading your itinerary…');
   try{
     if(!demo)plan=await api('get_itinerary',{tripId:id});
     const url=new URL(location.href);url.searchParams.set('trip',id);history.replaceState(null,'',url);
     render();message('');
-  }catch(error){plan=null;render();message(errorText(error));}finally{loading=false;}
+  }catch(error){message(errorText(error));throw error;}finally{loading=false;}
 }
 function allDates(){
   if(!plan)return [];
@@ -61,7 +71,7 @@ function allDates(){
 }
 function render(){
   $('trip-list').replaceChildren(...trips.map(t=>{
-    const b=button(t.payload.name,()=>void loadPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
+    const b=button(t.payload.name,()=>showPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
     b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
   }));
   $('empty-trips').hidden=!!plan||trips.length>0;$('trip-view').hidden=!plan;if(!plan)return;
@@ -69,8 +79,16 @@ function render(){
   $('trip-title').textContent=p.name;$('trip-destination').textContent=p.destination;
   $('trip-meta').replaceChildren(node('span',`${date(p.startDate)} – ${date(p.endDate,{day:'numeric',month:'short',year:'numeric'})}`),node('span',`${p.adults} adults${demo?' · assumed':''}`),node('span','Private itinerary'));
   $('progress').replaceChildren(...[[`${plan.items.length}`,'items in the plan'],[`${booked}`,'bookings reported'],[`${unscheduled}`,'without a date']].map(([count,label])=>{const row=node('div','','progress-row');row.append(node('span',label!),node('strong',count!));return row;}));
+  renderResearch($('research'),plan.research,item=>{
+    const existing=plan!.items.find(row=>row.payload.type==='flight'&&row.payload.startDate===item.startDate
+      &&row.payload.startTime===item.startTime&&row.payload.endDate===item.endDate&&row.payload.endTime===item.endTime&&row.payload.location===item.location);
+    openItem(existing??null,existing?undefined:item);
+  },plan.items.length===0);
+  $('plan-empty').hidden=plan.items.length>0;
   const questions=plan.items.filter(i=>i.payload.openQuestion);
-  $('questions').replaceChildren(...(questions.length?questions.map(i=>{const q=node('div','','question-mini');q.append(node('strong',i.payload.title),node('span',i.payload.openQuestion));return q;}):[node('p','No open questions recorded. Add one to any item as you plan.','muted')]));
+  const researchOpen=researchQuestions(plan.research);
+  $('questions').replaceChildren(...questions.map(i=>{const q=node('div','','question-mini');q.append(node('strong',i.payload.title),node('span',i.payload.openQuestion));return q;}),
+    ...researchOpen.map(text=>node('p',text,'question-mini')),...(questions.length||researchOpen.length?[]:[node('p','No open questions recorded. Add one to any item as you plan.','muted')]));
   $('history').replaceChildren(...(plan.history.length?plan.history.map(h=>{const el=node('div',`${h.action[0].toUpperCase()+h.action.slice(1)}: ${(h.after_payload??h.before_payload)?.payload?.title??'Item'}`,'history-event');el.append(node('span',new Date(h.created_at).toLocaleString('en-GB')));return el;}):[node('p','Your saved changes will appear here.','muted')]));
   const dates=allDates();$('timeline').replaceChildren();$('day-nav').replaceChildren();
   if((Date.parse(p.endDate)-Date.parse(p.startDate))/86400000>=60)$('timeline').append(node('p','Showing the first 60 days and all dates with saved items.','muted'));
@@ -102,11 +120,11 @@ function card(row:Row,index:number,count:number){
   el.append(actions);return el;
 }
 function bookingField(){const booked=$<HTMLSelectElement>('item-status').value==='user_reported_booked';$('booking-label').hidden=!booked;($<HTMLFormElement>('item-form').elements.namedItem('bookingNote') as HTMLTextAreaElement).required=booked;}
-function openItem(row:Row|null){
+function openItem(row:Row|null,draft?:ItineraryItem){
   editing=row;pending=null;const form=$<HTMLFormElement>('item-form');form.reset();
-  const payload=row?.payload??blank;
+  const payload=row?.payload??draft??blank;
   for(const [key,value]of Object.entries(payload)){const field=form.elements.namedItem(key) as HTMLInputElement|null;if(field)field.value=value??'';}
-  $('editor-title').textContent=row?'Edit this item':'Add to the plan';$('item-error').textContent='';bookingField();$<HTMLDialogElement>('item-dialog').showModal();
+  $('editor-title').textContent=row?'Edit this item':draft?'Review flight for your plan':'Add to the plan';$('research-draft').hidden=!draft;$('item-error').textContent='';bookingField();$<HTMLDialogElement>('item-dialog').showModal();
 }
 async function withForm(form:HTMLFormElement,errorId:string,work:()=>Promise<void>){
   const b=form.querySelector<HTMLButtonElement>('button[type=submit]')!;b.disabled=true;$(errorId).textContent='';
@@ -147,7 +165,7 @@ async function move(row:Row,direction:'up'|'down'){
 }
 function newTrip(){pending=null;$<HTMLFormElement>('trip-form').reset();$('trip-error').textContent='';$<HTMLDialogElement>('trip-dialog').showModal();}
 $('new-trip').onclick=newTrip;$('first-trip').onclick=newTrip;$('add-item').onclick=()=>openItem(null);
-$('refresh').onclick=()=>{if(demo)location.reload();else if(plan)void loadPlan(plan.trip.id);else void loadTrips().catch(e=>message(errorText(e)));};
+$('refresh').onclick=()=>{if(demo)location.reload();else if(plan)showPlan(plan.trip.id);else void loadTrips().catch(e=>message(errorText(e)));};
 $('item-status').onchange=bookingField;
 $<HTMLFormElement>('trip-form').onsubmit=event=>{event.preventDefault();const form=event.currentTarget as HTMLFormElement;void withForm(form,'trip-error',async()=>{
   const fields=Object.fromEntries(new FormData(form));if(String(fields.endDate)<String(fields.startDate))throw Error('End date must follow start date.');
@@ -171,15 +189,15 @@ function setupDemo(){
   $('workspace').hidden=false;render();
 }
 async function initialize(){
-  if(demo){setupDemo();return;}
-  const response=await fetch('/itinerary/config');if(!response.ok)throw Error('Unable to load the itinerary.');const config=await response.json();
+    if(demo){setupDemo();message('');return;}
+  const response=await fetch('/itinerary/config',{signal:AbortSignal.timeout(60_000)});if(!response.ok)throw Error('Unable to load the itinerary.');const config=await response.json();
   if(config.mode==='hosted'){
     client=createClient(config.supabaseUrl,config.publishableKey,{auth:{storage:sessionStorage,storageKey:'travel-account',flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
     const {data:{session}}=await client.auth.getSession();if(session){await loadTrips();return;}
   }
-  $('access').hidden=false;
+  $('access').hidden=false;message('');
   if(config.mode==='local'){$('local-login').hidden=false;$('hosted-access').hidden=true;
     $<HTMLFormElement>('local-login').onsubmit=event=>{event.preventDefault();localToken=$<HTMLInputElement>('local-token').value;$<HTMLInputElement>('local-token').value='';void loadTrips().catch(e=>message(errorText(e)));};
   }else if(config.mode==='unavailable')message('Account sign-in is not configured yet. You can explore the demo.');
 }
-void initialize().catch(error=>{message(errorText(error));$('access').hidden=false;});
+void initialize().catch(error=>{message(errorText(error));if($('workspace').hidden)$('access').hidden=false;});
