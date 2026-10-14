@@ -193,7 +193,7 @@ The three ER diagrams above and this table cover twenty application/metadata tab
 
 ## Viewer sharing extension — deployed
 
-Source: [migration 006](../migrations/006_itinerary_sharing.sql), deployed with `f6f1670` on 14 October. See [sharing acceptance and limits](itinerary-sharing.md): email delivery and a real friend session remain pending. It adds viewer access; comments, collaborator proposals and approval tables are not part of this migration.
+Source: [migration 006](../migrations/006_itinerary_sharing.sql), deployed with `f6f1670` on 14 October. See [sharing acceptance and limits](itinerary-sharing.md): hosted second-account confirmation, view-only joining and revocation passed with a fictional trip. It adds viewer access; comments, collaborator proposals and approval tables are not part of this migration.
 
 ```mermaid
 erDiagram

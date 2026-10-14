@@ -73,9 +73,9 @@ flowchart TB
 
 A copied research draft remains tentative and never creates a research selection or booking. A matching existing flight opens for editing rather than automatically adding another copy. The saved manual item is a snapshot; new research does not update it automatically. Booked labels require an explicit user report and booking note. See [itinerary behavior](itinerary-web.md).
 
-## Viewer invitation — deployed; hosted acceptance pending
+## Viewer invitation — deployed; hosted pilot passed
 
-This flow describes the deployed viewer-sharing extension in migration 006. Synthetic browser and PostgreSQL checks passed; Brevo SMTP configuration is saved, but the recorded external sign-up failed SMTP authentication; credential repair, email delivery and a real friend session remain pending. Invitation management is through the direct-session web surface. Viewer reads exclude research, owner history and booking notes. See [sharing acceptance](itinerary-sharing.md).
+This flow describes the deployed viewer-sharing extension in migration 006. Browser and PostgreSQL checks passed; after SMTP repair, hosted second-account confirmation, view-only joining and revocation passed on 14 October. Invitation management is through the direct-session web surface. Viewer reads exclude research, owner history and booking notes. See [sharing acceptance](itinerary-sharing.md).
 
 ```mermaid
 flowchart TB

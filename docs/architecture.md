@@ -4,7 +4,7 @@ Updated 14 October 2026. This is the current architecture for **Trip Planning Wo
 
 ## High-level architecture
 
-Recorded deployed design: one Free Render service, Supabase identity/storage, Brevo SMTP configured for account-confirmation emails, and an explicitly enabled SerpApi flight pilot. Web and MCP are equal product surfaces; the service owns permissions and saved facts. Brevo configuration is recorded; the latest external sign-up attempt failed SMTP authentication, so delivery acceptance remains pending.
+Recorded deployed design: one Free Render service, Supabase identity/storage, Brevo SMTP configured for account-confirmation emails, and an explicitly enabled SerpApi flight pilot. Web and MCP are equal product surfaces; the service owns permissions and saved facts. After SMTP repair, second-account email confirmation, sign-in, viewer joining and organizer revocation passed.
 
 ```mermaid
 flowchart TB
@@ -125,6 +125,6 @@ The adapter retains up to ten seller observations for one sampled pair with part
 
 The organizer maintains manual flight, accommodation, transfer, activity, restaurant and note items, with tentative/reported-booked labels and change history. The saved-research projection uses the same read snapshot and bounds decisions, recent observations and pinned outcomes. Reviewing a flight opens a draft; saving creates/updates a manual item. The draft is a snapshot, not a durable research link or automatic update.
 
-Complete the organizer foundation across web and MCP: direct web flight controls, honest comparisons, explicit research links/reconciliation and actual edit continuity. View-only invitations and revocable memberships are deployed; finish live friend onboarding acceptance, then add discussion, revision-checked proposals and organizer approval. Preserve history and private-booking visibility rules. These capabilities do not themselves require a new provider or additional infrastructure.
+Complete the organizer foundation across web and MCP: direct web flight controls, honest comparisons, explicit research links/reconciliation and actual edit continuity. View-only invitations and revocable memberships are deployed; hosted second-account onboarding and revocation passed, and later work adds discussion, revision-checked proposals and organizer approval. Preserve history and private-booking visibility rules. These capabilities do not themselves require a new provider or additional infrastructure.
 
 Outstanding operating work includes least-privilege database roles, throttling, bounded public output contracts, consent recovery, retention/deletion/export, telemetry and backup/restore. [Delivery status](implementation.md) distinguishes completed proof from remaining acceptance; the [architecture review](architecture-review.md) preserves the original findings.
