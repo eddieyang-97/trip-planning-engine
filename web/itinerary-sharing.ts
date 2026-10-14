@@ -28,8 +28,9 @@ export async function openInvitation(api:Api,mutate:Mutate,joined:(id:string)=>P
     const preview=await api('get_itinerary_invite',{token}),p=preview.trip.payload;
     $('invitation-title').textContent=p.name;
     $('invitation-detail').textContent=`${p.destination} · ${p.startDate} to ${p.endDate} · ${p.adults} adults`;
+    $('invitation-permissions').textContent=preview.role==='editor'?'You can add, edit, remove and reorder this trip’s itinerary items, including practical notes and links. Booking status, private booking notes, research and invitations stay with the owner. Changes save directly to the shared plan.':'You can view this trip’s itinerary, practical notes and useful links. The owner controls edits and can revoke access. Saved research and private booking notes are not shared.';
     $('invitation-form').hidden=false;
-    $('join-invitation').textContent=preview.alreadyJoined?'Open shared itinerary':'Join view-only itinerary';
+    $('join-invitation').textContent=preview.alreadyJoined?'Open shared itinerary':preview.role==='editor'?'Join as itinerary editor':'Join view-only itinerary';
     $<HTMLInputElement>('viewer-name').required=!preview.alreadyJoined;
     $('viewer-name-label').hidden=preview.alreadyJoined;
     $<HTMLFormElement>('invitation-form').onsubmit=event=>{
@@ -54,10 +55,11 @@ export function configureSharing(api:Api,mutate:Mutate,tripId:()=>string|null){
       const title=document.createElement('strong');title.textContent=invite.display_name??invite.label??'Invitation';if(!title.textContent)title.textContent='Invitation';
       const detail=document.createElement('p');detail.className='muted';
       const expired=new Date(invite.expires_at).getTime()<=Date.now();
-      detail.textContent=invite.revoked_at?'Revoked':invite.accepted_at?'Joined · can view this itinerary':expired?'Expired · cannot be used':`Pending · expires ${new Date(invite.expires_at).toLocaleDateString('en-GB')}`;
+      const permission=invite.role==='editor'?'can edit itinerary':'can view this itinerary';
+      detail.textContent=invite.revoked_at?'Revoked':invite.accepted_at?`Joined · ${permission}`:expired?'Expired · cannot be used':`Pending · ${permission} · expires ${new Date(invite.expires_at).toLocaleDateString('en-GB')}`;
       row.append(title,detail);
       if(!invite.revoked_at&&(!expired||invite.accepted_at)){
-        const b=document.createElement('button');b.type='button';b.className='subtle';b.textContent=invite.accepted_at?'Revoke viewer access':'Revoke invitation';
+        const b=document.createElement('button');b.type='button';b.className='subtle';b.textContent=invite.accepted_at?'Revoke collaborator access':'Revoke invitation';
         b.onclick=()=>{b.disabled=true;void (async()=>{try{await mutate('revoke_itinerary_access',{tripId:currentTrip,inviteId:invite.id});link='';$('created-link').hidden=true;await refresh();}
           catch(error){$('share-error').textContent=errorText(error);}finally{b.disabled=false;}})();};row.append(b);
       }
@@ -67,16 +69,18 @@ export function configureSharing(api:Api,mutate:Mutate,tripId:()=>string|null){
   $('share-trip').onclick=()=>{
     currentTrip=tripId();if(!currentTrip)return;
     link='';$('created-link').hidden=true;$('share-error').textContent='';$<HTMLFormElement>('invite-form').reset();
+    $('create-invitation').textContent='Create view-only invitation';
     $('access-list').textContent='Loading access…';$<HTMLDialogElement>('share-dialog').showModal();
     void refresh().catch(error=>{$('share-error').textContent=errorText(error);});
   };
+  $('invite-role').onchange=()=>{$('create-invitation').textContent=$<HTMLSelectElement>('invite-role').value==='editor'?'Create editing invitation':'Create view-only invitation';};
   $<HTMLFormElement>('invite-form').onsubmit=event=>{
     event.preventDefault();const button=$<HTMLButtonElement>('create-invitation');button.disabled=true;$('share-error').textContent='';
     void (async()=>{try{
-      const result=await mutate('create_itinerary_invite',{tripId:currentTrip,label:$<HTMLInputElement>('invite-label').value});
+      const result=await mutate('create_itinerary_invite',{tripId:currentTrip,label:$<HTMLInputElement>('invite-label').value,role:$<HTMLSelectElement>('invite-role').value});
       if(!result.token)throw Error('The link cannot be recovered after a lost response. Revoke the new pending invitation below, then create a fresh one.');
       link=`${location.origin}/itinerary#invite=${result.token}`;$<HTMLInputElement>('invite-link').value=link;$('created-link').hidden=false;
-      $('link-details').textContent=`One person can use this link before ${new Date(result.expiresAt).toLocaleDateString('en-GB')}. Copy it now; it is shown only here.`;
+      $('link-details').textContent=`${result.role==='editor'?'Can edit itinerary':'Can view itinerary'}. One person can use this link before ${new Date(result.expiresAt).toLocaleDateString('en-GB')}. Copy it now; it is shown only here.`;
       await refresh();
     }catch(error){$('share-error').textContent=errorText(error);await refresh().catch(()=>{});}finally{button.disabled=false;}})();
   };

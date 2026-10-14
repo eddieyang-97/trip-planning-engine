@@ -1,6 +1,16 @@
 # View-only itinerary sharing MVP
 
-The organizer can create a trip, add manual itinerary items and create a private invitation from **Share trip**. A friend opens the URL, signs into their own travel account, reviews the invitation and joins with a display name. No assistant, API key or developer setup is needed. Comments, proposals and collaborative editing remain a later milestone.
+The organizer can create a trip, add manual itinerary items and create a private invitation from **Share trip**. A friend opens the URL, signs into their own travel account, reviews the invitation and joins with a display name. No assistant, API key or developer setup is needed. Comments and proposals remain later work.
+
+## Editor role — 14 October 2026
+
+Sharing now offers **Can view** (the default) or **Can edit itinerary**. Editors can add tentative items and edit, remove or reorder shared items in the web app. Only the owner manages invitations, research, booking status and private booking notes. The invitation preview explains these permissions before joining. Existing invitations and memberships remain viewers; the release does not grant any existing account editing access.
+
+Migration `007_itinerary_editors.sql` adds an invitation role and expands membership roles. Shared add/update requests use strict schemas that omit booking status and private notes. Updating a reported booking preserves those fields on the server. Owner history retains the editor's actor ID and the browser distinguishes collaborator changes. Editors receive the same private-field omissions as viewers; assistant writes remain owner-only and the two shared editing operations are excluded from MCP discovery.
+
+Every edit and access change locks the trip before checking current membership. Cached edit retries recheck permissions, and shared revisions reject conflicting owner/editor changes. Accepting a fresh invitation replaces that person's previous membership and revokes the superseded invitation; this lets an owner change permissions through a new invitation without leaving an old editor link usable. Revocation stops subsequent reads and writes, including retries.
+
+Local validation: build passed, the regression suite passed with three PostgreSQL checks skipped, and focused tests cover migration defaults, private-field preservation, status injection denial, cross-trip denial, revocation/downgrade retries, assistant boundaries and owner/editor conflicts. Isolated browser checks with fictional data passed invitation preview/join, editor add/edit/remove/reorder, owner readback, private-note preservation, 390px editing and revoke/refresh denial. CI, deployment and hosted editor acceptance are recorded separately below when completed.
 
 ## Scope and privacy
 

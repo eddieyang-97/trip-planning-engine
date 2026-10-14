@@ -6,8 +6,8 @@ import {configureSharing,openInvitation,pendingInvitation} from './itinerary-sha
 import {renderOverview} from './itinerary-overview.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
-type Trip={id:string;role?:'owner'|'viewer';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
-type Plan={trip:Trip;role?:'owner'|'viewer';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
+type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
+type Plan={trip:Trip;role?:'owner'|'viewer'|'editor';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
@@ -111,18 +111,18 @@ function allDates(){
 function render(){
   $('trip-list').replaceChildren(...trips.map(t=>{
     const b=button(t.payload.name,()=>showPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
-    b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
+    b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':t.role==='editor'?' · Shared, can edit':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
   }));
   $('empty-trips').hidden=!!plan||trips.length>0;$('trip-view').hidden=!plan;if(!plan)return;
   const p=plan.trip.payload,booked=plan.items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=plan.items.filter(i=>!i.payload.startDate).length;
-  const viewer=plan.role==='viewer';
-  $('add-item').hidden=viewer;$('share-trip').hidden=viewer||demo;$('history-section').hidden=viewer;
-  $('people-detail').textContent=viewer?'Shared with you. You can view this itinerary; the trip owner controls edits and access.':'Invite a friend to view this trip. Invitations are private, apply to one trip and can be revoked.';
+  const viewer=plan.role==='viewer',editor=plan.role==='editor',shared=viewer||editor;
+  $('add-item').hidden=viewer;$('share-trip').hidden=shared||demo;$('history-section').hidden=shared;
+  $('people-detail').textContent=editor?'Shared with you. You can add, edit, remove and reorder itinerary items. The owner manages booking status, private notes and invitations.':viewer?'Shared with you. You can view this itinerary; the trip owner controls edits and access.':'Invite a friend to view or edit this trip. Invitations are private, apply to one trip and can be revoked.';
   $('booking-detail').textContent='Bookings are reported by the trip owner. Adding a plan never makes a reservation.';
   if(viewer)$('plan-empty').textContent='The owner has not added any items yet. Refresh later to see their plan.';
   else $('plan-empty').textContent='Your itinerary has no saved items yet. Review a flight above, or add a stay, transfer or activity. Saving research does not automatically add it to your plan.';
   $('trip-title').textContent=p.name;$('trip-destination').textContent=p.destination;
-  $('trip-meta').replaceChildren(node('span',`${date(p.startDate)} – ${date(p.endDate,{day:'numeric',month:'short',year:'numeric'})}`),node('span',`${p.adults} adults${demo?' · assumed':''}`),node('span',viewer?'Shared · view only':'Your itinerary'));
+  $('trip-meta').replaceChildren(node('span',`${date(p.startDate)} – ${date(p.endDate,{day:'numeric',month:'short',year:'numeric'})}`),node('span',`${p.adults} adults${demo?' · assumed':''}`),node('span',editor?'Shared · can edit':viewer?'Shared · view only':'Your itinerary'));
   $('progress').replaceChildren(...[[`${plan.items.length}`,'items in the plan'],[`${booked}`,'bookings reported'],[`${unscheduled}`,'without a date']].map(([count,label])=>{const row=node('div','','progress-row');row.append(node('span',label!),node('strong',count!));return row;}));
   renderResearch($('research'),plan.research,item=>{
     const existing=plan!.items.find(row=>row.payload.type==='flight'&&row.payload.startDate===item.startDate
@@ -134,7 +134,7 @@ function render(){
   const researchOpen=researchQuestions(plan.research);
   $('questions').replaceChildren(...questions.map(i=>{const q=node('div','','question-mini');q.append(node('strong',i.payload.title),node('span',i.payload.openQuestion));return q;}),
     ...researchOpen.map(text=>node('p',text,'question-mini')),...(questions.length||researchOpen.length?[]:[node('p','No open questions recorded. Add one to any item as you plan.','muted')]));
-  $('history').replaceChildren(...(plan.history.length?plan.history.map(h=>{const el=node('div',`${h.action[0].toUpperCase()+h.action.slice(1)}: ${(h.after_payload??h.before_payload)?.payload?.title??'Item'}`,'history-event');el.append(node('span',new Date(h.created_at).toLocaleString('en-GB')));return el;}):[node('p','Your saved changes will appear here.','muted')]));
+  $('history').replaceChildren(...(plan.history.length?plan.history.map(h=>{const el=node('div',`${h.action[0].toUpperCase()+h.action.slice(1)}: ${(h.after_payload??h.before_payload)?.payload?.title??'Item'}`,'history-event');el.append(node('span',`${h.actor_id===plan!.trip.owner_id?'You':'Collaborator'} · ${new Date(h.created_at).toLocaleString('en-GB')}`));return el;}):[node('p','Your saved changes will appear here.','muted')]));
   const dates=allDates();$('timeline').replaceChildren();$('day-nav').replaceChildren();
   if(![...dates,'unscheduled'].includes(activeDay))activeDay=dates[0]??'unscheduled';
   if((Date.parse(p.endDate)-Date.parse(p.startDate))/86400000>=60)$('timeline').append(node('p','Showing the first 60 days and all dates with saved items.','muted'));
@@ -148,7 +148,7 @@ function render(){
     for(const [index,row]of group.entries())section.append(card(row,index,group.length));
     $('timeline').append(section);
   }
-  renderOverview($('overview'),plan.items,dates,viewer,row=>{
+  renderOverview($('overview'),plan.items,dates,shared,row=>{
     collapsed.delete(`${plan!.trip.id}:${row.id}`);
     const detail=$<HTMLDetailsElement>(`item-${row.id}`);detail.open=true;
     activeDay=row.payload.startDate??'unscheduled';setView('details',false);markDay(activeDay);
@@ -160,7 +160,7 @@ function card(row:Row,index:number,count:number){
   const item=row.payload,el=node('details','','item'),top=node('summary','','item-top'),copy=node('div','','item-copy');
   el.id=`item-${row.id}`;const key=`${plan!.trip.id}:${row.id}`;el.open=!collapsed.has(key);el.ontoggle=()=>{if(el.open)collapsed.delete(key);else collapsed.add(key);};
   top.append(node('span',icons[item.type],'item-icon'));copy.append(node('span',`${names[item.type]} · ${item.startTime??'Time to confirm'}`,'item-type'),node('h3',item.title));
-  copy.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'?'Booked · reported by owner':'Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
+  copy.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'||plan?.role==='editor'?'Booked · reported by owner':'Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
   top.append(copy,node('span','⌄','item-chevron'));el.append(top);
   const detail=node('div','','item-details');
   if(item.startTime)detail.append(node('p',`${item.startTime} · ${item.timeZone??'time zone not set'}`));
@@ -177,7 +177,10 @@ function card(row:Row,index:number,count:number){
   }
   el.append(actions);return el;
 }
-function bookingField(){const booked=$<HTMLSelectElement>('item-status').value==='user_reported_booked';$('booking-label').hidden=!booked;($<HTMLFormElement>('item-form').elements.namedItem('bookingNote') as HTMLTextAreaElement).required=booked;}
+function bookingField(){const editor=plan?.role==='editor',status=$<HTMLSelectElement>('item-status');
+  status.disabled=editor;$('status-label').hidden=editor;$('editor-booking-hint').hidden=!editor;
+  const field=$<HTMLFormElement>('item-form').elements.namedItem('bookingNote') as HTMLTextAreaElement;
+  field.disabled=editor;field.required=!editor&&status.value==='user_reported_booked';$('booking-label').hidden=editor||status.value!=='user_reported_booked';}
 function openItem(row:Row|null,draft?:ItineraryItem){
   editing=row;pending=null;const form=$<HTMLFormElement>('item-form');form.reset();
   const payload=row?.payload??draft??blank;
@@ -198,15 +201,16 @@ function demoChange(action:string,id:string,payload?:ItineraryItem){
 $<HTMLFormElement>('item-form').onsubmit=event=>{
   event.preventDefault();const form=event.currentTarget as HTMLFormElement;
   void withForm(form,'item-error',async()=>{
-    const fields=Object.fromEntries(new FormData(form)),item={...fields} as unknown as ItineraryItem;
+    const editor=plan?.role==='editor',fields=Object.fromEntries(new FormData(form)),item={...fields} as unknown as ItineraryItem;
     for(const field of ['startDate','startTime','endDate','endTime','timeZone','endTimeZone','url'] as const)item[field]=String(fields[field]??'').trim()||null;
     if(item.status==='tentative')item.bookingNote='';
     // Server is authoritative. Demo uses these small checks without importing backend dependencies.
     if(item.startTime&&!item.startDate||item.endTime&&!item.endDate)throw Error('Add a date for each time, or leave the time empty.');
-    if(item.status==='user_reported_booked'&&!item.bookingNote.trim())throw Error('Add a booking note.');
+    if(!editor&&item.status==='user_reported_booked'&&!item.bookingNote.trim())throw Error('Add a booking note.');
     if(item.url){const url=new URL(item.url);if(url.protocol!=='https:'||url.username||url.password)throw Error('Use an HTTPS link without credentials.');}
     if(demo)demoChange(editing?'edited':'added',editing?.id??crypto.randomUUID(),item);
-    else{await mutate(editing?'update_itinerary_item':'add_itinerary_item',{tripId:plan!.trip.id,expectedRevision:plan!.revision,...(editing?{itemId:editing.id}:{}),item});await loadPlan(plan!.trip.id);}
+    else{const operation=editor?(editing?'update_shared_itinerary_item':'add_shared_itinerary_item'):(editing?'update_itinerary_item':'add_itinerary_item');
+      await mutate(operation,{tripId:plan!.trip.id,expectedRevision:plan!.revision,...(editing?{itemId:editing.id}:{}),item});await loadPlan(plan!.trip.id);}
     $<HTMLDialogElement>('item-dialog').close();message(demo?'Example updated. Reloading restores the demo.':'Saved to your itinerary.');
   });
 };
@@ -260,6 +264,6 @@ async function initialize(){
     $<HTMLFormElement>('local-login').onsubmit=event=>{event.preventDefault();localToken=$<HTMLInputElement>('local-token').value;$<HTMLInputElement>('local-token').value='';void (async()=>{if(await openInvitation(api,mutate,id=>loadTrips(id))){message('');return;}await loadTrips();})().catch(e=>message(errorText(e)));};
   }else if(config.mode==='unavailable')message('Account sign-in is not configured yet. You can explore the demo.');
 }
-configureSharing(api,mutate,()=>plan?.role==='viewer'?null:plan?.trip.id??null);
-window.addEventListener('focus',()=>{if(plan?.role==='viewer'&&!loading)showPlan(plan.trip.id);});
+configureSharing(api,mutate,()=>plan?.role==='viewer'||plan?.role==='editor'?null:plan?.trip.id??null);
+window.addEventListener('focus',()=>{if((plan?.role==='viewer'||plan?.role==='editor')&&!loading&&!document.querySelector('dialog[open]'))showPlan(plan.trip.id);});
 void initialize().catch(error=>{message(errorText(error));if($('workspace').hidden)$('access').hidden=false;});

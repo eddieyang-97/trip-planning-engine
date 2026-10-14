@@ -17,7 +17,7 @@ test('pooled PostgreSQL serializes invitation claims and denies revoked membersh
   try{
     await admin.query(`create schema ${schema}`);
     db=pooledDatabase(new pg.Pool({connectionString:url.href,max:4,options:`-c search_path=${schema}`,statement_timeout:10000}));
-    for(const file of ['001_initial.sql','004_itinerary.sql','006_itinerary_sharing.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
+    for(const file of ['001_initial.sql','004_itinerary.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
     const core=new Core(db,false),owner=randomUUID(),a=randomUUID(),b=randomUUID(),key=()=>({idempotencyKey:randomUUID()});
     const trip=(await core.callFromWeb('create_trip',{...flaineTrip,...key()},owner)).tripId;
     const invite=await core.callFromWeb('create_itinerary_invite',{tripId:trip,label:'Concurrent fixture',...key()},owner);
@@ -40,5 +40,20 @@ test('pooled PostgreSQL serializes invitation claims and denies revoked membersh
     await assert.rejects(reclaim,denied);
     await assert.rejects(core.callFromWeb('get_itinerary',{tripId:trip},winner),denied);
     assert.equal((await core.callFromWeb('list_trips',{},winner)).trips.length,0);
+    const editing=await core.callFromWeb('create_itinerary_invite',{tripId:trip,label:'Editor race',role:'editor',...key()},owner);
+    await core.callFromWeb('accept_itinerary_invite',{token:editing.token,displayName:'Editor',...key()},winner);
+    const shared={type:'note',title:'Must not be saved after revocation',startDate:null,startTime:null,endDate:null,endTime:null,timeZone:null,endTimeZone:null,location:'',url:null,notes:'',openQuestion:''};
+    let editorLocked!:()=>void,releaseEditor!:()=>void;
+    const editorHasLock=new Promise<void>(r=>{editorLocked=r;}),continueEditorRevocation=new Promise<void>(r=>{releaseEditor=r;});
+    const revokeEditor=db.transaction(async tx=>{
+      await tx.query('select id from trips where id=$1 for update',[trip]);editorLocked();await continueEditorRevocation;
+      await tx.query('update itinerary_invites set revoked_at=now() where id=$1',[editing.inviteId]);
+      await tx.query('update itinerary_members set revoked_at=now() where invite_id=$1',[editing.inviteId]);
+    });
+    await editorHasLock;
+    const blockedWrite=core.callFromWeb('add_shared_itinerary_item',{tripId:trip,expectedRevision:1,item:shared,...key()},winner);
+    void blockedWrite.catch(()=>{});releaseEditor();await revokeEditor;
+    await assert.rejects(blockedWrite,denied);
+    assert.equal((await core.callFromWeb('get_itinerary',{tripId:trip},owner)).items.length,0);
   }finally{await db?.close();await admin.query(`drop schema if exists ${schema} cascade`);await admin.end();}
 });
