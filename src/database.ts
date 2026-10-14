@@ -55,7 +55,7 @@ export function pooledDatabase(pool:pg.Pool):Database {
     close: () => pool.end(),
   };
 }
-const migrations = ['001_initial.sql', '002_account_linking.sql', '003_policy_notes.sql', '004_itinerary.sql', '005_live_search.sql', '006_itinerary_sharing.sql', '007_itinerary_editors.sql'];
+const migrations = ['001_initial.sql', '002_account_linking.sql', '003_policy_notes.sql', '004_itinerary.sql', '005_live_search.sql', '006_itinerary_sharing.sql', '007_itinerary_editors.sql', '008_itinerary_view_links.sql'];
 export const schemaVersion = migrations.length;
 export async function migrate(db: Database) {
   await db.transaction(async tx => {

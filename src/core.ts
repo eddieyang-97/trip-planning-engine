@@ -114,7 +114,7 @@ export class Core {
       const result = await work();
       // Invitation credentials are shown once and only their hash is stored. Lost responses
       // require revoking/recreating the invite, rather than retaining a reusable raw secret.
-      const cached=name==='create_itinerary_invite'?{...result,token:undefined,linkAvailable:false}:result;
+      const cached=name==='create_itinerary_invite'||name==='create_itinerary_view_link'?{...result,token:undefined,linkAvailable:false}:result;
       await tx.query('update mutation_requests set response=$4 where owner_id=$1 and operation=$2 and key=$3', [actor.userId, name, args.idempotencyKey, JSON.stringify(cached)]);
       return result;
     },{readOnly:isRead(name)});

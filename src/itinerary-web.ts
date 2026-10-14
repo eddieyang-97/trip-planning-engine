@@ -4,13 +4,14 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import { Core, type ToolName } from './core.js';
 import { DomainError } from './domain.js';
+import {readItineraryViewLink} from './itinerary-view-links.js';
 
 export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(header?:string)=>Promise<{userId:string}>;
   supabaseUrl?:string;publishableKey?:string;local?:boolean}) {
   const router=Router();
-  router.use(['/itinerary','/itinerary-api','/assets/itinerary.js','/assets/itinerary.css','/assets/itinerary-views.css'],(_req,res,next)=>{
+  router.use(['/itinerary','/itinerary-api','/itinerary-share','/assets/itinerary.js','/assets/itinerary.css','/assets/itinerary-views.css'],(_req,res,next)=>{
     res.setHeader('Content-Security-Policy',`default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${options.supabaseUrl??''}; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`);
-    res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');next();
+    res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','no-store');res.setHeader('X-Robots-Tag','noindex, nofollow, noarchive');next();
   });
   router.get('/itinerary',async(_req,res)=>res.type('html').send(await readFile(new URL('../web/itinerary.html',import.meta.url),'utf8')));
   router.get('/assets/itinerary.css',async(_req,res)=>res.type('css').send(await readFile(new URL('../web/itinerary.css',import.meta.url),'utf8')));
@@ -18,6 +19,17 @@ export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(
   router.get('/assets/itinerary.js',async(_req,res)=>res.type('application/javascript').send(await readFile(resolve('dist/web/itinerary.js'),'utf8')));
   router.get('/itinerary/config',(_req,res)=>res.json({mode:options.local?'local':options.authenticate?'hosted':'unavailable',
     supabaseUrl:options.supabaseUrl,publishableKey:options.publishableKey}));
+  // One fixed read operation accepts only a view-link credential. It cannot
+  // dispatch tools, join a membership, or use a client-supplied trip/owner ID.
+  let readWindow=Date.now(),reads=0;
+  router.post('/itinerary-share/read',json({limit:'2kb'}),async(req,res)=>{
+    if(req.headers.origin!==options.origin){res.status(403).json({error:'Open the shared itinerary to view it.'});return;}
+    if(Date.now()-readWindow>=60000){readWindow=Date.now();reads=0;}
+    if(++reads>120){res.setHeader('Retry-After','60');res.status(429).json({error:'Too many shared-view requests. Please try again in a minute.'});return;}
+    try{res.json(await readItineraryViewLink(options.core.db,req.body));}
+    catch(error){res.status(error instanceof z.ZodError?400:error instanceof DomainError?404:500).json({error:error instanceof z.ZodError?'This view link is incomplete. Ask the owner for a new link.':error instanceof DomainError?error.message:'Unable to load this shared itinerary. Try again later.'});}
+  });
+  router.all('/itinerary-share/read',(_req,res)=>{res.setHeader('Allow','POST');res.status(405).json({error:'Open the shared itinerary to view it.'});});
   router.use('/itinerary-api',async(req,res,next)=>{
     if(req.method!=='GET'&&req.headers.origin!==options.origin){res.status(403).json({error:'Open the itinerary page to make changes.'});return;}
     try{if(!options.authenticate)throw Error('Unavailable');res.locals.userId=(await options.authenticate(req.headers.authorization)).userId;next();}

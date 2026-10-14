@@ -7,6 +7,7 @@ import {pooledDatabase,type Database} from '../src/database.js';
 import {Core} from '../src/core.js';
 import {flaineTrip} from '../src/acceptance.js';
 import {DomainError} from '../src/domain.js';
+import {readItineraryViewLink} from '../src/itinerary-view-links.js';
 
 test('pooled PostgreSQL serializes invitation claims and denies revoked membership on a new connection',{
   skip:!process.env.TEST_POSTGRES_URL,timeout:30000,
@@ -17,7 +18,7 @@ test('pooled PostgreSQL serializes invitation claims and denies revoked membersh
   try{
     await admin.query(`create schema ${schema}`);
     db=pooledDatabase(new pg.Pool({connectionString:url.href,max:4,options:`-c search_path=${schema}`,statement_timeout:10000}));
-    for(const file of ['001_initial.sql','004_itinerary.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
+    for(const file of ['001_initial.sql','004_itinerary.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
     const core=new Core(db,false),owner=randomUUID(),a=randomUUID(),b=randomUUID(),key=()=>({idempotencyKey:randomUUID()});
     const trip=(await core.callFromWeb('create_trip',{...flaineTrip,...key()},owner)).tripId;
     const invite=await core.callFromWeb('create_itinerary_invite',{tripId:trip,label:'Concurrent fixture',...key()},owner);
@@ -55,5 +56,9 @@ test('pooled PostgreSQL serializes invitation claims and denies revoked membersh
     void blockedWrite.catch(()=>{});releaseEditor();await revokeEditor;
     await assert.rejects(blockedWrite,denied);
     assert.equal((await core.callFromWeb('get_itinerary',{tripId:trip},owner)).items.length,0);
+    const viewLink=await core.callFromWeb('create_itinerary_view_link',{tripId:trip,label:'Anonymous pooled read',...key()},owner);
+    assert.equal((await readItineraryViewLink(db,{token:viewLink.token})).trip.id,trip);
+    await core.callFromWeb('revoke_itinerary_access',{tripId:trip,inviteId:viewLink.inviteId,...key()},owner);
+    await assert.rejects(readItineraryViewLink(db,{token:viewLink.token}),denied,'fresh pooled anonymous read observes committed revocation');
   }finally{await db?.close();await admin.query(`drop schema if exists ${schema} cascade`);await admin.end();}
 });

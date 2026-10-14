@@ -4,6 +4,7 @@ import { DomainError, mutation, uuid } from './domain.js';
 import type { Queryable } from './database.js';
 import {itineraryResearch} from './itinerary-research.js';
 import {activeMember} from './itinerary-sharing.js';
+import {sharedItinerary} from './itinerary-public.js';
 
 const localTime=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable();
 const zone=z.string().max(80).refine(value=>{try{new Intl.DateTimeFormat('en',{timeZone:value});return true;}catch{return false;}},'Use a valid time zone').nullable();
@@ -52,7 +53,7 @@ export async function itineraryAccess(tx:Queryable,tripId:string,userId:string,w
   // All edits and access changes serialize on the trip, then recheck membership.
   const trip=(await tx.query(`select * from trips where id=$1 ${write?'for update':''}`,[tripId])).rows[0];
   if(!trip)fail('FORBIDDEN_OR_NOT_FOUND','Access denied or trip not found');
-  const role=trip.owner_id===userId?'owner':(await activeMember(tx,tripId,userId))?.role;
+  const role:'owner'|'viewer'|'editor'|undefined=trip.owner_id===userId?'owner':(await activeMember(tx,tripId,userId))?.role;
   if(!role||write&&role!=='owner'&&(!fromWeb||role!=='editor'))fail('FORBIDDEN_OR_NOT_FOUND','Access denied or trip not found');
   return {trip,role};
 }
@@ -62,10 +63,10 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
   if(!read&&!owner&&!shared&&(name==='add_itinerary_item'||name==='update_itinerary_item'))fail('FORBIDDEN_OR_NOT_FOUND','Use the shared itinerary editor. Booking status and private notes belong to the owner.');
   if(read){
     const items=(await tx.query('select * from itinerary_items where trip_id=$1 and removed_at is null order by position,id',[a.tripId])).rows;
-    return {trip:owner?trip:{id:trip.id,payload:trip.payload,itinerary_revision:trip.itinerary_revision},role,revision:trip.itinerary_revision,
-      items:owner?items:items.map(row=>({id:row.id,position:row.position,payload:{...row.payload,bookingNote:''}})),
-      history:owner?(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows:[],
-      research:owner?await itineraryResearch(tx,a.tripId):{decisions:[],truncatedDecisions:false}};
+    if(!owner)return sharedItinerary(trip,items,role);
+    return {trip,role,revision:trip.itinerary_revision,items,
+      history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows,
+      research:await itineraryResearch(tx,a.tripId)};
   }
   if(a.expectedRevision!==trip.itinerary_revision)fail('REVISION_CONFLICT','The plan changed. Reload it before saving your edit.');
   let before:any=null,after:any=null,itemId=a.itemId,action='';

@@ -10,6 +10,8 @@ The recorded release applies migrations 001–006. Live searches require explici
 
 **Editor release pending, 14 October:** implementation `b04a9e3` adds explicit viewer/editor invitations and shared web edits, with private booking fields preserved and existing viewers unchanged. [All 77 CI tests passed](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38631748105), including PostgreSQL revocation ordering; isolated two-identity browser add/edit/remove/reorder and revocation passed. Its exact-commit Render deployment remains Building with no logs during the reported all-region build incident. The existing app returned 200 OK and still serves the prior release. Migration 007 and hosted editor acceptance are pending; see [editor release evidence](itinerary-sharing.md#editor-role--14-october-2026).
 
+**Account-free sharing implemented, rollout pending:** explicit reusable viewer links, optional expiry and revocation, with account sign-in retained for editor invitations. Existing invitations keep their access rules. Build and focused security/HTTP tests passed; isolated browser checks verified multiple anonymous visitors and revocation. No real itinerary view link was created. See [view-link design and evidence](itinerary-sharing.md#account-free-view-links--14-october-2026).
+
 ## Delivered and verified
 
 | Capability | Delivery | Recorded evidence and limits |

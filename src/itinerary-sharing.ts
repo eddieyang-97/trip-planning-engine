@@ -5,6 +5,7 @@ import type {Queryable} from './database.js';
 
 const token=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const sharingSchemas={
+  create_itinerary_view_link:z.strictObject({...mutation,tripId:uuid,label:z.string().trim().max(80),expiresInDays:z.union([z.literal(7),z.literal(30),z.literal(90),z.null()]).default(null)}),
   create_itinerary_invite:z.strictObject({...mutation,tripId:uuid,label:z.string().trim().max(80),role:z.enum(['viewer','editor']).default('viewer')}),
   get_itinerary_invite:z.strictObject({token}),
   accept_itinerary_invite:z.strictObject({...mutation,token,displayName:z.string().trim().min(1).max(60)}),
@@ -24,7 +25,7 @@ async function invitation(tx:Queryable,value:string,userId:string,lock=false){
   // Trip first, then invitation: the same lock order as owner revocation and creation.
   const trip=(await tx.query(`select * from trips where id=$1 ${lock?'for update':''}`,[invite.trip_id])).rows[0]??denied();
   const current=lock?(await tx.query('select * from itinerary_invites where id=$1 for update',[invite.id])).rows[0]!:invite;
-  if(current.revoked_at||trip.owner_id===userId)denied();
+  if(current.access_mode!=='account'||current.revoked_at||trip.owner_id===userId)denied();
   if(current.accepted_by){
     if(current.accepted_by!==userId||(await activeMember(tx,trip.id,userId))?.invite_id!==current.id)denied();
   }else if(new Date(current.expires_at).getTime()<=Date.now())denied();
@@ -46,7 +47,7 @@ export async function dispatchSharing(tx:Queryable,name:keyof typeof sharingSche
     return {tripId:trip.id,role:invite.role};
   }
   await owned(tx,a.tripId,userId,name!=='list_itinerary_access');
-  if(name==='list_itinerary_access')return {invites:(await tx.query(`select i.id,i.label,i.role,i.created_at,i.expires_at,i.accepted_at,i.revoked_at,
+  if(name==='list_itinerary_access')return {invites:(await tx.query(`select i.id,i.label,i.role,i.access_mode,i.created_at,i.expires_at,i.accepted_at,i.revoked_at,
     m.display_name from itinerary_invites i left join itinerary_members m on m.invite_id=i.id
     where i.trip_id=$1 order by i.created_at desc,i.id limit 100`,[a.tripId])).rows};
   if(name==='revoke_itinerary_access'){
@@ -55,10 +56,16 @@ export async function dispatchSharing(tx:Queryable,name:keyof typeof sharingSche
     await tx.query('update itinerary_members set revoked_at=coalesce(revoked_at,now()) where invite_id=$1',[a.inviteId]);
     return {revoked:true};
   }
-  const count=(await tx.query(`select count(*)::int n,count(*) filter(where revoked_at is null and accepted_at is null and expires_at>now())::int active
+  const count=(await tx.query(`select count(*)::int n,count(*) filter(where revoked_at is null and accepted_at is null and (expires_at is null or expires_at>now()))::int active
     from itinerary_invites where trip_id=$1`,[a.tripId])).rows[0]!;
   if(count.n>=100||count.active>=10)throw new DomainError('BUDGET_EXCEEDED','Invitation limit reached. Revoke unused links; this pilot supports 100 invitations per trip.');
   const raw=randomBytes(32).toString('base64url'),id=randomUUID();
+  if(name==='create_itinerary_view_link'){
+    const expiry=a.expiresInDays===null?null:new Date(Date.now()+a.expiresInDays*86400000).toISOString();
+    const row=(await tx.query(`insert into itinerary_invites(id,trip_id,token_hash,label,role,access_mode,expires_at)
+      values($1,$2,$3,$4,'viewer','link',$5) returning expires_at`,[id,a.tripId,digest(raw),a.label,expiry])).rows[0]!;
+    return {inviteId:id,token:raw,role:'viewer',accessMode:'link',expiresAt:row.expires_at,linkAvailable:true};
+  }
   const row=(await tx.query('insert into itinerary_invites(id,trip_id,token_hash,label,role) values($1,$2,$3,$4,$5) returning expires_at',[id,a.tripId,digest(raw),a.label,a.role])).rows[0]!;
   return {inviteId:id,token:raw,role:a.role,expiresAt:row.expires_at,linkAvailable:true};
 }

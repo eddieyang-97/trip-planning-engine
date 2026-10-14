@@ -1,5 +1,10 @@
 /* One compact navigation surface stays visible after the trip header leaves. */
 :root{--plan-nav-height:90px}
+.anonymous-view .trip-sidebar,.anonymous-view .topbar nav{display:none}
+.anonymous-view .workspace{display:block}
+.shared-view-banner{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:15px 20px;margin-bottom:24px;border:1px solid var(--line);border-radius:10px;background:#eaf0e4;color:var(--ink);font-size:12px}
+.shared-view-banner span{font-weight:700;font-size:10px;letter-spacing:1px}
+.shared-view-banner p{margin:0;flex:1}.shared-view-banner a{color:var(--ink);white-space:nowrap}
 .trip-content,#trip-view{min-width:0}
 .plan-navigation{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:18px;background:#f7f7f2f5;backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:24px}
 .view-switch{display:flex;flex:none;border:1px solid #ccd8cc;border-radius:9px;padding:3px;background:#edf1e8}

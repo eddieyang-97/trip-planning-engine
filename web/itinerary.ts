@@ -4,6 +4,7 @@ import type {ItineraryResearch} from '../src/itinerary-research.js';
 import {renderResearch,researchQuestions} from './itinerary-research.js';
 import {configureSharing,openInvitation,pendingInvitation} from './itinerary-sharing.js';
 import {renderOverview} from './itinerary-overview.js';
+import {viewLinkToken,loadViewLink} from './itinerary-view-links.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
@@ -13,6 +14,7 @@ const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
 let pending:{signature:string;key:string}|null=null;
 let loading=false;
+let anonymousToken:string|null=null,anonymousView=false;
 let view:'overview'|'details'=new URL(location.href).searchParams.get('view')==='details'?'details':'overview';
 let activeDay='',scrollFrame=0;
 const collapsed=new Set<string>();
@@ -93,10 +95,15 @@ async function loadTrips(selectId?:string){
 async function loadPlan(id:string){
   if(loading)return;loading=true;message('Loading your itinerary…');
   try{
-    if(!demo)plan=await api('get_itinerary',{tripId:id});
-    const url=new URL(location.href);url.searchParams.set('trip',id);history.replaceState(null,'',url);
+    if(!demo){
+      if(anonymousView&&!anonymousToken)throw Error('This view link is incomplete. Ask the owner for a new link.');
+      plan=anonymousView?await loadViewLink(anonymousToken!):await api('get_itinerary',{tripId:id});
+    }
+    if(anonymousView){trips=[{...plan!.trip,role:'viewer'}];$('shared-unavailable').hidden=true;}
+    const url=new URL(location.href);url.searchParams.set('trip',plan!.trip.id);history.replaceState(null,'',url);
     render();message('');
   }catch(error){plan=null;
+    if(anonymousView){trips=[];$('shared-unavailable').hidden=false;}
     if(error&&typeof error==='object'&&'code' in error&&error.code==='FORBIDDEN_OR_NOT_FOUND')trips=trips.filter(t=>t.id!==id);
     render();message(errorText(error));throw error;}finally{loading=false;}
 }
@@ -113,11 +120,12 @@ function render(){
     const b=button(t.payload.name,()=>showPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
     b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':t.role==='editor'?' · Shared, can edit':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
   }));
-  $('empty-trips').hidden=!!plan||trips.length>0;$('trip-view').hidden=!plan;if(!plan)return;
+  $('empty-trips').hidden=anonymousView||!!plan||trips.length>0;$('trip-view').hidden=!plan;
+  if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();return;}
   const p=plan.trip.payload,booked=plan.items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=plan.items.filter(i=>!i.payload.startDate).length;
   const viewer=plan.role==='viewer',editor=plan.role==='editor',shared=viewer||editor;
   $('add-item').hidden=viewer;$('share-trip').hidden=shared||demo;$('history-section').hidden=shared;
-  $('people-detail').textContent=editor?'Shared with you. You can add, edit, remove and reorder itinerary items. The owner manages booking status, private notes and invitations.':viewer?'Shared with you. You can view this itinerary; the trip owner controls edits and access.':'Invite a friend to view or edit this trip. Invitations are private, apply to one trip and can be revoked.';
+  $('people-detail').textContent=anonymousView?'Anyone with this view link can read the shared itinerary. The owner can revoke the link. Editing requires an editor invitation and sign-in.':editor?'Shared with you. You can add, edit, remove and reorder itinerary items. The owner manages booking status, private notes and invitations.':viewer?'Shared with you. You can view this itinerary; the trip owner controls edits and access.':'Share an account-free view link, or invite a friend to edit with their own account.';
   $('booking-detail').textContent='Bookings are reported by the trip owner. Adding a plan never makes a reservation.';
   if(viewer)$('plan-empty').textContent='The owner has not added any items yet. Refresh later to see their plan.';
   else $('plan-empty').textContent='Your itinerary has no saved items yet. Review a flight above, or add a stay, transfer or activity. Saving research does not automatically add it to your plan.';
@@ -227,7 +235,8 @@ async function move(row:Row,direction:'up'|'down'){
 }
 function newTrip(){pending=null;$<HTMLFormElement>('trip-form').reset();$('trip-error').textContent='';$<HTMLDialogElement>('trip-dialog').showModal();}
 $('new-trip').onclick=newTrip;$('first-trip').onclick=newTrip;$('add-item').onclick=()=>openItem(null);
-$('refresh').onclick=()=>{if(demo)location.reload();else if(plan)showPlan(plan.trip.id);else void loadTrips().catch(e=>message(errorText(e)));};
+$('refresh').onclick=()=>{if(demo)location.reload();else if(plan||anonymousView)showPlan(plan?.trip.id??'');else void loadTrips().catch(e=>message(errorText(e)));};
+$('retry-shared-view').onclick=()=>showPlan(plan?.trip.id??'');
 $('item-status').onchange=bookingField;
 $<HTMLFormElement>('trip-form').onsubmit=event=>{event.preventDefault();const form=event.currentTarget as HTMLFormElement;void withForm(form,'trip-error',async()=>{
   const fields=Object.fromEntries(new FormData(form));if(String(fields.endDate)<String(fields.startDate))throw Error('End date must follow start date.');
@@ -252,6 +261,11 @@ function setupDemo(){
 }
 async function initialize(){
     if(demo){setupDemo();message('');return;}
+  try{anonymousToken=viewLinkToken();}catch(error){anonymousView=true;document.body.classList.add('anonymous-view');$('shared-view-banner').hidden=false;$('shared-unavailable').hidden=false;message(errorText(error));return;}
+  if(anonymousToken){
+    anonymousView=true;document.body.classList.add('anonymous-view');$('shared-view-banner').hidden=false;$('workspace').hidden=false;$('access').hidden=true;
+    await loadPlan('');return;
+  }
   const invitation=pendingInvitation();
   if(invitation){$('access').querySelector('h1')!.textContent='You’ve been invited to a trip.';$('access').querySelectorAll('p')[1]!.textContent='Sign in or create an account to review the invitation. No AI assistant or API keys needed.';}
   const response=await fetch('/itinerary/config',{signal:AbortSignal.timeout(60_000)});if(!response.ok)throw Error('Unable to load the itinerary.');const config=await response.json();
@@ -265,5 +279,11 @@ async function initialize(){
   }else if(config.mode==='unavailable')message('Account sign-in is not configured yet. You can explore the demo.');
 }
 configureSharing(api,mutate,()=>plan?.role==='viewer'||plan?.role==='editor'?null:plan?.trip.id??null);
+// A second sharing URL pasted into this tab can be a fragment-only navigation.
+// Reinitialize its credential instead of leaving the previous trip on screen.
+window.addEventListener('hashchange',()=>{
+  const fragment=new URLSearchParams(location.hash.slice(1));
+  if(['view','invite','leave-view'].some(key=>fragment.has(key)))location.reload();
+});
 window.addEventListener('focus',()=>{if((plan?.role==='viewer'||plan?.role==='editor')&&!loading&&!document.querySelector('dialog[open]'))showPlan(plan.trip.id);});
-void initialize().catch(error=>{message(errorText(error));if($('workspace').hidden)$('access').hidden=false;});
+void initialize().catch(error=>{message(errorText(error));if(!anonymousView&&$('workspace').hidden)$('access').hidden=false;});

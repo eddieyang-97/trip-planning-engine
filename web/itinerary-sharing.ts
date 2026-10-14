@@ -49,38 +49,46 @@ export function configureSharing(api:Api,mutate:Mutate,tripId:()=>string|null){
   let currentTrip:string|null=null,link='';
   async function refresh(){
     const data=await api('list_itinerary_access',{tripId:currentTrip}),list=$('access-list');list.replaceChildren();
-    if(!data.invites.length){list.textContent='Only you can view this itinerary. Create an invitation when you’re ready.';return;}
+    if(!data.invites.length){list.textContent='Only you can view this itinerary. Create a view link or invite an editor when you’re ready.';return;}
     for(const invite of data.invites){
       const row=document.createElement('div');row.className='access-row';
-      const title=document.createElement('strong');title.textContent=invite.display_name??invite.label??'Invitation';if(!title.textContent)title.textContent='Invitation';
+      const title=document.createElement('strong');title.textContent=invite.display_name||invite.label||(invite.access_mode==='link'?'View link':'Invitation');
       const detail=document.createElement('p');detail.className='muted';
-      const expired=new Date(invite.expires_at).getTime()<=Date.now();
+      const viewLink=invite.access_mode==='link',expired=invite.expires_at!==null&&new Date(invite.expires_at).getTime()<=Date.now();
+      const expiry=invite.expires_at?`expires ${new Date(invite.expires_at).toLocaleDateString('en-GB')}`:'no expiry';
       const permission=invite.role==='editor'?'can edit itinerary':'can view this itinerary';
-      detail.textContent=invite.revoked_at?'Revoked':invite.accepted_at?`Joined · ${permission}`:expired?'Expired · cannot be used':`Pending · ${permission} · expires ${new Date(invite.expires_at).toLocaleDateString('en-GB')}`;
+      detail.textContent=invite.revoked_at?'Revoked':expired&&!invite.accepted_at?'Expired · cannot be used':viewLink?`View link · anyone with the link · ${expiry}`:invite.accepted_at?`Joined · ${permission}`:`${invite.role==='editor'?'Editor invitation':'Older account invitation'} · sign-in required · ${expiry}`;
       row.append(title,detail);
       if(!invite.revoked_at&&(!expired||invite.accepted_at)){
-        const b=document.createElement('button');b.type='button';b.className='subtle';b.textContent=invite.accepted_at?'Revoke collaborator access':'Revoke invitation';
+        const b=document.createElement('button');b.type='button';b.className='subtle';b.textContent=viewLink?'Revoke view link':invite.accepted_at?'Revoke collaborator access':'Revoke invitation';
         b.onclick=()=>{b.disabled=true;void (async()=>{try{await mutate('revoke_itinerary_access',{tripId:currentTrip,inviteId:invite.id});link='';$('created-link').hidden=true;await refresh();}
           catch(error){$('share-error').textContent=errorText(error);}finally{b.disabled=false;}})();};row.append(b);
       }
       list.append(row);
     }
   }
+  function permissionChanged(){
+    const editor=$<HTMLSelectElement>('invite-role').value==='editor';
+    $('create-invitation').textContent=editor?'Create editing invitation':'Create view link';
+    $('view-link-expiry').hidden=editor;
+    $('share-permission-detail').textContent=editor?'One person can accept this invitation within 7 days. They must sign in before editing. Their access continues until you revoke it.':'Anyone with this link can view and forward it. No account is needed. This does not identify who viewed the trip. You can revoke the link at any time.';
+  }
   $('share-trip').onclick=()=>{
     currentTrip=tripId();if(!currentTrip)return;
     link='';$('created-link').hidden=true;$('share-error').textContent='';$<HTMLFormElement>('invite-form').reset();
-    $('create-invitation').textContent='Create view-only invitation';
+    permissionChanged();
     $('access-list').textContent='Loading access…';$<HTMLDialogElement>('share-dialog').showModal();
     void refresh().catch(error=>{$('share-error').textContent=errorText(error);});
   };
-  $('invite-role').onchange=()=>{$('create-invitation').textContent=$<HTMLSelectElement>('invite-role').value==='editor'?'Create editing invitation':'Create view-only invitation';};
+  $('invite-role').onchange=permissionChanged;
   $<HTMLFormElement>('invite-form').onsubmit=event=>{
     event.preventDefault();const button=$<HTMLButtonElement>('create-invitation');button.disabled=true;$('share-error').textContent='';
     void (async()=>{try{
-      const result=await mutate('create_itinerary_invite',{tripId:currentTrip,label:$<HTMLInputElement>('invite-label').value,role:$<HTMLSelectElement>('invite-role').value});
-      if(!result.token)throw Error('The link cannot be recovered after a lost response. Revoke the new pending invitation below, then create a fresh one.');
-      link=`${location.origin}/itinerary#invite=${result.token}`;$<HTMLInputElement>('invite-link').value=link;$('created-link').hidden=false;
-      $('link-details').textContent=`${result.role==='editor'?'Can edit itinerary':'Can view itinerary'}. One person can use this link before ${new Date(result.expiresAt).toLocaleDateString('en-GB')}. Copy it now; it is shown only here.`;
+      const editor=$<HTMLSelectElement>('invite-role').value==='editor',days=$<HTMLSelectElement>('invite-expiry').value;
+      const result=await mutate(editor?'create_itinerary_invite':'create_itinerary_view_link',{tripId:currentTrip,label:$<HTMLInputElement>('invite-label').value,...(editor?{role:'editor'}:{expiresInDays:days?Number(days):null})});
+      if(!result.token)throw Error('The link cannot be recovered after a lost response. Revoke the new link or invitation below, then create a fresh one.');
+      link=`${location.origin}/itinerary#${editor?'invite':'view'}=${result.token}`;$<HTMLInputElement>('invite-link').value=link;$('created-link').hidden=false;
+      $('link-details').textContent=editor?`Can edit itinerary after signing in. One person can accept before ${new Date(result.expiresAt).toLocaleDateString('en-GB')}. Copy it now; it is shown only here.`:`Anyone with this link can view and forward it, without an account. ${result.expiresAt?`Expires ${new Date(result.expiresAt).toLocaleDateString('en-GB')}.`:'No expiry; it works until you revoke it.'} Copy it now; it is shown only here.`;
       await refresh();
     }catch(error){$('share-error').textContent=errorText(error);await refresh().catch(()=>{});}finally{button.disabled=false;}})();
   };

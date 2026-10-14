@@ -1,6 +1,20 @@
-# Private itinerary sharing
+# Itinerary sharing
 
-The organizer can create a trip, add manual itinerary items and create a private invitation from **Share trip**. A friend opens the URL, signs into their own travel account, reviews the invitation and joins with a display name. No assistant, API key or developer setup is needed. Comments and proposals remain later work.
+The organizer creates a trip and adds manual itinerary items. In the new sharing implementation, **Can view** creates a reusable link that opens without an account; **Can edit itinerary** creates a one-person invitation that requires sign-in. The organizer can revoke either. Comments and proposals remain later work. Release evidence below distinguishes implemented behavior from the currently deployed version.
+
+## Account-free view links — 14 October 2026
+
+**Share trip → Can view → Create view link** creates an unguessable read-only link. Anyone possessing it can open and forward it; the owner sees that permission before creation. It does not identify individual visitors. Links default to no expiry, with optional 7-, 30- or 90-day expiry, and can be revoked independently. Editors still sign in and accept a separate single-person invitation. Existing account-bound invitations are never converted or broadened, including requests from a stale browser bundle.
+
+Migration `008_itinerary_view_links.sql` adds explicit `account`/`link` modes. Legacy rows remain `account` with unchanged expiry. Database checks prohibit editor roles or accepted identities on anonymous links. A separate owner-web-only `create_itinerary_view_link` operation prevents an older account-invitation client from accidentally creating anonymous access. No sharing operations are exposed through MCP.
+
+Links use `/itinerary#view=TOKEN`. The browser removes the credential fragment, retains it only in that tab’s session storage, and sends it in a same-origin POST body to the fixed `/itinerary-share/read` endpoint. This reader starts before auth configuration and does not require or consult account tokens. It cannot dispatch tools, select another trip ID, join membership, write data, run providers or authorize MCP. Changing to another credential fragment reinitializes the page rather than continuing to show the previous trip. Raw credentials are shown to owners once and only hashes persist, including mutation caches.
+
+Each read uses a read-only repeatable-read snapshot and rechecks link mode, role, revocation and expiry. Its allowlisted response contains trip display fields and active manual items, including practical notes, useful links, open questions and reported booking status. Private booking notes, future unrecognized fields, owner IDs, research and history are omitted. Invalid, expired or revoked links show an account-free error; refresh clears the previous displayed plan. Revocation applies to subsequent reads and cannot retract copied data or cancel an already-running snapshot.
+
+Pages/read responses use `no-store`, `no-referrer` and `noindex, nofollow, noarchive`. The read body is capped at 2KB and the process accepts at most 120 shared reads/minute. This coarse pilot limit resets on restart and is not distributed abuse protection. Existing limits cover both link types: 10 outstanding links/invitations, 100 total per trip; named collaborators remain capped at 20. Links are not discoverable trip listings and do not automatically make any trip public. Owners share URLs manually; no email is sent by creating one.
+
+Validation: build passed. Four focused checks cover reusable/no-membership reads, hash-only persistence, future-field privacy, account/editor/MCP boundaries, expiry/revocation, migration preservation and the unauthenticated HTTP route during auth failure, including dispatch injection, origin, method, body-size and rate limits. The full local regression run passed its other checks; a malformed fictional fixture in the first new test was corrected and all four focused tests then passed. Three pooled PostgreSQL checks run in CI; the sharing integration now also verifies anonymous read/revoke across pooled connections. Isolated browser acceptance verified two account-free visitors, reload, Overview/Details, owner update/readback, optional expiry, permission wording and revoke/refresh denial. No real itinerary view link was created. CI and hosted rollout evidence will be appended after publication.
 
 ## Editor role — 14 October 2026
 
