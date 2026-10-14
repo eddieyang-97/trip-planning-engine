@@ -1,24 +1,26 @@
-# View-only itinerary sharing MVP
+# Private itinerary sharing
 
 The organizer can create a trip, add manual itinerary items and create a private invitation from **Share trip**. A friend opens the URL, signs into their own travel account, reviews the invitation and joins with a display name. No assistant, API key or developer setup is needed. Comments and proposals remain later work.
 
 ## Editor role — 14 October 2026
 
-Sharing now offers **Can view** (the default) or **Can edit itinerary**. Editors can add tentative items and edit, remove or reorder shared items in the web app. Only the owner manages invitations, research, booking status and private booking notes. The invitation preview explains these permissions before joining. Existing invitations and memberships remain viewers; the release does not grant any existing account editing access.
+The editor implementation adds **Can view** (the default) or **Can edit itinerary**. Editors can add tentative items and edit, remove or reorder shared items in the web app. Only the owner manages invitations, research, booking status and private booking notes. The invitation preview explains these permissions before joining. Existing invitations and memberships remain viewers; the release does not grant any existing account editing access. Production rollout is pending the Render build incident described below.
 
 Migration `007_itinerary_editors.sql` adds an invitation role and expands membership roles. Shared add/update requests use strict schemas that omit booking status and private notes. Updating a reported booking preserves those fields on the server. Owner history retains the editor's actor ID and the browser distinguishes collaborator changes. Editors receive the same private-field omissions as viewers; assistant writes remain owner-only and the two shared editing operations are excluded from MCP discovery.
 
 Every edit and access change locks the trip before checking current membership. Cached edit retries recheck permissions, and shared revisions reject conflicting owner/editor changes. Accepting a fresh invitation replaces that person's previous membership and revokes the superseded invitation; this lets an owner change permissions through a new invitation without leaving an old editor link usable. Revocation stops subsequent reads and writes, including retries.
 
-Local validation: build passed, the regression suite passed with three PostgreSQL checks skipped, and focused tests cover migration defaults, private-field preservation, status injection denial, cross-trip denial, revocation/downgrade retries, assistant boundaries and owner/editor conflicts. Isolated browser checks with fictional data passed invitation preview/join, editor add/edit/remove/reorder, owner readback, private-note preservation, 390px editing and revoke/refresh denial. CI, deployment and hosted editor acceptance are recorded separately below when completed.
+Local validation: build passed, the regression suite passed with three PostgreSQL checks skipped, and focused tests cover migration defaults, private-field preservation, status injection denial, cross-trip denial, revocation/downgrade retries, assistant boundaries and owner/editor conflicts. Isolated browser checks with fictional data passed invitation preview/join, editor add/edit/remove/reorder, owner readback, private-note preservation, 390px editing and revoke/refresh denial.
+
+Implementation `b04a9e31912edadc772b70ff64c7b626353f4d7f` passed [CI run 38631748105](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38631748105): **77 passed, none skipped**, including the PostgreSQL race where revocation denies a waiting editor write. Its [exact-commit deployment](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db7uahvf3r2c739fb6vg) was requested at 21:25:43 London time on 14 October, but remained Building with no logs after more than seven minutes. Render reported [builds not starting across all regions](https://status.render.com/incidents/8tsd93r1wbmz), including Frankfurt; its incident was under monitoring. The existing app health endpoint returned 200 OK, and the live sharing screen still lacked the editor selector. The deployment was left pending, without cancellation or duplicate deployment. Hosted editor invitation creation, migration 007 confirmation and real-account editor writes remain unverified until rollout completes. No real-trip editor invitation was created.
 
 ## Scope and privacy
 
-- An invitation is for one person and one trip, expires after seven days if unused, and can be revoked. Accepted membership continues until revoked; expiry does not remove an existing viewer.
+- An invitation is for one person and one trip, expires after seven days if unused, and can be revoked. Accepted membership continues until revoked; expiry does not remove an existing collaborator.
 - The friend can read current manual itinerary items, dates, local times, practical notes, useful links, open questions and owner-reported booking status. Practical notes and links must not contain details the organizer wants to keep private.
-- Research decisions/evidence, booking notes, item history and the owner’s account identifier are omitted from viewer responses. Viewers cannot edit, access another private trip, manage invitations or read private research, even through a connected assistant.
+- Research decisions/evidence, booking notes, item history and the owner’s account identifier are omitted from collaborator responses. Viewers cannot edit. Editors can change shared itinerary items through the web app, but cannot manage invitations or booking status. Neither role can access another private trip or private research.
 - Invitations are managed through verified direct web sessions. Existing assistant write grants do not acquire sharing authority. The MCP tool count remains 23; invited `get_itinerary` reads enforce the same membership boundary.
-- Revocation denies new reads immediately after its transaction commits. The app discards the plan on an access-denied refresh and rechecks viewer access when returning to the tab. Revocation cannot retract previously read/copied information or cancel an already-running read snapshot.
+- Revocation denies subsequent reads and writes after its transaction commits. The app discards the plan on an access-denied refresh and rechecks collaborator access when returning to the tab outside an open dialog. Saves from an already-open editor still check current permissions. Revocation cannot retract previously read/copied information or cancel an already-running read snapshot.
 
 ## Implementation
 
@@ -26,7 +28,7 @@ Migration `006_itinerary_sharing.sql` adds hash-only invitations and viewer memb
 
 Invitation tokens contain 32 random bytes. The URL uses `/itinerary#invite=TOKEN` so the credential does not enter HTTP paths, server access logs or referrers. The frontend removes the fragment and retains pending invitations only in the current tab’s session storage while navigating to account sign-in. The account page accepts only the fixed `returnTo=itinerary` destination; OAuth assistant consent takes priority. Email confirmation retains the existing exact `/account` redirect. A person who confirms in another tab returns to the original invitation tab and signs in.
 
-Only the token hash persists, including in the idempotency cache. An identical create retry returns the invitation ID but no token; after a lost response, revoke that pending invitation and create another. Acceptance retries recheck revocation. Creation, acceptance and revocation lock the trip first; acceptance then locks the invitation. Concurrent claims have one winner. Limits: 10 outstanding invitations, 100 total invitations and 20 active viewers per trip.
+Only the token hash persists, including in the idempotency cache. An identical create retry returns the invitation ID but no token; after a lost response, revoke that pending invitation and create another. Acceptance retries recheck revocation. Creation, acceptance and revocation lock the trip first; acceptance then locks the invitation. Concurrent claims have one winner. Limits: 10 outstanding invitations, 100 total invitations and 20 active collaborators per trip.
 
 ## Validation and launch dependency
 
