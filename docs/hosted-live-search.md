@@ -1,6 +1,6 @@
 # Hosted live flight pilot
 
-Updated 13 October 2026. Implementation `4ff852239c87742dae5b5bf5696437622e3fbd3e`, including the live pilot introduced in `a6d4c849181cbed175a15944778e6d58e9697aa6`, is deployed on the existing Free Render service. One real authenticated hosted search has completed through the official MCP SDK, followed by user-reported ChatGPT retrieval of the saved research. Broader airport coverage, exact quote validation and remaining assistant acceptance still need work.
+Updated 13 October 2026. The live pilot introduced in `a6d4c849181cbed175a15944778e6d58e9697aa6` passed authenticated hosted acceptance in release `4ff852239c87742dae5b5bf5696437622e3fbd3e`; later deployed release `70b884a` adds the saved-research web view. One real search completed through the official MCP SDK, followed by user-reported ChatGPT retrieval and independently verified connected reads. Broader airport coverage, exact quotes and remaining assistant acceptance still need work. See [current architecture](architecture.md) and [delivery status](implementation.md).
 
 ## Scope
 
@@ -45,7 +45,7 @@ Observations are marked `provider_reported`. `priceBasis` remains `unknown`, `ex
 4. Use a verified user/client connection with read, write and search grants. Create or read the Flaine decision, call `start_search` using its current revision/version, and poll the returned run.
 5. Verify durable attempts, provider provenance and incomplete price/equipment coverage. Retry the identical mutation and confirm there is no second run or additional search.
 
-The itinerary web app remains the manual organizer. This change connects the hosted MCP research backend; it does not add flight search controls to the itinerary UI. Real Supabase OAuth/assistant acceptance is a separate remaining prerequisite if the user's client is not linked.
+The itinerary web app provides manual organization and the deployed saved-research view. It does not yet provide flight search controls. Hosted OAuth and initial ChatGPT linking have succeeded; each new client still needs explicit authorization, and wider assistant/security acceptance remains separate. See [itinerary evidence](itinerary-web.md#hosted-verification--13-october-2026).
 
 Rollback: set `LIVE_SEARCH_ENABLED=false` and restart/deploy. Evidence and ledgers stay in Postgres. Disabling admission does not cancel a supplier request already in flight; idle running records recover conservatively after lease expiry when the runner is enabled again.
 

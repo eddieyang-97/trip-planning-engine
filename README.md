@@ -10,16 +10,18 @@ The product helps people compare travel choices, retain their reasoning and turn
 
 | Surface | Product role | Current slice |
 | --- | --- | --- |
-| Web app | Use the trip directly: research and compare options, manage the itinerary, and collaborate with friends without an assistant account | Manual organizer itinerary, trip creation, item editing, notes, reported booking status and history; web research and collaboration are further increments |
-| MCP | Let a connected assistant retrieve and update the same trip, research options, explain trade-offs and manage the plan | Persistent flight decisions, bounded searches, comparisons, selections, itinerary tools and private policy notes; real hosted assistant acceptance remains pending |
+| Web app | Use the trip directly: research and compare options, manage the itinerary, and collaborate with friends without an assistant account | Deployed manual organizer and saved flight research, including tentative review drafts; full web flight controls and collaboration remain further increments |
+| MCP | Let a connected assistant retrieve and update the same trip, research options, explain trade-offs and manage the plan | Deployed persistent decisions, bounded live pilot, comparisons, selections, itinerary and private policy tools; official-SDK OAuth/search and connected retrieval verified |
 
 Both surfaces are core to the product. Their interfaces can suit different tasks, while shared operations retain the same permissions, facts and revision rules. Delivery proceeds in small slices across both surfaces; invitations, comments and proposed changes follow the organizer foundation, before accommodation integrations. The [PRD](docs/prd.md) defines the target behavior; [implementation notes](docs/implementation.md) track delivered behavior and acceptance gaps.
 
-**Current milestone: hosted trip planning prototype on Free Render + Supabase.** The [account page](https://trip-planning-engine.onrender.com/account), manual itinerary, consent/revocation controls and [bounded live flight pilot](docs/hosted-live-search.md) are deployed. Recorded deployment checks report live search enabled and unauthenticated MCP protected. Real-account web acceptance, a Supabase OAuth assistant connection and authenticated hosted search remain acceptance gates.
+**Current release, 13 October 2026:** the [account page](https://trip-planning-engine.onrender.com/account), manual itinerary, saved-research web view, consent/revocation controls and [bounded live flight pilot](docs/hosted-live-search.md) are deployed on Free Render + Supabase. Real direct sign-in, official-SDK OAuth and one live search succeeded. Initial ChatGPT linking/retrieval and independent connected reads confirmed the same saved research. Latest recorded release `70b884a` passed all 69 CI tests. Real hosted itinerary writes, wider assistant/security acceptance and complete flight quotes remain outstanding.
+
+Start with the [high-level architecture](docs/architecture.md#high-level-architecture), [database ER diagrams](docs/database.md) and [user flows](docs/user-flows.md). The [documentation index](docs/README.md) also links product requirements, delivery evidence and historical research.
 
 ## Run locally
 
-The [itinerary web app](docs/itinerary-web.md) provides a manual organizer view at `/itinerary`, with the same persistent trip state as MCP. Open `/itinerary?demo=1` for a labelled, editable Flaine preview. Its example data resets on reload. Hosted users sign in through `/account`; using the web app requires no MCP client or assistant account. Real-account acceptance remains pending; this is the first itinerary slice, before invitations and discussion.
+The [itinerary web app](docs/itinerary-web.md) provides the organizer and saved research at `/itinerary`, using the same persistent trip state as MCP. Open `/itinerary?demo=1` for a labelled, editable Flaine preview; example data resets on reload. Hosted users sign in through `/account`; no MCP client or assistant account is required. Real sign-in and research viewing passed; real hosted manual writes and edit continuity remain pending, before invitations and discussion.
 
 Requires Node.js 24 and npm. No provider account or database installation is needed.
 
@@ -56,27 +58,17 @@ Working assumptions: four adults, one snowboard for the party, Geneva gateway, e
 
 These are invented test cases, not researched fares. Even the complete example does not establish transfer feasibility or overall trip suitability. Selection and booking reports are separate records; synthetic evidence cannot be recorded as booked. Manually supplied evidence and booking reports remain unverified and labelled `user_reported`.
 
-## Implemented model
+## Shared model
 
-```mermaid
-flowchart LR
-  B[Web app] -->|Direct account session| A
-  C[Local MCP client] -->|Bearer token / Streamable HTTP| M[Node MCP adapter]
-  M --> A[Account permissions and MCP client grants]
-  A --> D[Shared trip, itinerary and research service]
-  D --> P[(Embedded PostgreSQL)]
-  P --> W[In-process fixture job runner]
-  W --> F[Synthetic flight provider]
-  W --> P
-```
+The web app and MCP call one shared service. Hosted state lives in Supabase Postgres; persisted jobs run inside the existing Node process. Local development uses embedded PostgreSQL and synthetic fixtures. See the [current architecture](docs/architecture.md#service-boundaries) for the service diagram and accepted boundaries.
 
 `Trip → Decision → CriteriaVersion / Candidate / SearchRun → Observation`. A candidate identifies a flight itinerary; observations preserve separate dated prices and evidence. Runs reference immutable criteria versions. Selections snapshot the evaluation and rationale. Booking records capture only the user's report of an external booking.
 
 Hard constraints produce pass/fail/unknown verdicts before preference scoring. Utility uses fixed cost and duration anchors, so adding a candidate does not change existing scores. Missing costs produce score intervals, never zero-priced equipment. Comparisons list eligible options before conditional and ineligible ones, then order by the lower score bound. Overlapping intervals do not establish a winner. Repeated searches compare like-for-like fare bases; changed criteria suppress price deltas. Missing results are never labelled sold out.
 
-The [architecture-review corrections](docs/correctness-fixes.md) make known over-budget costs fail even when equipment costs are missing, derive flight-local times from a reviewed airport-zone catalogue, and return Core reads from one database snapshot. Historical evidence remains intact. Broader airport coverage, hosted acceptance and the review's later milestones remain outstanding.
+The [architecture-review corrections](docs/correctness-fixes.md) make known over-budget costs fail even when equipment costs are missing, derive flight-local times from a reviewed airport-zone catalogue, and return Core reads from one database snapshot. Historical evidence remains intact. Broader airport coverage and remaining product/security acceptance are tracked in [delivery status](docs/implementation.md).
 
-Mutations require an idempotency key. Decision mutations also require the last observed revision. Retrying identical input returns the original result; reusing the key with different input fails. Every call checks the authenticated owner and a stored client grant. Supplier/user text is treated as evidence, not instructions.
+Mutations require an idempotency key. Mutable decision/itinerary updates also require the last observed revision. Retrying identical input returns the original result; reusing the key with different input fails. Operations check the authenticated owner; MCP additionally checks the stored client grant/version. Supplier/user text is treated as evidence, not instructions.
 
 ## MCP tools
 
@@ -92,7 +84,7 @@ Mutations require an idempotency key. Decision mutations also require the last o
 
 The HTTP transport is stateless; application data is persistent. There is no SSE subscription or server session to recover. Clients poll saved runs. Tool errors are structured, with `isError: true`; transport authentication failures are HTTP 401.
 
-[Private policy notes](docs/policy-notes.md) retain manually curated airline rules with sources, applicability and review dates. Updates append versions; comparisons and selections can reference an exact version. Notes are reusable across the owner's trips and remain separate from quote totals and availability. They are included in the current hosted release; real-account acceptance remains pending.
+[Private policy notes](docs/policy-notes.md) retain manually curated airline rules with sources, applicability and review dates. Updates append versions; comparisons and selections can reference an exact version. Notes are reusable across the owner's trips and remain separate from quote totals and availability. The four tools are included in the hosted release; a dedicated real-account note workflow has not been recorded.
 
 ## Repository
 
@@ -102,11 +94,14 @@ src/
   auth.ts          Local token / hosted JWT verification
   accounts.ts      Direct-session sign-in verification, consent and revocation
   itinerary.ts     Shared manual itinerary validation, persistence and history
+  itinerary-research.ts Bounded saved-research projection for the organizer
   itinerary-web.ts Direct-session web API and itinerary asset routes
   core.ts          Ownership, persistence, tools, fixture jobs
   domain.ts        Runtime TypeScript schemas and scoring
   database.ts      Embedded / external PostgreSQL adapters
   providers.ts     Provider boundary and synthetic examples
+  live-provider.ts Narrow SerpApi normalization and scope validation
+  live-search.ts   Durable attempts, allowance admission and safe live recovery
   policies.ts      Private, versioned policy notes and review reminders
   acceptance.ts    Confirmed Flaine inputs and assumptions
   main.ts          Configuration and process lifecycle
@@ -114,19 +109,24 @@ migrations/        Executable scaffold database schema
 web/               Itinerary app, account and OAuth consent pages
 tests/             Domain, persistence, authorization and MCP tests
 scripts/           Demo, migration and build asset scripts
+docs/README.md     Documentation index
 docs/prd.md        Product requirements
-docs/spike/        Earlier research and target architecture
-docs/implementation.md  Delivery status and next integration gates
+docs/architecture.md Accepted decisions and current architecture
+docs/database.md   Database ER diagrams and migration relationships
+docs/user-flows.md Current journeys and labelled target flows
+docs/implementation.md Current delivery status and acceptance
+docs/spike/        Historical research and design proposals
+docs/history/      Earlier implementation records
 ```
 
 The executable schema normalizes relationships and versions while storing validated criteria and offer payloads in JSONB. The larger schema in `docs/spike/design` is a design proposal, not the applied migration. No application code was copied from the reviewed trip-planning projects. Dependency licenses remain their respective owners' licenses; no license has yet been chosen for this repository.
 
 ## Next milestone
 
-The [six-search flight capability probe](docs/flight-probe.md) is ready to run independently of account linking. `npm run probe:flights` prints its zero-network plan; `-- --live` requires an authorized Free SerpApi key. No live search has run yet. It is a diagnostic command, not the hosted flight provider.
+Complete the organizer foundation across both surfaces: real hosted manual writes and web↔MCP continuity, web flight controls/comparison, and explicit research links/reconciliation. Then add authenticated invitations, discussion and organizer-approved proposals before accommodation integrations. Broader flight coverage, exact party totals, snowboard evidence and assistant/security acceptance remain separate gates.
 
-The parallel [accommodation and restaurant API spike](docs/spike/hotel-restaurant-providers.md) covers hotels, apartments, chalets and holiday rentals. The [five-search accommodation probe](docs/accommodation-probe.md) now tests hotel, Google vacation-rental and third-party Airbnb response shapes; `npm run probe:accommodation` prints a zero-network plan. Live execution requires a Free SerpApi key and remains unverified. `npm run probe:places` prints a zero-network discovery plan; `-- --live` attempts two public Overpass queries. Current live map trials failed, and the successful Booking.com connector check does not grant backend API access. These diagnostics add no hosted MCP tools or database migrations.
+The standalone [flight](docs/flight-probe.md) and [accommodation](docs/accommodation-probe.md) diagnostics ran live on 11 October; their [dated results](docs/spike/live-probe-results-2026-10-11.md) preserve source checks and unresolved costs. They remain separate from hosted search and do not enable accommodation tools. `npm run probe:places` prints a zero-network plan; recorded public Overpass trials failed. Connected Booking.com access does not grant reusable backend API access.
 
-Validate real-account web use and [Supabase account linking](docs/account-linking.md) for one MCP client, including an edit round trip between surfaces. Complete rights-cleared flight research and its web workflow, then add invitations, discussion and organizer-approved proposals before accommodation integrations. Shared state and permissions are acceptance requirements for both surfaces.
+See [account linking](docs/account-linking.md) for completed OAuth/retrieval proof and remaining refresh/revocation, second-account and other-assistant checks. Shared state and permissions are acceptance requirements for both surfaces.
 
 The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is off, but Blueprint changes can still sync and trigger deployment. The service checks database availability on `/health` and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation notes](docs/implementation.md).

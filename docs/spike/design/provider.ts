@@ -1,3 +1,4 @@
+// Historical spike proposal; not the runtime adapter contract. See ../../architecture.md and ../../../src/live-provider.ts.
 import type { CriteriaVersion, FlightSegment, ID, Instant, Json, Money,
   OfferObservation, PriceComponent, SegmentObservation, Evidence } from './domain';
 

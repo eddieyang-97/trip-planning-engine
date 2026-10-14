@@ -4,9 +4,9 @@ The account page, consent API and token hook ship in one Render service. Supabas
 
 ## Deployment and Supabase configuration
 
-Deploy the repository with migration `002_account_linking.sql` and `SUPABASE_PUBLISHABLE_KEY`. The public key is intentionally exposed in `/account/config`; never substitute a secret or service-role key. The migration adds three private tables and a token-hook function, with no destructive changes to trip data. It does not enable the hook in Supabase.
+For a new installation, apply the current repository migrations and set `SUPABASE_PUBLISHABLE_KEY`; migration `002_account_linking.sql` introduces account linking. The public key is intentionally exposed in `/account/config`; never substitute a secret or service-role key. The migration adds private tables and the token-hook function, but enabling the hook is a separate Supabase configuration step. The existing service has this configuration enabled; dated verification is recorded below. See [current architecture](architecture.md) and [delivery status](implementation.md).
 
-After verifying the deployed account page, configure the dedicated Supabase project:
+The existing dedicated project uses the following settings. Verify them when setting up another environment; historical setup and successful acceptance are recorded below:
 
 | Setting | Value |
 | --- | --- |
@@ -16,7 +16,7 @@ After verifying the deployed account page, configure the dedicated Supabase proj
 | OAuth authorization path | `/oauth/consent` |
 | Auth Hooks → Custom Access Token | PostgreSQL function `public.travel_access_token_hook` |
 | JWT signing | An active asymmetric ES256 or RS256 key; verify the public JWKS |
-| Dynamic client registration | Enable only when connecting an MCP client that requires it; registration itself must not grant access |
+| Dynamic client registration | Enabled for the current assistant connections; registration itself does not grant application access |
 
 These are project settings, not the user's account on the Supabase dashboard. Do not alter dashboard credentials, disable email confirmation, use wildcard redirect URLs, or weaken JWT audience checks. Existing signing-key migration, if required, needs a separate reviewed rollout.
 
@@ -32,15 +32,13 @@ Consent is bound server-side to the authenticated user and verified authorizatio
 
 Only active application consent lets the token hook issue the `/mcp` resource audience and a grant-version UUID. MCP validates signature, issuer, audience, expiry, user and client, then rechecks current permissions and version on every tool call. Approval rotates the version; old access tokens remain invalid after reconnection. Refresh-token revocation also depends on Supabase: a failed upstream revocation is shown to the user with a retry action, while application access remains revoked locally.
 
-Approval commits locally before returning the OAuth redirect. If the external approval succeeds but the transaction or redirect validation fails, application access remains denied; revoke the upstream grant and restart consent to recover. The two systems do not share a distributed transaction.
+Approval commits locally before returning the OAuth redirect. If upstream approval succeeds but local commit or redirect validation fails, no new local grant is created; an existing connection can retain its prior grant after rollback. Revoke the upstream and local grant, then restart consent to recover. The systems do not share a distributed transaction; durable consent-attempt recovery remains work.
 
 The hook is restricted to `supabase_auth_admin`; anonymous and authenticated database roles cannot execute it or access the consent tables. Runtime currently uses a privileged database connection, so server-side ownership checks are essential. A least-privilege runtime role and abuse throttling remain gates before wider access.
 
 ## Verification and remaining acceptance
 
-Automated tests cover direct-session/assistant-token separation, cross-account denial, origin checks, immutable client binding, denial, expiration, replay, invalid redirects, upstream failure, read-only grants, revocation and reconnect version checks. Build and all 19 tests pass on 9 October 2026. These use signed test JWTs, an embedded PostgreSQL database and a mocked Supabase consent provider.
-
-The implementation in commit `4fccad9` was pushed with PRD sync `cbae4a1` and deployed on 9 October. Hosted checks: `/health`, `/account`, `/assets/account.js` and `/account/config` returned 200; unauthenticated `/account/api/me` and `/mcp` returned 401. The account page rendered the sign-in form without browser console errors. Public Supabase JWKS advertises ES256. The available dashboard browser is signed out, so hook enablement and project URL settings have not been changed or verified. Browser screenshot capture was unavailable; visual verification was limited to the rendered page's accessibility state.
+Automated checks cover direct/assistant session separation, ownership, origins, bound consent, expiry/replay, redirects, read-only grants, revocation and reconnect versions. Recorded real hosted proof now includes direct sign-in, public registration, S256 PKCE, verified MCP tokens, a bounded search, initial ChatGPT linking/retrieval and independent connected reads. Latest release/CI status is summarized in [delivery status](implementation.md).
 
 Remaining hosted acceptance after the successful official-SDK run on 13 October:
 
@@ -50,11 +48,19 @@ Remaining hosted acceptance after the successful official-SDK run on 13 October:
 
 Project configuration, real direct sign-in, public client registration, S256 PKCE exchange, token validation, MCP access and the separately approved bounded live search have now succeeded. Booking remains unavailable.
 
+## Historical setup and deployment — 9–12 October 2026
+
+The pending statements and test counts in this section apply to those dated setup checks. They are superseded by the successful 13 October evidence below.
+
+Automated tests cover direct-session/assistant-token separation, cross-account denial, origin checks, immutable client binding, denial, expiration, replay, invalid redirects, upstream failure, read-only grants, revocation and reconnect version checks. Build and all 19 tests pass on 9 October 2026. These use signed test JWTs, an embedded PostgreSQL database and a mocked Supabase consent provider.
+
+The implementation in commit `4fccad9` was pushed with PRD sync `cbae4a1` and deployed on 9 October. Hosted checks: `/health`, `/account`, `/assets/account.js` and `/account/config` returned 200; unauthenticated `/account/api/me` and `/mcp` returned 401. The account page rendered the sign-in form without browser console errors. Public Supabase JWKS advertises ES256. The available dashboard browser is signed out, so hook enablement and project URL settings have not been changed or verified. Browser screenshot capture was unavailable; visual verification was limited to the rendered page's accessibility state.
+
 On 12 October dashboard inspection confirmed OAuth Server and Dynamic OAuth Apps were already enabled, with authorization path `/oauth/consent`. The Site URL was still `http://localhost:3000`, the redirect allowlist was empty, and no auth hooks were configured. The hosted Site URL and `public.travel_access_token_hook` are being prepared for review; this inspection does not establish successful sign-in or assistant connection.
 
 Later on 12 October, after explicit user approval, the Site URL was saved as `https://trip-planning-engine.onrender.com`, the exact `/account` confirmation redirect was added, and the Postgres `public.travel_access_token_hook` was enabled. Dashboard verification showed the hook enabled and the saved URL values. OAuth Server and Dynamic OAuth Apps settings were retained. Public Auth settings confirm signup is enabled and email confirmation is required.
 
-The search-consent fix (`bcb80b7`) passed all 64 CI tests and deployed successfully. A user signup attempt failed with the old generic message; its cause is not yet established. The feedback fix (`227f070`) passed all 65 tests, none skipped, and [deployed successfully](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db6jj57f3r2c73cjtn3g). Known Supabase error codes now produce fixed, actionable messages without displaying raw provider text or credentials. The real user signup and authenticated hosted search remain pending.
+The search-consent fix (`bcb80b7`) passed all 64 CI tests and deployed successfully. A user signup attempt failed with the old generic message; its cause is not yet established. The feedback fix (`227f070`) passed all 65 tests, none skipped, and [deployed successfully](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db6jj57f3r2c73cjtn3g). Known Supabase error codes now produce fixed, actionable messages without displaying raw provider text or credentials. At the time of that deployment, real signup and authenticated search were still pending; the successful 13 October flow is recorded below.
 
 ## Interactive hosted acceptance command
 
@@ -68,7 +74,7 @@ The first interactive run successfully discovered the hosted resource/authorizat
 
 The account form now handles reported existing accounts, neutral signup responses, invalid fields/passwords, unconfirmed email, email delivery restrictions, throttling, expired sessions/confirmation links, PKCE verifier errors, and network/service failures. Supabase may obfuscate an existing-account signup response; the app explains that a neutral response does not establish creation of a new account. It does not query private user records to defeat that behavior. A separate Resend confirmation button needs only the email field, returns neutral delivery guidance, and shows rate-limit failures. Authentication requests have a 20-second timeout, simultaneous form submissions are disabled, and passwords are cleared after completed attempts. A server-rejected browser session leaves the sign-in form available.
 
-Build and six targeted tests pass. [CI run 38462240434](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38462240434) for implementation `4ff852239c87742dae5b5bf5696437622e3fbd3e` passed all 67 tests, none skipped, including both pooled PostgreSQL checks. Chrome checks against an isolated loopback service with simulated responses verified explicit existing-account guidance, neutral signup guidance, unconfirmed-email feedback, resend throttling, expired confirmation links, and recovery from an invalid session. No real account, email or provider search was created by these UI checks. The real interactive acceptance process was interrupted before sign-in completed; a fresh authorization is required before resuming hosted acceptance.
+Build and six targeted tests pass. [CI run 38462240434](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38462240434) for implementation `4ff852239c87742dae5b5bf5696437622e3fbd3e` passed all 67 tests, none skipped, including both pooled PostgreSQL checks. Chrome checks against an isolated loopback service with simulated responses verified explicit existing-account guidance, neutral signup guidance, unconfirmed-email feedback, resend throttling, expired confirmation links, and recovery from an invalid session. No real account, email or provider search was created by these UI checks. The initial interactive attempt was interrupted before sign-in; a fresh authorization later completed the hosted flow as recorded below.
 
 The same implementation [deployed successfully on 13 October](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db796idg1s2s739k01p0), taking 40.2 seconds and reporting Live at 21:24 UK time. The service remains Free; startup reports hosted mode with the live pilot enabled. Post-deployment checks returned 200 for `/health` and `/account/config`, both with `liveSearch: true`, and 401 for unauthenticated `/account/api/me` and `/mcp`; the MCP authentication challenge remained present. The live account page includes Resend confirmation. These checks do not establish successful real signup, OAuth token exchange or hosted flight acceptance.
 

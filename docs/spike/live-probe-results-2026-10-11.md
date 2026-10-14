@@ -1,5 +1,7 @@
 # First live SerpApi probes — 11 October 2026
 
+Historical observations and source checks from 11 October. A separate [hosted flight pilot](../hosted-live-search.md) was subsequently implemented and passed its first authenticated search on 13 October. Its fixed scope and unresolved quote fields are recorded in [current delivery status](../implementation.md); the probe prices below are not current fares. Remaining steps below describe the position at the end of the diagnostic investigation.
+
 ## Scope and execution
 
 The user configured a private key locally and authorized the bounded flight and accommodation probes. Both active Free-plan/quota checks passed. The runners made six flight search requests and one hotel search request (seven attempted searches in total); this is an attempt count, not a verified billing count. Credentials and raw responses were not printed or committed. Local attempt ledgers remain Git-ignored and prevent accidental reruns. No application candidates, bookings, deployments or hosted configuration were changed.

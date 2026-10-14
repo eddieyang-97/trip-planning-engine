@@ -1,80 +1,53 @@
-# Implementation status — 11 October 2026
+# Delivery status and acceptance
 
-## Architecture-review corrections
+Updated 13 October 2026. Current decisions are in the [architecture](architecture.md) and [PRD v0.4](prd.md). This summarizes recorded evidence; it does not report a new deployment or live test performed during documentation cleanup.
 
-[Budget, airport-local time/identity and read-snapshot fixes](correctness-fixes.md) address the first three architecture-review findings. The local build and 54 tests pass; CI passed all 55 tests, including the dedicated pooled PostgreSQL test, with none skipped. No schema migration or hosted deployment is part of this correction. The reviewed airport catalogue currently covers the six London airports and Geneva; other zones remain unknown rather than guessed.
+## Current release
 
-## Itinerary web update
+The existing Free Render service hosts accounts, MCP, manual itinerary and saved flight research, backed by Supabase. Latest recorded deployed implementation: `70b884a54f7584b6d80919a601b35b2f72e30750`, live at 21:55:42 London time on 13 October. It passed [CI run 38466213421](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38466213421): **69 tests passed, none skipped**, including both pooled PostgreSQL checks. See [itinerary release evidence](itinerary-web.md#saved-research-display--13-october-2026).
 
-The first [organizer itinerary slice](itinerary-web.md) is implemented locally: responsive display, manual item management, reported booking labels, open questions and persistent history. Web and five new MCP tools use the same trip data and revision checks. Migration 004 is additive. Build and all 46 tests pass; browser interactions and a 390px layout check pass, while screenshot capture is unavailable. No hosted deployment or real Supabase web sign-in was performed in this update. Invitations, discussion, proposals and selected-research linking remain later increments.
+The recorded release applies migrations 001–005. Live searches require explicit server opt-in plus a private SerpApi key; hosted synthetic searches are disabled. No paid plan or additional host is part of this release. Concurrent local development is separate from this deployed/accepted baseline and is not certified by this documentation update.
 
-## Delivered
+## Delivered and verified
 
-The local scaffold implements the flight decision model, a persistent PostgreSQL database through PGlite, immutable criteria and observations, explicit coverage gaps, repeat comparisons, conservative scoring, saved/rejected candidates, selections and user-reported booking records. Twenty-three tools are implemented through the official MCP TypeScript SDK with Streamable HTTP, including four private policy-note tools and five itinerary tools awaiting the next hosted deployment.
-
-The [policy-note slice](policy-notes.md) adds account-owned manual reference notes with sources, applicability, review dates and immutable versions. Comparisons include exact note versions as separate context; selections retain their references. Notes never fill missing offer costs or establish equipment availability. Build and 23 tests pass, including the official MCP client, ownership, revision conflicts, unchanged scoring and migration from the previously deployed schema. Review reminders are evaluated on read; no scheduled scraping or notifications are enabled.
-
-The acceptance inputs retain the user's confirmed Flaine dates, party count, snowboard requirement and all-airport scope. No previous connector prices are used as current fares. Test fixtures are synthetic and have one-hour fixture expiries; those expiries do not represent a supplier guarantee.
-
-Local authentication uses a random bearer token and loopback binding. Hosted-mode code verifies asymmetric JWT signatures, issuer, audience, expiry, UUID subject and OAuth `client_id`, then requires an existing database grant. Host/Origin checks and a request-body limit protect the endpoint. Tests include an official SDK client over real local HTTP, signed test JWTs, cross-owner denial, grant revocation, duplicate mutations, revision conflicts, comparison semantics and database restart.
-
-## Hosted deployment sequence
-
-Target remains **one Render service + Supabase**. Vercel and a separate worker are unnecessary for this milestone. The Free deployment and database connectivity are verified below; real assistant account linking remains an acceptance gate.
-
-1. Provision a dedicated free Supabase development project and use the repository's `render.yaml` Blueprint for one Free Render Node service in Frankfurt. Keep provider credentials server-side. The Blueprint configures Node 24, build `npm ci --include=dev && npm run build`, start `npm start`, and `/health` as the health route. GitHub Actions runs the build and tests on pushes and PRs. Render auto-deploy is initially off so future pushes do not unexpectedly change the hosted service.
-2. Configure `APP_MODE=hosted`, `NODE_ENV=production`, `PORT` (provided by Render), `DATABASE_URL`, `SUPABASE_AUTH_ISSUER` and `MCP_AUDIENCE`. Render's assigned `RENDER_EXTERNAL_URL` supplies the public origin; set `PUBLIC_ORIGIN` only to override it with an HTTPS origin without a trailing slash. Use `DATABASE_CA_FILE` if needed for the trusted database certificate. TLS verification stays enabled. Connection-string SSL parameters are rejected to prevent them overriding verification. Preserve the external Host header through ingress. Use the Supabase session pooler connection if the direct database hostname is unreachable from the deployment network.
-3. Free Render services do not have pre-deploy commands. The Blueprint sets `MIGRATE_ON_START=true` to apply versioned migrations transactionally before HTTP starts. An advisory transaction lock serializes migration initialization; subsequent starts check the applied version and leave existing records intact. Use a dedicated application database/schema and a role with sufficient migration privileges. Current tables live in `public`; review naming collisions before applying to an existing Supabase project. If migrating separately, set the flag to `false` and run `npm run migrate` before deployment. Runtime health checks include a database query and return 503 on database failure without exposing connection details.
-4. Configure the implemented sign-in/OAuth consent and token hook using [account-linking.md](account-linking.md). Register an actual client and verify its OAuth discovery, redirect, PKCE, refresh, issuer, resource audience and `client_id` behavior. Do not weaken audience validation to accept an unrelated token. No end-to-end Supabase OAuth exchange or ChatGPT/Claude connection has been tested yet. Confirm which “Muse” product is intended before claiming compatibility.
-5. Exercise account isolation and revocation against external PostgreSQL and the hosted endpoint, including proxy headers, health checks, secret handling, request limits, logs and monitoring. Add production throttling and a least-privilege database role before wider access. Supabase connectivity, migrations and health queries are verified; authenticated application behavior remains tested through embedded PostgreSQL until the real-client trial.
-6. Add a provider only after verifying access, commercial rights, retention limits, round-trip/party-price semantics, snowboard coverage and actual freshness/bookability. Follow the provider evaluation in the spike; SerpApi remains a conditional pilot choice, not a committed live integration.
-
-RLS is enabled with no public policies and direct access is revoked from Supabase `anon`/`authenticated` roles when those roles exist. The current service expects a privileged server database connection. Such a connection bypasses RLS; ownership and client checks in `core.ts` are therefore essential. Do not expose that connection to a browser or use the browser's Supabase data API as an alternate access path. A dedicated runtime-role/RLS design is still a production hardening task.
-
-The hosted fixture provider is disabled. Hosted mode currently supports manual evidence and comparisons but cannot initiate a search. OAuth authorization and application read/write/search permissions are distinct: `client_grants` stores the latter. The account and consent UI, revocation API and resource-specific token hook are implemented and tested. See [account linking](account-linking.md) for configuration and the remaining real-client acceptance checks.
-
-### Deployment setup update — 8 October 2026
-
-The dedicated Supabase project `trip-planning-engine` exists in the Free `Travel Research` organization, in Frankfurt (`eu-central-1`). Render creation is being prepared from the repository Blueprint. The database connection is entered directly into Render, never committed.
-
-The Blueprint provides a separate `DATABASE_PASSWORD` field: paste the original password unchanged. Use the password-free session-pooler URI for `DATABASE_URL`; the app encodes and inserts the password in memory. Existing complete connection URIs also remain supported when the separate password setting is omitted. Credentials are not printed by configuration validation.
-
-`MCP_AUDIENCE` now defaults to the service's public origin plus `/mcp`, so it need not be known before Render assigns its URL. An explicit override remains available. This preserves strict audience validation: the default Supabase audience `authenticated` will not pass. Before a real OAuth client can connect, configure resource-specific token issuance, the consent UI and stored client grants, and verify the resulting token against this audience. A healthy deployment alone is not proof of a working OAuth client connection.
-
-### Hosted deployment verification — 9 October 2026
-
-The Free Render service is live at `https://trip-planning-engine.onrender.com`, deployed from commit `0684d9c`. The first deployment failed with `SELF_SIGNED_CERT_IN_CHAIN`; the fix supplies the public Supabase CA through `DATABASE_CA_FILE=certs/supabase-prod-ca-2021.crt`. Certificate-chain and hostname verification remain enabled. The certificate source, fingerprint and expiry are recorded in `certs/README.md`.
-
-Verified the pooler separately with TLS 1.3 and `authorized: true`, without transmitting a database password. Render then completed startup and its migration/version checks. The public checks returned:
-
-- `GET /health`: HTTP 200, `{"status":"ok","liveSearch":false}`; includes a real database query.
-- `GET /mcp` without a token: HTTP 401 with the protected-resource metadata challenge.
-- `GET /.well-known/oauth-protected-resource/mcp`: HTTP 200 with this service's `/mcp` resource and the dedicated Supabase Auth issuer.
-
-This verifies deployment and database connectivity, not authenticated end-to-end MCP use. Consent/account linking, resource-specific token issuance, client grants and live flight-provider integration remain incomplete. No paid infrastructure upgrade was made.
-
-## Provider integration requirements
-
-On 11 October, the [accommodation diagnostic](accommodation-probe.md) added a Free-plan-gated five-search runner for Google Hotels, Google vacation rentals and third-party Airbnb search. It preserves unknown allocation/charges, requires matching request context and property-detail identity, and avoids automatic retries. No key is configured and live execution remains pending. This is isolated diagnostic code, not a production `AccommodationRateProvider` or a new hosted capability.
-
-The parallel [hotel/restaurant spike](spike/hotel-restaurant-providers.md) adds proposed rate/availability contracts and a bounded OpenStreetMap diagnostic adapter. Build and all 35 tests pass. A connected Booking.com search returned two Flaine stays using labelled test occupancy assumptions; reusable backend access remains unavailable. All three public Overpass live attempts failed before discovery. These additions are isolated from the hosted MCP tools and applied database schema.
-
-The current `FlightProvider` boundary accepts frozen criteria and returns validated offers plus coverage. Its only implementation is `fixture`; production provider types, capabilities and evidence provenance must be added explicitly. The schema deliberately rejects claims of live provider evidence today.
-
-The fixture runner persists queued/running/completed/failed state, uses a lease and fences late results by generation. Automatic retry of an expired lease is safe for fixtures. **Do not apply that retry policy to a paid provider**: add provider idempotency/reconciliation, an `outcome_unknown` path for uncertain external outcomes, cost budgets, grant rechecks, timeout/cancellation, bounded retention and provider-specific expansion/caching rules first. Add evidence for query parameters, units, requested party, fare family, baggage, full return legs, timestamps and incomplete airport coverage.
-
-The local examples include at most 20 observations per run and six departure airports. There is no generalized pagination/expansion engine or recurring-search scheduler. Candidate identity follows flight numbers, airports and local dates; provider identifiers and codeshare handling will need validation with real data. Time strings retain supplied local offsets; the live adapter must establish their correct airport time zones.
-
-## Roadmap and acceptance gates
-
-| Phase | Outcome | Exit evidence |
+| Capability | Delivery | Recorded evidence and limits |
 | --- | --- | --- |
-| 0 — current | Local MCP flight decision slice | Offline acceptance tests, build and runnable demo |
-| 1 | Hosted identity and persistence | A real client signs in; two accounts cannot access one another; revoke access mid-session |
-| 2 | Live flight research | Rights-cleared provider; full party/return evidence; coverage and fees explicit; safe repeat-search behavior |
-| 3 | Flaine decision trial | Search all London airports; resolve equipment quantity/size and transfers; compare real options with timestamps |
-| 4 | Shared itinerary web app | Friends open a URL, sign in, review items and make proposals; organizers approve changes; permissions and concurrency are tested |
-| 5 | Hotels | Shared decision/observation model with stay, occupancy, cancellation and full-price semantics |
-| 6 | Restaurants | Provider access and reservation capabilities verified first |
+| Persistent flight decisions | Implemented and deployed | Immutable criteria/observations, comparisons, selection and separate reported booking records; full product workflow remains broader than the pilot |
+| Budget, airport-local evaluation and consistent reads | Implemented and deployed | Regression tests and controlled pooled PostgreSQL read-consistency test; [correction details](correctness-fixes.md) |
+| Private policy notes | Implemented and deployed | Versioned account-owned references and pinned selections; automated isolation/validation, separate from quote prices |
+| Direct account sign-in | Real hosted sign-in succeeded | 13 October acceptance; direct confirmed browser session is separate from assistant tokens |
+| Hosted OAuth and MCP | Official-SDK flow succeeded | Public registration, S256 PKCE, verified token claims and 23 listed tools; [account evidence](account-linking.md) |
+| Bounded hosted flight search | One real run completed | Three successful durable attempts, ten provider-reported observations; identical mutation returned the same run without another search |
+| ChatGPT / connected retrieval | Initial linking and retrieval succeeded | User-reported ChatGPT result plus independently verified connected read tools; no new search during retrieval |
+| Manual organizer | Implemented and deployed | Trip creation, item add/edit/remove/reorder, reported bookings and history; real hosted writes/edit continuity remain unverified |
+| Saved-research web view | Implemented, deployed and viewed with a real account | Same trip and ten sellers as MCP; review draft cancelled without saving; isolated preview tested saves/duplicates |
+| Standalone flight/accommodation probes | Live diagnostics recorded | 11 October observations/manual checks; no hosted accommodation provider or comprehensive market coverage |
 
-This work does not depend on friends having developer setup in the eventual product. The local developer scaffold is an implementation milestone; an ordinary shared web review flow remains a later product feature as requested.
+The hosted trip/run IDs and actual attempt results are in [the flight acceptance record](hosted-live-search.md#real-hosted-acceptance--13-october-2026). Latest hosted research view and connected itinerary read returned manual revision 1 and zero manual items. An isolated preview save did not change that real trip.
+
+## Pilot boundaries
+
+Confirmed Flaine inputs remain 18–20 December 2026, four travelers, snowboard required and all six London airports allowed. Four adults, one board and Geneva are explicit working assumptions where not confirmed.
+
+The live pilot samples one direct easyJet Gatwick–Geneva pair and up to ten sellers. It does not search the other London airports or find the optimal pair. Price basis is unknown, exact-party quoting is false, and snowboard carriage/cost and supplier expiry are unresolved. Ten sellers do not establish ten feasible itineraries or verified party totals. No selection, passenger submission or booking was made in recorded acceptance.
+
+Configured ceilings are three requests/run, six reserved requests/owner/day, twelve globally/day and sixty globally/30 days. Supplier quota and diagnostics remain separate. Free Render can sleep; durable recovery does not guarantee uninterrupted progress. See [pilot execution](hosted-live-search.md#persistence-cost-and-recovery).
+
+## Remaining acceptance and delivery
+
+1. **Organizer across both surfaces:** real hosted manual writes and web↔MCP edit continuity; complete web flight controls/comparison; explicit research links and organizer reconciliation.
+2. **Accounts and assistants:** hosted second-account isolation, read-only mutation denial, refresh/revocation/reconnection, Claude compatibility and ChatGPT write/search behavior. Automated checks do not replace these real flows.
+3. **Flight completeness:** broader airport/pair coverage, exact party-price basis, booking-specific snowboard evidence, seller repricing/handoff, transfers and provider-specific freshness/retention. No baggage-complete or comprehensive live-product claim yet.
+4. **Collaboration:** membership/invitations, comments, proposals and organizer approval, with shared authorization/history. This follows the organizer foundation, before accommodation integration.
+5. **Operating hardening:** least-privilege runtime role, throttling, output bounds/versioning, deletion/export/retention, consent recovery, telemetry and backup/restore. Accommodation/dining need separate access/evidence validation later.
+
+## Evidence and history
+
+- [Account linking](account-linking.md): configuration, dated deployment/acceptance and remaining client/security checks.
+- [Hosted live flight pilot](hosted-live-search.md): admission/recovery, readiness and real hosted search.
+- [Itinerary web app](itinerary-web.md): manual slice and saved-research release/acceptance.
+- [11 October live probes](spike/live-probe-results-2026-10-11.md): diagnostic/source findings.
+- [Earlier implementation record](history/implementation-2026-10-11.md): preserved 8–11 October status, setup and deployment history.
+- [Architecture review](architecture-review.md): original findings with follow-up; [spike index](spike/README.md) for historical proposals.
+
+Record new evidence in its feature guide and summarize it here. Historical counts and pending statuses apply to their dated records and do not override current status.

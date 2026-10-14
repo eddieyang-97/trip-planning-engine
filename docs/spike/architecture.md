@@ -1,6 +1,8 @@
-# Architecture and delivery plan
+# Original architecture and delivery proposal
 
-Proposed, not deployed. Provider access and cross-client OAuth still need runtime proof.
+Historical 3 October 2026 proposal. Superseded by [current architecture and accepted decisions](../architecture.md), [PRD v0.4](../prd.md) and [delivery status](../implementation.md). The original paid-host recommendation, MCP-first framing and roadmap below are retained as the research record. The current service uses Free Render + Supabase; web and MCP are first-class surfaces, the bounded flight pilot is deployed, and initial hosted OAuth/search and connected retrieval have succeeded. Broader acceptance remains open.
+
+The proposal below describes what was recommended at the time, not current deployment guarantees or an instruction to add paid infrastructure.
 
 ## Deployment choice
 

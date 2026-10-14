@@ -1,5 +1,7 @@
 # Repository and provider findings
 
+Historical research snapshot. Use [current architecture](../architecture.md) and [delivery status](../implementation.md) for chosen directions and actual proof. External prices, terms, repository activity and access assessments below apply to the recorded inspection; this cleanup has not revalidated them. Later provider observations are indexed in [the spike index](README.md).
+
 Research snapshot: 3 October 2026. Prices below are published USD prices before tax unless stated otherwise. Commercial approval and runtime behavior have not been inferred from documentation. Source inspection covered READMEs, licenses, entry points, domain models, relevant integration/auth files and deployment configuration; this was not an executed usability or security audit.
 
 ## Open-source comparison

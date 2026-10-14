@@ -1,32 +1,36 @@
-# Travel Research Engine — technical/product spike
+# Historical research and design spike
 
-3 October 2026 · Proposed design · Companion to PRD v0.2
+Research and proposals recorded 3–11 October 2026. Index clarified 13 October. This folder preserves the investigation that informed the product; it is not the current architecture or delivery-status source.
 
-## Recommendation
+Start with the [documentation index](../README.md), [accepted architecture decisions](../architecture.md), [PRD v0.4](../prd.md) and [current delivery status](../implementation.md).
 
-Build a persistent travel decision service, exposed through remote MCP. The valuable product is remembered criteria, comparable evidence, an explainable shortlist and repeat searches. Generic itinerary generation adds little to this first use case. ChatGPT and Claude provide the conversational layer; no backend LLM is needed initially. Collaboration and a full web app remain deferred.
+## Decisions that supersede the original spike
 
-Start with fixed-date flight research, with explicit baggage and transfer uncertainty. Use **one Render Node service plus Supabase**. Serve MCP and minimal account/consent pages from that service. Evaluate **SerpApi as the first pilot flight adapter**, subject to confirming permitted display/retention and testing exact-party fares. Do not commit the product to Duffel: its standard agreement prohibits metasearch. Keep manual, attributed observations as a useful fallback, clearly distinct from provider-verified offers.
+| Original proposal | Current decision / evidence |
+| --- | --- |
+| MCP-first product with a later full web app | Web and MCP are first-class surfaces over the same account/trip; organizer foundation across both, then collaboration |
+| Paid always-on Render recommendation | Existing Free Render service plus Supabase; durable in-process jobs with limited progress while the service sleeps |
+| SerpApi only a conditional diagnostic candidate | Live probes completed; narrow hosted flight pilot deployed and first authenticated run completed |
+| Account linking and hosted access wholly unproved | Direct sign-in, official-SDK OAuth/search, initial ChatGPT linking and connected retrieval succeeded; broader acceptance remains open |
+| Hotel/place integrations before later collaboration | Complete organizer foundation and collaboration before hosted accommodation search; manual stays/transfers/activities remain useful meanwhile |
 
-This is a completed research/design deliverable, **not a completed integration proof**. Public source and provider documentation were inspected. One live Trip.com connector search was performed. No project provider credentials, deployed MCP endpoint or authenticated ChatGPT/Claude connection were available, so those acceptance gates remain open. No repository was scaffolded, no paid plan activated and no GPL/AGPL code copied.
+Supplier rights, exact-party totals, snowboard evidence and broader coverage remain unresolved. These decisions do not establish production permission or bookable inventory.
 
-## Deliverables
+## Dated research and observations
 
-- [Repository and API research](research.md): source-level findings, licenses, access, pricing, maintenance and reuse decisions.
-- [Architecture and delivery plan](architecture.md): hosting, auth, tool contracts, ranking, structure and roadmap.
-- [TypeScript domain design](design/domain.ts) and [provider contract](design/provider.ts).
-- [Relational schema proposal](design/schema.sql): design DDL, not a deployed migration.
-- [Flaine acceptance specification](acceptance.md) and [confirmed/provisional inputs](fixtures/flaine-input.json).
-- [Live connector observation](fixtures/flaine-connector-observation.json): diagnostic evidence, not a production provider fixture or bookable quote guarantee.
+| Document | Role |
+| --- | --- |
+| [Repository/provider research](research.md) | 3 October snapshot of projects, licenses, pricing and access; external claims have not been revalidated by this cleanup |
+| [Flight provider evaluation](live-flight-provider-validation.md) | 9 October public-document assessment and commercial/capability questions |
+| [Accommodation/restaurant evaluation](hotel-restaurant-providers.md) | 9 October findings and later diagnostic follow-up; no hosted stay/table integration |
+| [11 October live probes](live-probe-results-2026-10-11.md) | Actual diagnostics/manual checks; historical evidence rather than current fares |
+| [Flaine input](fixtures/flaine-input.json) | Original confirmed inputs and explicit assumptions |
+| [3 October connector observation](fixtures/flaine-connector-observation.json) | Historical Trip.com evidence; not a production fixture or booking guarantee |
 
-## Decisions this spike changes
+## Superseded design and current acceptance
 
-1. **MCP is an interface, not the application.** Authorization, durable searches and scoring live in a transport-independent core so a later shared web view uses identical behavior.
-2. **SearchRun is not a child of one Candidate.** A decision has criteria versions, runs and candidates; a run yields observations for many candidates, and a candidate survives across runs. Prices belong to dated observations, not to the candidate identity.
-3. **Unknown required facts prevent an unqualified recommendation.** A cheap fare with unknown snowboard carriage is conditional, not eligible by default. An unknown price component is not zero.
-4. **Evidence retention is provider-specific.** A durable decision history does not imply permission to retain every provider payload indefinitely. Store allowed IDs, timestamps and user decisions; expire restricted content.
-5. **Access is the critical path.** A polished itinerary UI cannot resolve missing inventory rights, fare completeness or account linking. These get small measurable tests before a larger build.
+- [Original architecture proposal](architecture.md): retained as the 3 October recommendation; superseded by [current architecture](../architecture.md).
+- [Domain interfaces](design/domain.ts), [provider contract](design/provider.ts) and [schema proposal](design/schema.sql): unimplemented design artifacts. Use `src/` and `migrations/` for executable behavior.
+- [Flaine acceptance checklist](acceptance.md): current evidence mapping for the original scenario, separating automated checks, hosted acceptance and unresolved requirements.
 
-## First build gate
-
-Implement a small proof only after this design is reviewed: sign in through both target clients, create/read the same private trip, call one permitted flight source for four travelers, persist a dated observation, and repeat safely after a timeout. Require real group-price semantics, explicit missing baggage, account isolation and bounded search spend. If the provider cannot satisfy those conditions, keep the product as a saved-decision workspace with manual evidence while changing the adapter; do not describe it as verified live comparison.
+Preserve dated observations and original proposal bodies. Add links to subsequent evidence rather than rewriting historical prices, tests or recommendations as current facts.

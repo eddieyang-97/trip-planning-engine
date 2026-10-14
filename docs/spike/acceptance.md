@@ -1,43 +1,48 @@
-# Flaine end-to-end acceptance specification
+# Flaine acceptance checklist
 
-Confirmed by the user: 18–20 December **2026**, **four travelers**, **snowboard required**, **all London airports acceptable**. One board for the party and four adults are explicit test assumptions; they are not confirmed traveler details. Geneva is the proposed gateway. No exact Friday work cutoff, Sunday arrival limit, spending cap, equipment dimensions or transfer booking has been supplied.
+Updated 13 October 2026. The original scenario remains the acceptance target; statuses below distinguish automated checks, recorded hosted proof and outstanding product requirements. See [current delivery status](../implementation.md), [PRD v0.4](../prd.md), [hosted flight acceptance](../hosted-live-search.md#real-hosted-acceptance--13-october-2026) and [itinerary evidence](../itinerary-web.md#hosted-verification--13-october-2026).
 
-## Live research observation
+## Confirmed inputs and pilot scope
 
-The connected Trip.com tool was called for London–Geneva round trip, 18–20 December 2026, four adults, economy, locale en-GB. It returned nine options, all easyJet, with departures from LGW or LTN and returns to LGW. This is a sampled response, not complete London airport or airline coverage. Source retrieval timestamp is recorded in the JSON artifact; provider observation time was not supplied.
+Confirmed: **18–20 December 2026**, **four travelers**, **snowboard required**, and **all London airports allowed**. Four adults, one board and Geneva remain explicit working assumptions. Budget, time boundaries, equipment dimensions and onward transfers remain unconfirmed.
 
-The response demonstrates why normalization is necessary:
+The deployed pilot samples one direct easyJet LGW–GVA pair and up to ten sellers. It does not satisfy the all-airport requirement or establish a full-party, snowboard-complete bookable price. A completed run establishes completion of that narrow discovery request.
 
-- Currency was USD and the site was us.trip.com despite en-GB locale.
-- Numeric prices were returned with a localized “per traveler” label, while the tool schema called the price a total and described CNY. These conflict. Keep `priceBasis=unknown`; do not infer a four-person total.
-- The exact four-adult query is visible in the summary/links, but that alone does not prove inventory/price completeness for all travelers.
-- No snowboard fee or carriage allowance was returned. No transfer evidence was returned. Eligibility for the complete trip therefore remains conditional.
-- Some cheapest combinations use different outbound/return London airports. Preserve the airport identities; “all airports” does not mean cross-airport ground costs are zero.
-- No after-work departure appeared in this small response. This does not establish that no evening flight exists.
+## Evidence and remaining checks
 
-The call proves **live connector access**, not our own provider credentials, remote MCP deployment, a verified purchase quote or a passed end-to-end product test. It did not book anything. Do not seed production with this snapshot as current inventory.
+| Case | Required behavior | Evidence as of 13 October |
+| --- | --- | --- |
+| Account sign-in and MCP access | Verified account, client and resource audience | Real direct sign-in and official-SDK public registration/S256 PKCE/token verification passed |
+| Same saved trip across surfaces/clients | Same account retrieves authoritative trip/evidence | Official-SDK creation/search, initial ChatGPT linking/reported retrieval, independent connected reads and real web research viewing passed; Claude remains unverified |
+| Private account isolation | Other accounts cannot read/write guessed IDs | Automated ownership/grant tests pass; actual hosted second-account isolation remains outstanding |
+| Confirmed/provisional brief | Retain confirmed dates/party/airport scope and label assumptions | Persisted criteria and connected retrieval preserve the brief; actual ages/board quantity/gateway still need confirmation |
+| Exact-party live search | Full outbound/return evidence for the requested party | Hosted three-stage search for four adults completed with ten observations; every exact-party quote flag remains false and price basis unknown |
+| All-London coverage | Explicit coverage for all six allowed airports | Only LGW sampled; other airports explicitly unsearched |
+| Price and equipment unknowns | No complete total, free equipment or fully feasible claim without evidence | Automated comparisons plus hosted observation assertions/retrieval preserve unknown price basis, snowboard and expiry |
+| Hard budget/time constraints | Known failure overrides preference scores; use airport-local time | Correctness regression tests and controlled pooled checks pass; real airline/equipment verification still needed |
+| Transfer dependency | Unknown onward arrangements remain explicit | Retrieval/web show unresolved transfers; no transfer reservation or integrated feasibility proof |
+| Immutable criteria | New versions never change prior run meaning | Automated persistence/revision tests pass; complete real multi-surface criteria-edit trial remains outstanding |
+| Repeat search and changes | Preserve disposition/evidence; only comparable fares yield price deltas; absent is not sold out | Automated fixture diff tests and two standalone probe cycles exist; hosted fresh-run/reselection comparison not recorded |
+| Duplicate retry | Identical mutation returns original run without another chargeable request | Automated checks and real hosted retry returned the same run; ledger retained exactly three successful attempts |
+| Interrupted paid work | No blind resend after ambiguous transmission | Automated live lease/network tests pass; expired work becomes outcome-unknown without resend; no deliberate hosted crash trial recorded |
+| Source failure / coverage | Failure must not become no availability; partial scope explicit | Automated provider-failure and coverage checks; hosted success proves only sampled scope, not generalized multi-source partial recovery |
+| Evidence freshness/retention | Separate expired facts, permitted retention and preserved decision history | Expiry evaluation tested; provider age policy and executable deletion/redaction lifecycle remain work |
+| Selection versus booking | Distinct explicit outcomes; synthetic offers cannot be booked | Automated selection/report tests pass; no actual selection/booking in hosted acceptance |
+| Resource ceilings | Atomic admission, durable attempts, no metered work on status reads | Live tests and pooled admission check pass; actual run used three requests, repeated retry/retrieval added none |
+| Organizer continuity | Web edits visible through MCP and vice versa | Automated shared-core tests pass; real web/MCP research reads agree; hosted manual write round trip remains outstanding |
+| Web flight workflow | Research/compare/select through direct web controls | Saved evidence and tentative draft review deployed; full web search/comparison/outcome controls remain work |
+| Collaboration | Authenticated roles, revocation, discussion, proposals and organizer approval | Not part of the recorded deployed/accepted release; local development does not establish acceptance. Follows organizer foundation, before accommodation integrations |
 
-## Acceptance cases to execute on the vertical slice
+Automated checks are identified in [correctness fixes](../correctness-fixes.md), [live pilot validation](../hosted-live-search.md#validation-so-far) and feature test records. Test counts are dated evidence, not a claim that all product acceptance cases have passed.
 
-| Case | Expected result | Current status |
-|---|---|---|
-| Same trip across clients | Create through ChatGPT, read same ID/criteria through Claude signed into same travel account | Not run; hosted auth required |
-| Private account isolation | Second account cannot read/write guessed trip, run, observation or selection IDs | Not run |
-| Confirmed/provisional brief | Dates/party count/airport breadth retained; age mix and board quantity flagged as assumptions | Specified in fixture |
-| Exact-party live search | Source queried for four travelers; full outbound/return path; coverage and timestamps retained | Connector call performed; deployment adapter not tested |
-| Price-basis mismatch | Ambiguous basis yields no comparable group total | Required by design; runtime test pending |
-| Equipment unknown | Candidate conditional; no free snowboard assumption, even with a checked-bag boolean | Required by design; runtime test pending |
-| Hard time constraint | Once user sets a cutoff, failing flight excluded from eligible group regardless of cheap fare | Pending |
-| Transfer dependency | Late arrival with unknown onward transfer stays conditional; route duration not treated as a seat reservation | Pending |
-| Changed criteria | Old run references old immutable criteria; new run uses new version | Pending |
-| Repeated search | Saved/rejected choices survive; comparable price/schedule deltas shown; missing result means not-seen, not sold-out | Pending |
-| Duplicate tool retry | Same mutation key/payload returns same run without another reserved charge; changed payload conflicts | Pending |
-| Crash after send | Attempt becomes outcome-unknown or reconciles by provider ID; no blind duplicate paid search | Pending |
-| Source failure | Partial coverage and usable observations retained; failed airport/provider not described as no availability | Pending |
-| Evidence expiry | Facts become expired/redacted; historical user decision persists, with missing source content disclosed | Pending |
-| Select vs book | Selection records rationale; booking only recorded on explicit report of external completion | Pending |
-| Resource ceiling | Run stops expansion at budget; truncation visible; status reads create no paid requests | Pending |
+## Historical connector observation — 3 October
 
-## Pilot success criterion
+The original [Trip.com snapshot](fixtures/flaine-connector-observation.json) returned nine easyJet options from LGW/LTN, with USD prices despite the en-GB request and contradictory per-traveler/total/currency descriptions. Its uncertain passenger-price basis, absent equipment data, incomplete airport coverage and unknown transfers informed the conservative evidence model.
 
-Compare this workflow with ordinary flight search plus notes. On the second search, the organizer should identify meaningful changes within two minutes without re-entering criteria, and explain the trade-off and outstanding baggage/transfer conditions. Continue investment only if remembered context or cost completeness improves a real decision. A successful demo of tool calls alone does not validate the product thesis.
+That call proved connected source access at the time, not reusable backend access or a current fare. Subsequent [11 October probes](live-probe-results-2026-10-11.md) and the separate hosted pilot are their own evidence. Do not seed current inventory from these snapshots.
+
+## Product acceptance still to demonstrate
+
+The organizer must complete the bounded flight workflow through the web and intended assistants, retain criteria/decisions across sessions, understand the real trade-offs, and maintain the itinerary without a parallel Google Doc. A second research pass should reveal meaningful changes within two minutes without re-entering criteria.
+
+After the organizer foundation, verify a real friend collaboration session, role enforcement, revocation, conflicting proposals and shared state. Working tool calls, one live run and ten sellers are useful technical proof; they do not alone demonstrate that product outcome.

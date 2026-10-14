@@ -1,6 +1,6 @@
 # Decision correctness and consistent reads — 11 October 2026
 
-This change addresses findings 1–3 of the [architecture review](architecture-review.md). The other findings remain separate provider, collaboration and operational work; this is not a production-readiness claim.
+This records the correction of findings 1–3 of the [architecture review](architecture-review.md). Test counts and deployment scope below describe this code-only correction. Subsequent live-provider work, the deployed release and remaining collaboration/operating gaps are tracked in [current delivery status](implementation.md); this is not a production-readiness claim.
 
 ## Budget failures
 

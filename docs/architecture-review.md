@@ -6,7 +6,7 @@ The architecture is a sound research prototype. Keep one Node service, Supabase 
 
 This review distinguishes reproduced defects, risks inferred from implementation, and deliberate prototype gaps. It does not certify hosted OAuth, external PostgreSQL behavior or live provider access.
 
-**Implementation follow-up, 11 October:** Findings 1–3 have subsequent fixes and regression tests documented in [correctness-fixes.md](correctness-fixes.md). The original findings below describe baseline `6b352e1` and are preserved as the review record. CI verified all 55 tests, including controlled pooled PostgreSQL concurrency, with none skipped. Findings 4–13 remain open or milestone-gated as described.
+**Follow-up through 13 October:** This is a historical review of baseline `6b352e1`; findings below preserve that state. Findings 1–3 have fixes and regression tests in [correctness-fixes.md](correctness-fixes.md). Finding 4 has subsequent implementation of a narrow [hosted live pilot](hosted-live-search.md), including durable attempts, budgets, deadlines and conservative recovery; generalized providers, full coverage and retention remain work. The [saved-research projection](itinerary-web.md#saved-research-display--13-october-2026) addresses part of finding 9 with typed, bounded web data, while broader contracts remain open. Finding 13's conflicting hosting/product guidance is superseded by [current architecture](architecture.md); operating hardening remains open. Hosted OAuth/search and connected retrieval now have proof. Other requirements remain open or milestone-gated; consult [delivery status](implementation.md), not the original pending statements below.
 
 ## Prioritized findings
 

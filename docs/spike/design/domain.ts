@@ -1,4 +1,5 @@
 /** Design interfaces, not application scaffolding. Validate all inputs at runtime. */
+// Historical spike proposal. Current decisions: ../../architecture.md; runtime types: ../../../src/.
 export type ID = string;
 export type ISODate = string; // YYYY-MM-DD; calendar-valid
 export type Instant = string; // RFC3339 with offset

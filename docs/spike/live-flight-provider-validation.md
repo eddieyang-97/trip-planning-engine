@@ -2,7 +2,9 @@
 
 9 October 2026 · Public-document validation; no credentialed flight search performed
 
-Implementation follow-up: a [standalone six-search probe](../flight-probe.md) is now implemented and offline-tested. It still needs an authorized Free SerpApi key; no live evidence has been obtained. The production rights gates proposed below concern a durable service used through assistants. They do not supersede the separate private, manually curated [policy-note workflow](../policy-notes.md).
+Subsequent evidence, 13 October: the [standalone flight probe](../flight-probe.md) ran live on 11 October, and the [bounded hosted flight pilot](../hosted-live-search.md) completed one authenticated run on 13 October. SerpApi is the chosen narrow discovery pilot; exact-party prices, snowboard evidence, broader coverage and production storage/redisplay rights remain unresolved. See [current decisions](../architecture.md) and [delivery status](../implementation.md).
+
+The assessment below preserves the 9 October public-document findings, including recommendations and work not performed during that investigation. Its no-go concerns an automated baggage-complete scenario, not the later explicitly limited discovery pilot. Private [policy notes](../policy-notes.md) remain a separate manual workflow.
 
 ## Recommendation and decision
 

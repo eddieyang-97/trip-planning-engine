@@ -1,4 +1,5 @@
 -- DESIGN DDL ONLY: not applied or migration-tested against Postgres.
+-- Historical proposal. Current decisions: ../../architecture.md; applied schema: ../../../migrations/.
 -- Supabase auth.users is an external prerequisite.
 -- Fail-closed: tables are RLS-enabled with NO client policies/grants below.
 -- Before use, implement narrow transactional entry points for the core, with

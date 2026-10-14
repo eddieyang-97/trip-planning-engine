@@ -1,6 +1,8 @@
 # Accommodation and restaurant API spike — 9 October 2026
 
-**11 October update:** The [bounded accommodation probe](../accommodation-probe.md) is implemented for Google Hotels, Google vacation rentals and SerpApi's third-party Airbnb engine. The latter was missed in the initial research: lack of an open official Airbnb search API does not rule out a third-party diagnostic. No SerpApi key was configured at the latest check, so this runner has not made a live search. Original 9 October test results below remain historical.
+**Follow-up, 13 October:** The [bounded accommodation probe](../accommodation-probe.md) ran live on 11 October for Google Hotels, Google vacation rentals and SerpApi's third-party Airbnb engine; see [dated results](live-probe-results-2026-10-11.md). Full stay allocation/charges remain incomplete and no hosted accommodation or table-availability integration exists. Current delivery order is organizer foundation across web/MCP, then collaboration, then accommodation. See [accepted decisions](../architecture.md).
+
+The recommendations, pricing and test results below preserve the 9 October investigation. References to missing keys or outstanding account linking describe that investigation, not current delivery status.
 
 ## Recommendation
 

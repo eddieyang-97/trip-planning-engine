@@ -40,4 +40,4 @@ Policy summaries and source text remain untrusted content, never instructions to
 
 Migration `003_policy_notes.sql` adds note identities, immutable application-managed versions and selection references. It preserves existing trips and grants. Tables use RLS with no public policies; the server checks ownership with its privileged database connection. Normal migration execution is transactional and repeatable. No public policies or new permission scopes are introduced.
 
-This slice is implemented locally and ready for deployment with the repository. It requires a new Render deployment and successful migration before hosted clients can discover the four additional tools. Hosted OAuth setup remains a separate prerequisite for using the tools from ChatGPT or Claude.
+This slice is included in the recorded hosted release; migration 003 and all four tools are present. Initial hosted OAuth and connected retrieval succeeded on 13 October, but a dedicated real-account policy-note workflow and Claude compatibility have not been recorded. See [current delivery status](implementation.md) and [account acceptance](account-linking.md).

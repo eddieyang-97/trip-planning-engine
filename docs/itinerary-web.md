@@ -1,6 +1,6 @@
 # Itinerary web app — organizer slice
 
-Updated 13 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. The deployed organizer supports manual itinerary display/editing and saved flight research review. This does not complete membership, comments, proposals or automatic reconciliation of selected research with itinerary items.
+Updated 13 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. Manual organization and saved-research review are deployed, with real-account research viewing and connected reads verified. Real hosted manual writes, collaboration acceptance and automatic research reconciliation remain incomplete. See [current architecture](architecture.md) and [delivery status](implementation.md).
 
 ## What works
 
@@ -34,11 +34,11 @@ Web and MCP writes share idempotency records, trip ownership checks and transact
 
 The first slice limits each trip to 500 item records including removed items. The display includes the first 60 dates plus every date containing an item, with a notice for longer trips. These are explicit pilot bounds. Content is rendered with text nodes rather than user-supplied HTML, links open with `noopener noreferrer`, and the page has a restrictive CSP and no external analytics, fonts or media dependencies.
 
-## Validation and remaining acceptance
+## Original manual-slice validation — 11 October 2026
 
-TypeScript build and all 46 tests pass. Tests cover schemas, ownership, assistant revocation, direct-session route protection, same-origin checks, cross-trip IDs, idempotent retries, conflicts, reordering, removal history, migrations and actual MCP tool calls. Browser checks verified demo add/edit flows, a required booking note and the resulting status, and no horizontal page/editor overflow at a 390px viewport. Browser console reported no errors during those interactions. Screenshot capture failed in the available browser; visual inspection of a rendered screenshot and a real phone remain outstanding.
+At this slice's validation, the TypeScript build and all 46 tests passed. Tests covered schemas, ownership, assistant revocation, direct-session route protection, same-origin checks, cross-trip IDs, idempotent retries, conflicts, reordering, removal history, migrations and actual MCP tool calls. Browser checks verified demo add/edit flows, a required booking note and resulting status, and no horizontal page/editor overflow at 390px. Console checks reported no errors; screenshot capture was unavailable then. Later visual capture and release evidence are recorded below; a physical-phone trial remains outstanding.
 
-Before hosted release, deploy the built assets and migration together and test real Supabase sign-in, two independent accounts and a web-to-MCP edit round trip on external PostgreSQL. The current GitHub push does not claim a new Render deployment.
+The original slice required a joint asset/migration release plus real sign-in, two-account isolation and a web-to-MCP edit round trip. Deployment and sign-in subsequently succeeded; real manual writes, hosted two-account isolation and the edit round trip remain open. See the 13 October hosted verification below.
 
 ## Saved research display — 13 October 2026
 
@@ -52,7 +52,7 @@ The UI now shows initial/loading feedback and bounded request timeouts. An unava
 
 Validation before deployment: build passed; the local regression suite passed 67 tests with the two external PostgreSQL checks skipped (69 total). New tests cover private read projection, bounded observations, retained older selection/booking evidence, no read-side mutation/search, airport-local overnight dates, tentative-only drafts and safe research links. An isolated loopback preview used copied Flaine evidence with live search disabled. Chrome verified unknown-basis seller labels, flight review, tentative save into the correct day, existing-item detection, and stale-trip-link recovery. At a 390px viewport, the page and editor fit without horizontal page overflow. Preview edits did not change the hosted trip. CI and hosted deployment verification are tracked below when complete.
 
-Next increments: shared invitations and membership, comments/proposals and organizer approval; durable research-to-itinerary links and reconciliation; history pagination/restoration. Public anonymous sharing is not enabled.
+Next acceptance increments: finish organizer validation, direct web flight controls and durable research links/reconciliation; authenticated invitations, membership, comments/proposals and organizer approval follow the organizer foundation. History pagination/restoration remains further work. Public anonymous sharing is not enabled.
 
 ## Hosted verification — 13 October 2026
 
