@@ -1,6 +1,6 @@
 # Itinerary sharing
 
-The organizer creates a trip and adds manual itinerary items. In the new sharing implementation, **Can view** creates a reusable link that opens without an account; **Can edit itinerary** creates a one-person invitation that requires sign-in. The organizer can revoke either. Comments and proposals remain later work. Release evidence below distinguishes implemented behavior from the currently deployed version.
+The organizer creates a trip and adds manual itinerary items. In **Share trip**, **Can view** creates a reusable link that opens without an account; **Can edit itinerary** creates a one-person invitation that requires sign-in. The organizer can revoke either. Comments and proposals remain later work. Account-free viewing is deployed and verified as recorded in the recovered hosted rollout below.
 
 ## Account-free view links — 14 October 2026
 
@@ -18,9 +18,17 @@ Validation: implementation `1444ac82afe1dc174119481d35781379bd621021` passed [CI
 
 Hosted rollout remains blocked by Render. The older editor-only build stayed Building without logs for over 25 minutes; it was cancelled before attempting the combined release. Deploying the exact passing view-link commit through Render’s specific-commit form returned **Deploy Error — Service Unavailable**. No new deployment was created. The dashboard still identifies `9a69257` as the last successfully deployed release, so migrations 007/008 and hosted account-free acceptance remain unverified. This is an external deployment failure, not an application/CI failure; the runtime and existing accounts were not reconfigured. A subsequent fresh `/health` request timed out after 65 seconds. Chrome then showed Render’s application-loading/service-waking page rather than the app health JSON, so current runtime availability could not be confirmed; the earlier 200 response must not be treated as a current health check.
 
+## Hosted rollout recovered — 14 October 2026
+
+Render marked the all-region incident resolved at 22:18 UTC (23:18 London). Retrying the exact tested implementation `1444ac82afe1dc174119481d35781379bd621021` at 23:51:05 London succeeded in 42.8 seconds: [deployment](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db80emaj9qps73b5pjvg). The service dashboard identifies this commit as Live. `/health` returned HTTP 200 with `status: ok`; startup completed after the version-8 migration check. This supersedes the earlier rollout blocker above. No upgrade or configuration change was required.
+
+The previous organizer tab had closed. Normal Chrome autofill restored the existing organizer session without reading or recording its password. In the fictional hosted test trip, the owner created a seven-day anonymous view link. Two fresh visitor tabs opened the saved itinerary without sign-in. Reload and Overview/Details succeeded, no Edit or Share trip controls appeared, and the credential was removed from the displayed URL. The owner revoked that view link; both visitors' Refresh showed the generic unavailable page and removed the saved note from their displayed plans. The test link is revoked; the itinerary itself stayed at its existing revision with no content changes. No provider request or email was sent.
+
+The organizer then returned to the real itinerary's sharing screen. It still showed only the owner has access. No real itinerary link was created, no other person received access and no invitation was sent. The new owner controls are live and ready for manual use. Hosted editor invitation acceptance and editing with another real account remain unverified; the release includes their passing automated and isolated-browser coverage.
+
 ## Editor role — 14 October 2026
 
-The editor implementation adds **Can view** (the default) or **Can edit itinerary**. Editors can add tentative items and edit, remove or reorder shared items in the web app. Only the owner manages invitations, research, booking status and private booking notes. The invitation preview explains these permissions before joining. Existing invitations and memberships remain viewers; the release does not grant any existing account editing access. Production rollout is pending the Render build incident described below.
+The editor implementation adds **Can view** (the default) or **Can edit itinerary**. Editors can add tentative items and edit, remove or reorder shared items in the web app. Only the owner manages invitations, research, booking status and private booking notes. The invitation preview explains these permissions before joining. Existing invitations and memberships remain viewers; the release does not grant any existing account editing access. This implementation is included in the recovered live rollout above; hosted editor joining/writes remain unverified.
 
 Migration `007_itinerary_editors.sql` adds an invitation role and expands membership roles. Shared add/update requests use strict schemas that omit booking status and private notes. Updating a reported booking preserves those fields on the server. Owner history retains the editor's actor ID and the browser distinguishes collaborator changes. Editors receive the same private-field omissions as viewers; assistant writes remain owner-only and the two shared editing operations are excluded from MCP discovery.
 
