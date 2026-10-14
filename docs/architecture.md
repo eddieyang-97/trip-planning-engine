@@ -4,7 +4,7 @@ Updated 14 October 2026. This is the current architecture for **Trip Planning Wo
 
 ## High-level architecture
 
-Recorded deployed design: one Free Render service, Supabase identity/storage, and an explicitly enabled SerpApi flight pilot. Web and MCP are equal product surfaces; the service owns permissions and saved facts.
+Recorded deployed design: one Free Render service, Supabase identity/storage, Brevo SMTP configured for account-confirmation emails, and an explicitly enabled SerpApi flight pilot. Web and MCP are equal product surfaces; the service owns permissions and saved facts. Brevo configuration is recorded; the latest external sign-up attempt failed SMTP authentication, so delivery acceptance remains pending.
 
 ```mermaid
 flowchart TB
@@ -24,8 +24,14 @@ flowchart TB
         DB[("Postgres")]
     end
     SerpApi["SerpApi"]
+    Brevo["Brevo SMTP relay"]
+    Inbox["User email inbox"]
 
     Web -->|"Direct-session bearer"| API
+    Web -->|"Sign-up / sign-in / resend confirmation"| Auth
+    Auth -->|"Auth email via configured SMTP"| Brevo
+    Brevo -->|"Confirmation email; SMTP authentication failing"| Inbox
+    Inbox -->|"User follows confirmation link to /account"| Web
     Assistant -->|"OAuth bearer / Streamable HTTP"| MCP
     Auth -.->|"Session verification"| API
     Auth -.->|"Signing keys / JWKS"| MCP
@@ -38,6 +44,8 @@ flowchart TB
 ```
 
 The account pages and Supabase Auth handle direct sign-in and assistant authorization; neither surface accesses application tables directly. The runner is part of the same Node process and can pause when the Free service sleeps. No additional host, separate worker or backend LLM is required by the current design.
+
+Supabase Auth generates the confirmation email and verification link; Brevo relays the message. SMTP credentials are held in Supabase configuration. The Render service has no direct Brevo client or email job runner. Organizers share itinerary invitation URLs themselves; creating an invitation does not send an email. See [account email configuration](account-linking.md#account-email-delivery) and [sharing acceptance](itinerary-sharing.md).
 
 ## Core data overview
 
@@ -68,6 +76,7 @@ A candidate survives repeat searches; prices belong to dated observations. A sel
 | --- | --- | --- |
 | Product surfaces | Web and hosted MCP are first-class interfaces to one account and trip workspace | Web has manual itinerary and saved research; the full web flight workflow remains to be delivered |
 | Deployment | One Node service on the existing Free Render plan, plus Supabase for Postgres and account identity | No additional host, Redis, separate worker, paid upgrade or backend LLM is part of the current deployment |
+| Account email | Supabase Auth uses Brevo Free custom SMTP with a verified sender; email confirmation remains enabled | Settings were saved and reloaded on 14 October; a subsequent external sign-up failed SMTP authentication. Invitation URLs are shared manually |
 | Shared authority | The service owns permissions, durable state, evidence, constraints and deterministic ranking | Browsers and assistants present facts and request changes; conversation memory is not authoritative |
 | First live source | SerpApi powers an explicitly enabled, bounded flight-discovery pilot | One direct easyJet LGW–GVA pair for the fixed Flaine case; broader coverage and baggage-complete quotes remain unresolved |
 | Evidence | Candidate identity is separate from dated offer observations; criteria versions are immutable | Synthetic, user-reported and provider-reported facts stay distinct; unknown costs are never zero |

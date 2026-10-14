@@ -19,6 +19,8 @@ Both surfaces are core to the product. Their interfaces can suit different tasks
 
 Start with the [high-level architecture](docs/architecture.md#high-level-architecture), [database ER diagrams](docs/database.md) and [user flows](docs/user-flows.md). The [documentation index](docs/README.md) also links product requirements, delivery evidence and historical research.
 
+Account-confirmation emails use Supabase Auth with [Brevo custom SMTP](docs/account-linking.md#account-email-delivery). Configuration and sender verification are recorded; the latest external sign-up failed SMTP authentication, so delivery remains pending. Organizers share trip invitation links manually.
+
 ## Run locally
 
 The [itinerary web app](docs/itinerary-web.md) provides the organizer and saved research at `/itinerary`, using the same persistent trip state as MCP. Open `/itinerary?demo=1` for a labelled, editable Flaine preview; example data resets on reload. Hosted users sign in through `/account`; no MCP client or assistant account is required. Real sign-in and research viewing passed. View-only sharing is deployed; discussion follows later, while real friend onboarding and broader edit continuity still need acceptance.

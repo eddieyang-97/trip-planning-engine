@@ -178,6 +178,8 @@ Private policy notes belong to an account and may be reused across its trips. Se
 
 Supabase Auth manages accounts outside this application schema. `owner_id`, `actor_id`, `requested_by`, and similar UUID fields are verified account references used by the service; migrations 001–006 do **not** create an application users table or SQL foreign keys to `auth.users`. Ownership checks and direct/assistant session rules remain essential. The browser does not read these tables through the Supabase Data API.
 
+Brevo is configured as Supabase Auth's SMTP relay. It adds no application tables or relationships, so these ER diagrams remain unchanged. SMTP credentials live in Supabase configuration; delivery logs live with the providers. Application invitation tokens/memberships remain in the viewer-sharing tables below, separate from account-confirmation emails. See [account email delivery](account-linking.md#account-email-delivery).
+
 These supporting tables have no application-table foreign keys, so they are listed separately rather than shown with invented relationships:
 
 | Table | Key | Role |

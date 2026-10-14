@@ -75,14 +75,24 @@ A copied research draft remains tentative and never creates a research selection
 
 ## Viewer invitation — deployed; hosted acceptance pending
 
-This flow describes the deployed viewer-sharing extension in migration 006. Synthetic browser and PostgreSQL checks passed; email delivery and a real friend session remain pending. Invitation management is through the direct-session web surface. Viewer reads exclude research, owner history and booking notes. See [sharing acceptance](itinerary-sharing.md).
+This flow describes the deployed viewer-sharing extension in migration 006. Synthetic browser and PostgreSQL checks passed; Brevo SMTP configuration is saved, but the recorded external sign-up failed SMTP authentication; credential repair, email delivery and a real friend session remain pending. Invitation management is through the direct-session web surface. Viewer reads exclude research, owner history and booking notes. See [sharing acceptance](itinerary-sharing.md).
 
 ```mermaid
 flowchart TB
     Owner[Organizer opens trip access controls] --> Invite[Create an expiring viewer invitation]
     Invite --> Share[Organizer shares the private link]
-    Share --> Friend[Friend opens link and signs in]
-    Friend --> Valid{Invitation valid for this account?}
+    Share --> Friend[Friend opens link; pending invitation stays in this tab]
+    Friend --> Account{Already has a confirmed account?}
+    Account -->|Yes| SignIn[Sign in to the travel account]
+    Account -->|No| SignUp[Create account through Supabase Auth]
+    SignUp --> Email[Supabase sends confirmation through Brevo SMTP]
+    Email --> Delivery{Email received?}
+    Delivery -->|No| Retry[Check spam; request resend or resolve delivery error]
+    Retry --> Email
+    Delivery -->|Yes| Confirm[Follow confirmation link to /account]
+    Confirm --> Return[Return to original invitation tab]
+    Return --> SignIn
+    SignIn --> Valid{Invitation valid for this account?}
     Valid -->|No| Unavailable[Show unavailable, expired or revoked]
     Valid -->|Yes| Join[Review invitation and accept as a viewer]
     Join --> Member[Persist membership for the signed-in account]
@@ -93,6 +103,8 @@ flowchart TB
 ```
 
 An invitation URL is a route to authenticated membership, not anonymous publication. It does not grant access to the owner's account-private research or assistant connections. Source: [sharing implementation](../src/itinerary-sharing.ts) and [ER extension](database.md#viewer-sharing-extension--deployed).
+
+The organizer shares the invitation URL manually; the application does not email it through Brevo. Confirmation proves account control, while accepting the invitation separately creates trip membership. A delivery failure leaves onboarding incomplete. Resends remain subject to Supabase and Brevo limits; see [account email delivery](account-linking.md#account-email-delivery).
 
 ## Collaborator proposal and approval — target flow
 

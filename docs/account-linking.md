@@ -17,12 +17,24 @@ The existing dedicated project uses the following settings. Verify them when set
 | Auth Hooks → Custom Access Token | PostgreSQL function `public.travel_access_token_hook` |
 | JWT signing | An active asymmetric ES256 or RS256 key; verify the public JWKS |
 | Dynamic client registration | Enabled for the current assistant connections; registration itself does not grant application access |
+| Custom SMTP | Enabled with Brevo; host `smtp-relay.brevo.com`, port 587, verified sender, sender name Travel Research |
+| Email confirmation | Required; SMTP authentication repair and external delivery acceptance remain pending |
 
 These are project settings, not the user's account on the Supabase dashboard. Do not alter dashboard credentials, disable email confirmation, use wildcard redirect URLs, or weaken JWT audience checks. Existing signing-key migration, if required, needs a separate reviewed rollout.
 
-The first user creates a travel account at `/account`, confirms the email, and signs in. The browser stores its direct Supabase session in tab-scoped session storage. Confirmation opened in a different tab may require returning to the original tab and signing in again. Supabase's default email service may limit recipients; inspect the project email configuration before inviting friends. Configure a verified sender separately if necessary.
+The first user creates a travel account at `/account`, confirms the email, and signs in. The browser stores its direct Supabase session in tab-scoped session storage. Confirmation opened in a different tab may require returning to the original tab and signing in again. The existing project uses Brevo custom SMTP as described below; a new environment needs its own sender configuration.
 
 The assistant connects to `https://trip-planning-engine.onrender.com/mcp`. Discover the authorization server through its protected-resource metadata. Do not claim support for a particular assistant until its real registration, PKCE, consent and refresh flow succeeds.
+
+## Account email delivery
+
+On 14 October 2026, Brevo onboarding and sender verification completed. Supabase custom SMTP settings were saved, and a dashboard reload confirmed they persisted. This was a configuration check. The subsequent second-account sign-up returned HTTP 500; the recorded Auth log at 01:27:51 London time reports `535 5.7.8 Authentication failed`. Repair the stored SMTP login/key pair before retrying. No successful external confirmation delivery is recorded yet. See [the dated sharing evidence](itinerary-sharing.md#validation-and-launch-dependency).
+
+The account page calls Supabase Auth for sign-up and resend confirmation, with the exact `/account` redirect. Supabase generates the message and confirmation link and submits it through Brevo SMTP. Use the provider's SMTP login and **SMTP key**, which is distinct from a Brevo API key. Keep both in Supabase's dashboard; no Brevo credential or new Render environment variable is required. See [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp) and [Brevo SMTP configuration](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP).
+
+The recorded Brevo dashboard allowance was 300 emails/day. Supabase Auth rate limits also apply independently; that allowance does not establish the project's effective sending rate. Neither quota nor saved SMTP settings prove inbox delivery. For failed delivery, inspect Supabase Auth errors and Brevo transactional logs, then check sender status and both services' limits. The account page supports resend confirmation; automatic retries and application email-delivery tracking are not implemented.
+
+Remaining acceptance is an intended external test account receiving and confirming the message, signing in, accepting the fictional trip invitation, then losing access after owner revocation. If confirmation opens another tab, return to the original invitation tab so its pending token is retained. Trip invitations are application links shared manually; they are separate from Supabase Auth email invitations. Keep email confirmation enabled throughout.
 
 ## Permissions and revocation
 

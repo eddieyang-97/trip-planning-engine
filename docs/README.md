@@ -18,7 +18,7 @@ Requirements define what should exist; delivery status says what has been implem
 
 | Document | Scope |
 | --- | --- |
-| [Account linking](account-linking.md) | Configuration, consent, grants, revocation and dated OAuth/assistant acceptance |
+| [Account linking](account-linking.md) | Supabase/Brevo email configuration, consent, grants, revocation and dated OAuth/assistant acceptance |
 | [Hosted flight pilot](hosted-live-search.md) | SerpApi scope, configured allowances, durable attempts, recovery and actual hosted search |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
 | [View-only itinerary sharing](itinerary-sharing.md) | Deployed private invitations, viewer privacy, revocation and remaining email-delivery acceptance |
