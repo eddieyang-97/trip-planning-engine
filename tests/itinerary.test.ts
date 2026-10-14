@@ -78,6 +78,7 @@ test('web routes require direct authentication and same-origin writes, reject ca
       itinerary:itineraryRoutes({core,origin,authenticate,supabaseUrl:'https://auth.example',publishableKey:'sb_publishable_test'})}));
     const post=(operation:string,body:unknown,token='direct',from=origin)=>fetch(`${origin}/itinerary-api/${operation}`,{method:'POST',headers:{origin:from,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
     const page=await fetch(`${origin}/itinerary?demo=1`);assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy')!,/frame-ancestors 'none'/);
+    const views=await fetch(`${origin}/assets/itinerary-views.css`);assert.equal(views.status,200);assert.match(views.headers.get('content-type')!,/text\/css/);assert.match(await views.text(),/position:sticky/);
     assert.equal((await post('list_trips',{},'assistant-token')).status,401);
     assert.equal((await post('create_trip',{...flaineTrip,...key()},'direct','https://evil.example')).status,403);
     assert.equal((await post('create_trip',{...flaineTrip,...key(),ownerId:other})).status,400);

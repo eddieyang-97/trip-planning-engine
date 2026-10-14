@@ -8,12 +8,13 @@ import { DomainError } from './domain.js';
 export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(header?:string)=>Promise<{userId:string}>;
   supabaseUrl?:string;publishableKey?:string;local?:boolean}) {
   const router=Router();
-  router.use(['/itinerary','/itinerary-api','/assets/itinerary.js','/assets/itinerary.css'],(_req,res,next)=>{
+  router.use(['/itinerary','/itinerary-api','/assets/itinerary.js','/assets/itinerary.css','/assets/itinerary-views.css'],(_req,res,next)=>{
     res.setHeader('Content-Security-Policy',`default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${options.supabaseUrl??''}; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`);
     res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');next();
   });
   router.get('/itinerary',async(_req,res)=>res.type('html').send(await readFile(new URL('../web/itinerary.html',import.meta.url),'utf8')));
   router.get('/assets/itinerary.css',async(_req,res)=>res.type('css').send(await readFile(new URL('../web/itinerary.css',import.meta.url),'utf8')));
+  router.get('/assets/itinerary-views.css',async(_req,res)=>res.type('css').send(await readFile(new URL('../web/itinerary-views.css',import.meta.url),'utf8')));
   router.get('/assets/itinerary.js',async(_req,res)=>res.type('application/javascript').send(await readFile(resolve('dist/web/itinerary.js'),'utf8')));
   router.get('/itinerary/config',(_req,res)=>res.json({mode:options.local?'local':options.authenticate?'hosted':'unavailable',
     supabaseUrl:options.supabaseUrl,publishableKey:options.publishableKey}));

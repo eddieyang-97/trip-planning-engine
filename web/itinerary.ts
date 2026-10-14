@@ -3,6 +3,7 @@ import type { ItineraryItem } from '../src/itinerary.js';
 import type {ItineraryResearch} from '../src/itinerary-research.js';
 import {renderResearch,researchQuestions} from './itinerary-research.js';
 import {configureSharing,openInvitation,pendingInvitation} from './itinerary-sharing.js';
+import {renderOverview} from './itinerary-overview.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
 type Trip={id:string;role?:'owner'|'viewer';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
@@ -12,6 +13,40 @@ const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
 let pending:{signature:string;key:string}|null=null;
 let loading=false;
+let view:'overview'|'details'=new URL(location.href).searchParams.get('view')==='details'?'details':'overview';
+let activeDay='',scrollFrame=0;
+const collapsed=new Set<string>();
+function dayTarget(day:string){return document.getElementById(`${view==='overview'?'overview-day':'day'}-${day}`);}
+function markDay(day:string){
+  if($('day-nav').querySelector<HTMLAnchorElement>('[aria-current]')?.dataset.day===day){activeDay=day;return;}
+  activeDay=day;
+  for(const link of $('day-nav').querySelectorAll<HTMLAnchorElement>('a')){
+    if(link.dataset.day===day){link.setAttribute('aria-current','date');
+      const nav=$('day-nav');if(link.offsetLeft<nav.scrollLeft||link.offsetLeft+link.offsetWidth>nav.scrollLeft+nav.clientWidth)nav.scrollTo({left:link.offsetLeft-12});
+    }else link.removeAttribute('aria-current');
+  }
+}
+function jumpDay(day:string){markDay(day);dayTarget(day)?.scrollIntoView({block:'start'});}
+function setView(next:'overview'|'details',jump=true){
+  view=next;$('overview').hidden=view!=='overview';$('details-layout').hidden=view!=='details';
+  $('view-overview').setAttribute('aria-pressed',String(view==='overview'));$('view-details').setAttribute('aria-pressed',String(view==='details'));
+  const url=new URL(location.href);url.searchParams.set('view',view);history.replaceState(null,'',url);
+  for(const link of $('day-nav').querySelectorAll<HTMLAnchorElement>('a'))link.href=`#${view==='overview'?'overview-day':'day'}-${link.dataset.day}`;
+  if(jump&&activeDay)jumpDay(activeDay);
+}
+function trackDay(){
+  scrollFrame=0;if(!plan||$('trip-view').hidden)return;
+  const boundary=$('plan-navigation').getBoundingClientRect().bottom+24;
+  const sections=[...(view==='overview'?$('overview'):$('timeline')).querySelectorAll<HTMLElement>(view==='overview'?'.overview-day,.overview-unscheduled':'.day')];
+  // Side-by-side calendar columns share their vertical position; preserve the
+  // chosen day there. On phones they become a vertically scrolling agenda.
+  if(view==='overview'&&matchMedia('(min-width:701px)').matches)return;
+  let current=sections[0];for(const section of sections){if(section.getBoundingClientRect().top<=boundary)current=section;else break;}
+  if(current)markDay(current.id.replace(view==='overview'?'overview-day-':'day-',''));
+}
+window.addEventListener('scroll',()=>{if(!scrollFrame)scrollFrame=requestAnimationFrame(trackDay);},{passive:true});
+new ResizeObserver(()=>document.documentElement.style.setProperty('--plan-nav-height',`${$('plan-navigation').getBoundingClientRect().height+16}px`)).observe($('plan-navigation'));
+$('view-overview').onclick=()=>setView('overview');$('view-details').onclick=()=>setView('details');
 const names:Record<ItineraryItem['type'],string>={flight:'Flight',accommodation:'Stay',transfer:'Transfer',activity:'Activity',restaurant:'Food & drink',note:'Note'};
 const icons:Record<ItineraryItem['type'],string>={flight:'↗',accommodation:'⌂',transfer:'⇄',activity:'◇',restaurant:'♧',note:'≡'};
 const blank:ItineraryItem={type:'activity',title:'',startDate:null,startTime:null,endDate:null,endTime:null,timeZone:null,endTimeZone:null,
@@ -101,22 +136,33 @@ function render(){
     ...researchOpen.map(text=>node('p',text,'question-mini')),...(questions.length||researchOpen.length?[]:[node('p','No open questions recorded. Add one to any item as you plan.','muted')]));
   $('history').replaceChildren(...(plan.history.length?plan.history.map(h=>{const el=node('div',`${h.action[0].toUpperCase()+h.action.slice(1)}: ${(h.after_payload??h.before_payload)?.payload?.title??'Item'}`,'history-event');el.append(node('span',new Date(h.created_at).toLocaleString('en-GB')));return el;}):[node('p','Your saved changes will appear here.','muted')]));
   const dates=allDates();$('timeline').replaceChildren();$('day-nav').replaceChildren();
+  if(![...dates,'unscheduled'].includes(activeDay))activeDay=dates[0]??'unscheduled';
   if((Date.parse(p.endDate)-Date.parse(p.startDate))/86400000>=60)$('timeline').append(node('p','Showing the first 60 days and all dates with saved items.','muted'));
   for(const day of [...dates,'unscheduled']){
     const group=plan.items.filter(i=>day==='unscheduled'?!i.payload.startDate:i.payload.startDate===day).sort((a,b)=>a.position-b.position);
     const section=node('section','','day');section.id=`day-${day}`;
-    const nav=node('a',day==='unscheduled'?`Unscheduled${unscheduled?` (${unscheduled})`:''}`:date(day,{weekday:'short',day:'numeric',month:'short'}));nav.href=`#${section.id}`;$('day-nav').append(nav);
+    const nav=node('a',day==='unscheduled'?`Ideas${unscheduled?` (${unscheduled})`:''}`:date(day,{weekday:'short',day:'numeric',month:'short'}));nav.dataset.day=day;nav.href=`#${section.id}`;nav.onclick=event=>{event.preventDefault();jumpDay(day);};$('day-nav').append(nav);
     const heading=node('div','','day-heading'),copy=node('div');heading.append(node('span',day==='unscheduled'?'…':day.slice(8),'day-number'));
     copy.append(node('h3',day==='unscheduled'?'Unscheduled':date(day,{weekday:'long'})),node('p',day==='unscheduled'?'Good ideas, waiting for their moment':date(day,{day:'numeric',month:'long',year:'numeric'})));heading.append(copy);section.append(heading);
     if(!group.length)section.append(node('p',viewer?'No items planned here yet.':day==='unscheduled'?'Everything has a date. New ideas can live here until you’re ready.':'A little breathing room. Add something when you’re ready.','empty-day'));
     for(const [index,row]of group.entries())section.append(card(row,index,group.length));
     $('timeline').append(section);
   }
+  renderOverview($('overview'),plan.items,dates,viewer,row=>{
+    collapsed.delete(`${plan!.trip.id}:${row.id}`);
+    const detail=$<HTMLDetailsElement>(`item-${row.id}`);detail.open=true;
+    activeDay=row.payload.startDate??'unscheduled';setView('details',false);markDay(activeDay);
+    detail.scrollIntoView({block:'start'});detail.querySelector('summary')?.focus({preventScroll:true});
+  });
+  setView(view,false);markDay(activeDay);
 }
 function card(row:Row,index:number,count:number){
-  const item=row.payload,el=node('article','','item'),top=node('div','','item-top'),copy=node('div');
-  top.append(node('span',icons[item.type],'item-icon'));copy.append(node('span',names[item.type],'item-type'),node('h3',item.title));top.append(copy);el.append(top);
-  const detail=node('div','','item-details');detail.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'?'Booked · reported by owner':'Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
+  const item=row.payload,el=node('details','','item'),top=node('summary','','item-top'),copy=node('div','','item-copy');
+  el.id=`item-${row.id}`;const key=`${plan!.trip.id}:${row.id}`;el.open=!collapsed.has(key);el.ontoggle=()=>{if(el.open)collapsed.delete(key);else collapsed.add(key);};
+  top.append(node('span',icons[item.type],'item-icon'));copy.append(node('span',`${names[item.type]} · ${item.startTime??'Time to confirm'}`,'item-type'),node('h3',item.title));
+  copy.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'?'Booked · reported by owner':'Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
+  top.append(copy,node('span','⌄','item-chevron'));el.append(top);
+  const detail=node('div','','item-details');
   if(item.startTime)detail.append(node('p',`${item.startTime} · ${item.timeZone??'time zone not set'}`));
   else detail.append(node('p',item.startDate?'Time not set':'Date and time not set'));
   if(item.endDate)detail.append(node('p',`Until ${date(item.endDate)}${item.endTime?` at ${item.endTime} · ${item.endTimeZone??'time zone not set'}`:''}`));

@@ -1,6 +1,14 @@
 # Itinerary web app — organizer slice
 
-Updated 13 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. Manual organization and saved-research review are deployed, with real-account research viewing and connected reads verified. Real hosted manual writes, collaboration acceptance and automatic research reconciliation remain incomplete. See [current architecture](architecture.md) and [delivery status](implementation.md).
+Updated 14 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. Manual organization, saved-research review and private viewer invitations are deployed. Hosted creation/save, second-account joining and revocation passed; broader organizer editing and automatic research reconciliation remain incomplete. See [current architecture](architecture.md) and [delivery status](implementation.md).
+
+## Overview and detailed navigation — 14 October 2026
+
+The default Overview presents days side by side on desktop and as a compact vertical agenda on phones. Morning, afternoon and evening sections group items by their recorded local start time; card heights do not represent duration. Flight cards explicitly show differing departure/arrival zones. Stays appear through their checkout date as references to the same item; unknown times and undated alternatives remain separate. Known same-zone interval overlaps receive a check-details label; unknown ends and cross-zone intervals are not guessed. Details retains the organizer's manual order.
+
+Overview cards open the corresponding expanded Details card. The Overview/Details switch and horizontally scrollable date links stay at the top as the trip header scrolls away. Details highlights the day currently in view; tapping a date leaves its heading below the sticky bar. Individual activity cards use keyboard-accessible native disclosure controls, retain time/status when collapsed and remember collapse choices while the page is open. The selected view is kept in the URL. Both views use the same fetched itinerary and existing owner/viewer privacy projection; there is no new data store, provider request, permission or migration.
+
+Validation: build passed and 71 local tests passed with three external PostgreSQL checks skipped. New checks cover stay checkout boundaries, timed/untimed ordering, conservative overlap warnings and delivery of the stylesheet. An isolated copy of the selected trip verified desktop columns, 390px phone fit, sticky date switching, correct active day when opening an activity, collapsing, and viewer privacy. CI and hosted release verification follow separately.
 
 ## What works
 
