@@ -7,7 +7,7 @@ Updated 14 October 2026. Start with the architecture and database diagrams, then
 | Document | Purpose |
 | --- | --- |
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
-| [Database ER diagrams](database.md) | Deployed relationships and keys, plus a separately labelled viewer-sharing extension |
+| [Database ER diagrams](database.md) | Deployed relationships and keys, including migration 006 viewer sharing |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations and planned proposal approval |
 | [Product requirements](prd.md) | Target behavior, scope and milestone order; PRD v0.4 gives web and MCP equal product standing |
 | [Delivery status and acceptance](implementation.md) | Deployed capabilities, recorded acceptance and remaining gaps |
@@ -21,6 +21,7 @@ Requirements define what should exist; delivery status says what has been implem
 | [Account linking](account-linking.md) | Configuration, consent, grants, revocation and dated OAuth/assistant acceptance |
 | [Hosted flight pilot](hosted-live-search.md) | SerpApi scope, configured allowances, durable attempts, recovery and actual hosted search |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
+| [View-only itinerary sharing](itinerary-sharing.md) | Deployed private invitations, viewer privacy, revocation and remaining email-delivery acceptance |
 | [Private policy notes](policy-notes.md) | Versioned account-private manual references, separate from quote evidence |
 | [Correctness fixes](correctness-fixes.md) | Budget, airport-zone identity and read consistency corrections with regression evidence |
 

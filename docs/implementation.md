@@ -1,12 +1,12 @@
 # Delivery status and acceptance
 
-Updated 13 October 2026. Current decisions are in the [architecture](architecture.md) and [PRD v0.4](prd.md). This summarizes recorded evidence; it does not report a new deployment or live test performed during documentation cleanup.
+Updated 14 October 2026. Current decisions are in the [architecture](architecture.md) and [PRD v0.4](prd.md). This summarizes recorded delivery and acceptance evidence.
 
 ## Current release
 
-The existing Free Render service hosts accounts, MCP, manual itinerary and saved flight research, backed by Supabase. Latest recorded deployed implementation: `70b884a54f7584b6d80919a601b35b2f72e30750`, live at 21:55:42 London time on 13 October. It passed [CI run 38466213421](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38466213421): **69 tests passed, none skipped**, including both pooled PostgreSQL checks. See [itinerary release evidence](itinerary-web.md#saved-research-display--13-october-2026).
+The existing Free Render service hosts accounts, MCP, manual itinerary, saved flight research and view-only invitations, backed by Supabase. Latest recorded deployed implementation: `f6f1670ad5dad6dfb9200d2e514b56724d94cdc5`, deployed on 14 October. It passed [CI run 38488584377](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38488584377): **72 tests passed, none skipped**, including three pooled PostgreSQL checks. Hosted reads confirm the updated itinerary role and trip-list projection. See [sharing release evidence](itinerary-sharing.md); email delivery and real friend onboarding remain unverified.
 
-The recorded release applies migrations 001–005. Live searches require explicit server opt-in plus a private SerpApi key; hosted synthetic searches are disabled. No paid plan or additional host is part of this release. Concurrent local development is separate from this deployed/accepted baseline and is not certified by this documentation update.
+The recorded release applies migrations 001–006. Live searches require explicit server opt-in plus a private SerpApi key; hosted synthetic searches are disabled. No paid plan or additional host is part of this release. Concurrent local development is separate from this deployed/accepted baseline.
 
 ## Delivered and verified
 
@@ -19,8 +19,9 @@ The recorded release applies migrations 001–005. Live searches require explici
 | Hosted OAuth and MCP | Official-SDK flow succeeded | Public registration, S256 PKCE, verified token claims and 23 listed tools; [account evidence](account-linking.md) |
 | Bounded hosted flight search | One real run completed | Three successful durable attempts, ten provider-reported observations; identical mutation returned the same run without another search |
 | ChatGPT / connected retrieval | Initial linking and retrieval succeeded | User-reported ChatGPT result plus independently verified connected read tools; no new search during retrieval |
-| Manual organizer | Implemented and deployed | Trip creation, item add/edit/remove/reorder, reported bookings and history; real hosted writes/edit continuity remain unverified |
+| Manual organizer | Implemented and deployed | Hosted fictional trip creation and note save passed, with the same revision/item independently read through MCP. Cross-surface editing and broader hosted edit/remove/reorder acceptance remain pending |
 | Saved-research web view | Implemented, deployed and viewed with a real account | Same trip and ten sellers as MCP; review draft cancelled without saving; isolated preview tested saves/duplicates |
+| View-only itinerary invitations | Implemented and deployed | Owner creates/revokes one-person links; viewer reads omit research, booking notes and history. Synthetic two-account browser flow and all CI checks passed; SMTP delivery and real friend acceptance remain pending |
 | Standalone flight/accommodation probes | Live diagnostics recorded | 11 October observations/manual checks; no hosted accommodation provider or comprehensive market coverage |
 
 The hosted trip/run IDs and actual attempt results are in [the flight acceptance record](hosted-live-search.md#real-hosted-acceptance--13-october-2026). Latest hosted research view and connected itinerary read returned manual revision 1 and zero manual items. An isolated preview save did not change that real trip.
@@ -35,10 +36,10 @@ Configured ceilings are three requests/run, six reserved requests/owner/day, twe
 
 ## Remaining acceptance and delivery
 
-1. **Organizer across both surfaces:** real hosted manual writes and web↔MCP edit continuity; complete web flight controls/comparison; explicit research links and organizer reconciliation.
+1. **Organizer across both surfaces:** broaden hosted edit/remove/reorder acceptance and web↔MCP edit continuity; complete web flight controls/comparison; explicit research links and organizer reconciliation. Hosted creation/save and web-to-MCP read continuity passed with a fictional test trip.
 2. **Accounts and assistants:** hosted second-account isolation, read-only mutation denial, refresh/revocation/reconnection, Claude compatibility and ChatGPT write/search behavior. Automated checks do not replace these real flows.
 3. **Flight completeness:** broader airport/pair coverage, exact party-price basis, booking-specific snowboard evidence, seller repricing/handoff, transfers and provider-specific freshness/retention. No baggage-complete or comprehensive live-product claim yet.
-4. **Collaboration:** membership/invitations, comments, proposals and organizer approval, with shared authorization/history. This follows the organizer foundation, before accommodation integration.
+4. **Collaboration:** complete SMTP delivery and real viewer-invitation acceptance, then add comments, proposals and organizer approval. View-only membership/invitations are deployed; broader collaboration remains a later milestone before accommodation integration.
 5. **Operating hardening:** least-privilege runtime role, throttling, output bounds/versioning, deletion/export/retention, consent recovery, telemetry and backup/restore. Accommodation/dining need separate access/evidence validation later.
 
 ## Evidence and history

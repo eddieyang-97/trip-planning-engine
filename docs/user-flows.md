@@ -73,9 +73,9 @@ flowchart TB
 
 A copied research draft remains tentative and never creates a research selection or booking. A matching existing flight opens for editing rather than automatically adding another copy. The saved manual item is a snapshot; new research does not update it automatically. Booked labels require an explicit user report and booking note. See [itinerary behavior](itinerary-web.md).
 
-## Viewer invitation — work in progress
+## Viewer invitation — deployed; hosted acceptance pending
 
-This flow describes the local viewer-sharing extension in migration 006, not deployed acceptance. Invitation management is through the direct-session web surface. The local read projection excludes research, owner history and booking notes for viewers.
+This flow describes the deployed viewer-sharing extension in migration 006. Synthetic browser and PostgreSQL checks passed; email delivery and a real friend session remain pending. Invitation management is through the direct-session web surface. Viewer reads exclude research, owner history and booking notes. See [sharing acceptance](itinerary-sharing.md).
 
 ```mermaid
 flowchart TB
@@ -92,7 +92,7 @@ flowchart TB
     Revoke --> Block[Later shared reads are denied]
 ```
 
-An invitation URL is a route to authenticated membership, not anonymous publication. It does not grant access to the owner's account-private research or assistant connections. Source: [local sharing implementation](../src/itinerary-sharing.ts) and [ER extension](database.md#viewer-sharing-extension--work-in-progress).
+An invitation URL is a route to authenticated membership, not anonymous publication. It does not grant access to the owner's account-private research or assistant connections. Source: [sharing implementation](../src/itinerary-sharing.ts) and [ER extension](database.md#viewer-sharing-extension--deployed).
 
 ## Collaborator proposal and approval — target flow
 

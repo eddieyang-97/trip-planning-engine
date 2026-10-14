@@ -1,6 +1,6 @@
 # Database ER diagrams
 
-Updated 14 October 2026. These diagrams describe the recorded deployed schema, migrations **001–005**, with a separate work-in-progress extension for migration 006. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
+Updated 14 October 2026. These diagrams describe the recorded deployed schema, migrations **001–006**, including the viewer-sharing extension below. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
 
 Entity names match SQL table names, shown in uppercase for readability. Attributes are selected fields, not complete DDL. `PK` marks a primary-key component; `FK` marks a foreign-key component. Solid lines identify a child through its parent key; dashed lines are non-identifying relationships. Both represent enforced foreign keys here; dashed does **not** mean planned. A circle allows zero, a bar means one, and a crow's foot means many. See [Mermaid's notation reference](https://mermaid.js.org/syntax/entityRelationshipDiagram.html).
 
@@ -176,7 +176,7 @@ Private policy notes belong to an account and may be reused across its trips. Se
 
 ## Account ownership and supporting tables
 
-Supabase Auth manages accounts outside this application schema. `owner_id`, `actor_id`, `requested_by`, and similar UUID fields are verified account references used by the service; migrations 001–005 do **not** create an application users table or SQL foreign keys to `auth.users`. Ownership checks and direct/assistant session rules remain essential. The browser does not read these tables through the Supabase Data API.
+Supabase Auth manages accounts outside this application schema. `owner_id`, `actor_id`, `requested_by`, and similar UUID fields are verified account references used by the service; migrations 001–006 do **not** create an application users table or SQL foreign keys to `auth.users`. Ownership checks and direct/assistant session rules remain essential. The browser does not read these tables through the Supabase Data API.
 
 These supporting tables have no application-table foreign keys, so they are listed separately rather than shown with invented relationships:
 
@@ -187,11 +187,11 @@ These supporting tables have no application-table foreign keys, so they are list
 | `mutation_requests` | `(owner_id, operation, key)` | Request hash and original response for idempotent retries |
 | `app_schema_migrations` | `version` | Migration metadata created by [database.ts](../src/database.ts) |
 
-Together the three deployed ER diagrams and this table cover all twenty application/metadata tables in the recorded release. JSONB fields hold validated snapshots; this is not the larger [historical schema proposal](spike/design/schema.sql).
+The three ER diagrams above and this table cover twenty application/metadata tables; the viewer-sharing diagram below adds two more for twenty-two in the recorded release. JSONB fields hold validated snapshots; this is not the larger [historical schema proposal](spike/design/schema.sql).
 
-## Viewer sharing extension — work in progress
+## Viewer sharing extension — deployed
 
-Source: local [migration 006](../migrations/006_itinerary_sharing.sql). This is separate from the recorded deployed release and does not establish hosted acceptance. It adds viewer access; comments, collaborator proposals and approval tables are not part of this migration.
+Source: [migration 006](../migrations/006_itinerary_sharing.sql), deployed with `f6f1670` on 14 October. See [sharing acceptance and limits](itinerary-sharing.md): email delivery and a real friend session remain pending. It adds viewer access; comments, collaborator proposals and approval tables are not part of this migration.
 
 ```mermaid
 erDiagram

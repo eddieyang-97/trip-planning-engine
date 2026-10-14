@@ -1,6 +1,6 @@
 # Architecture and accepted decisions
 
-Updated 14 October 2026. This is the current architecture for **Trip Planning Workspace**, based on accepted product direction and the recorded deployed implementation `70b884a`. Concurrent local work is distinct from this accepted/deployed baseline. Repository/package/service identifiers remain `trip-planning-engine`. See the [PRD](prd.md) for target behavior and [delivery status](implementation.md) for acceptance evidence.
+Updated 14 October 2026. This is the current architecture for **Trip Planning Workspace**, based on accepted product direction and the recorded deployed implementation `f6f1670`. Repository/package/service identifiers remain `trip-planning-engine`. See the [PRD](prd.md) for target behavior and [delivery status](implementation.md) for acceptance evidence.
 
 ## High-level architecture
 
@@ -41,7 +41,7 @@ The account pages and Supabase Auth handle direct sign-in and assistant authoriz
 
 ## Core data overview
 
-This is the deployed relationship overview; [database ER diagrams](database.md) expand keys, policy references, access tables and itinerary history. Migration 006 viewer sharing is shown separately there as work in progress.
+This is the deployed relationship overview; [database ER diagrams](database.md) expand keys, policy references, access tables and itinerary history. Deployed migration 006 viewer sharing has its own diagram there.
 
 ```mermaid
 erDiagram
@@ -73,7 +73,7 @@ A candidate survives repeat searches; prices belong to dated observations. A sel
 | Evidence | Candidate identity is separate from dated offer observations; criteria versions are immutable | Synthetic, user-reported and provider-reported facts stay distinct; unknown costs are never zero |
 | Outcomes | Selection and user-reported external booking are separate records | No purchase, payment, passenger submission, cancellation or ticket servicing capability |
 | Itinerary | Manual items organize the full trip before further provider integrations | Saved research prepares a tentative manual draft; durable research links/reconciliation remain future work |
-| Collaboration | Organizer controls the agreed plan; collaborators discuss/propose and viewers read | Memberships, invitations, comments and approval follow the organizer foundation, before accommodation integrations |
+| Collaboration | Organizer controls the agreed plan; collaborators discuss/propose and viewers read | View-only memberships/invitations are deployed; discussion and approval follow before accommodation integrations. Invitation management currently requires a direct web session |
 | Expansion | Accommodation follows collaboration; restaurants/places follow their own evidence and access gates | Standalone diagnostics do not constitute hosted integrations; voting, co-editing and scheduled alerts remain deferred |
 
 These are chosen directions, not a declaration that every capability is complete. The original paid-host and MCP-first recommendations in the [October spike](spike/README.md) are historical.
@@ -100,7 +100,7 @@ Money uses exact integer minor units and an explicit passenger/currency basis. C
 
 Mutations carry idempotency keys; mutable decision, itinerary and policy updates also require the current revision/version. Locks and transactions serialize writes. Core reads use read-only repeatable-read snapshots, keeping revisions and related contents consistent. Airport-local evaluation and flight identity derive from reviewed airport zones; unknown zones remain unresolved. See [correctness fixes](correctness-fixes.md).
 
-The applied schema is migrations 001–005. JSONB stores validated snapshots alongside normalized ownership/version relationships. The larger schema/interfaces in `spike/design/` remain proposals. General typed output contracts, full history pagination, structured actual booking amounts, broader passenger/baggage modeling and evidence deletion/retention still need implementation.
+The applied schema is migrations 001–006. JSONB stores validated snapshots alongside normalized ownership/version relationships. The larger schema/interfaces in `spike/design/` remain proposals. General typed output contracts, full history pagination, structured actual booking amounts, broader passenger/baggage modeling and evidence deletion/retention still need implementation.
 
 ## Live execution and pilot limits
 
@@ -116,6 +116,6 @@ The adapter retains up to ten seller observations for one sampled pair with part
 
 The organizer maintains manual flight, accommodation, transfer, activity, restaurant and note items, with tentative/reported-booked labels and change history. The saved-research projection uses the same read snapshot and bounds decisions, recent observations and pinned outcomes. Reviewing a flight opens a draft; saving creates/updates a manual item. The draft is a snapshot, not a durable research link or automatic update.
 
-Complete the organizer foundation across web and MCP: direct web flight controls, honest comparisons, explicit research links/reconciliation and actual edit continuity. Then add authenticated invitations, revocable memberships, discussion, revision-checked proposals and organizer approval. Preserve history and private-booking visibility rules. These capabilities do not themselves require a new provider or additional infrastructure.
+Complete the organizer foundation across web and MCP: direct web flight controls, honest comparisons, explicit research links/reconciliation and actual edit continuity. View-only invitations and revocable memberships are deployed; finish live friend onboarding acceptance, then add discussion, revision-checked proposals and organizer approval. Preserve history and private-booking visibility rules. These capabilities do not themselves require a new provider or additional infrastructure.
 
 Outstanding operating work includes least-privilege database roles, throttling, bounded public output contracts, consent recovery, retention/deletion/export, telemetry and backup/restore. [Delivery status](implementation.md) distinguishes completed proof from remaining acceptance; the [architecture review](architecture-review.md) preserves the original findings.
