@@ -4,6 +4,13 @@ const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getEleme
 const status = (text:string) => { el('status').textContent=text; };
 async function initialize() {
 const authorization = new URL(location.href).searchParams.get('authorization_id');
+const returnToItinerary=new URL(location.href).searchParams.get('returnTo')==='itinerary';
+if(returnToItinerary&&!authorization){
+  document.querySelector('h1')!.textContent='Your trip starts here.';
+  document.querySelector('.intro')!.textContent='Sign in or create a travel account to open your itinerary. You do not need an AI assistant or any developer setup.';
+  el('signin').querySelector('p')!.textContent='Create an account with your own email and password. Confirm your email, then return to this tab and sign in to continue your invitation.';
+  el('pilot-notice').hidden=true;
+}
 const configResponse = await fetch('/account/config',{signal:AbortSignal.timeout(60_000)});
 if (!configResponse.ok) throw new Error('Account configuration unavailable');
 const config = await configResponse.json();
@@ -55,7 +62,9 @@ async function render() {
   for(const id of ['account','connections'])el(id).hidden=true;
   el('signin').hidden=false;
   if(!session){status('');return;}
-  const me=await api('me');el('identity').textContent=me.email;el('account-id').textContent=`Account ID: ${me.userId}`;el('mcp-url').textContent=config.mcpUrl;
+  const me=await api('me');
+  if(returnToItinerary&&!authorization){location.replace('/itinerary');return;}
+  el('identity').textContent=me.email;el('account-id').textContent=`Account ID: ${me.userId}`;el('mcp-url').textContent=config.mcpUrl;
   for(const id of ['account','connections'])el(id).hidden=false;el('signin').hidden=true;
   await connections();
   if(authorization){const details=await api('authorization',{authorization_id:authorization});

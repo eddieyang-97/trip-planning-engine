@@ -2,10 +2,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ItineraryItem } from '../src/itinerary.js';
 import type {ItineraryResearch} from '../src/itinerary-research.js';
 import {renderResearch,researchQuestions} from './itinerary-research.js';
+import {configureSharing,openInvitation,pendingInvitation} from './itinerary-sharing.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
-type Trip={id:string;payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
-type Plan={trip:Trip;revision:number;items:Row[];history:any[];research?:ItineraryResearch};
+type Trip={id:string;role?:'owner'|'viewer';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
+type Plan={trip:Trip;role?:'owner'|'viewer';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
@@ -32,7 +33,7 @@ async function api(operation:string,input:unknown){
   try{response=await fetch(`/itinerary-api/${operation}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(input),signal:AbortSignal.timeout(60_000)});}
   catch{throw Error('The itinerary service did not respond. Refresh to check saved changes before trying again.');}
   let result:any;try{result=await response.json();}catch{throw Error('Unable to read the itinerary response. Refresh to check saved changes.');}
-  if(!response.ok)throw Error(result.error??'Unable to finish. Please try again.');return result;
+  if(!response.ok)throw Object.assign(Error(result.error??'Unable to finish. Please try again.'),{code:result.code});return result;
 }
 async function mutate(operation:string,args:Record<string,unknown>){
   const signature=JSON.stringify([operation,args]);
@@ -48,6 +49,7 @@ async function loadTrips(selectId?:string){
   $('workspace').hidden=false;$('access').hidden=true;
   const requested=selectId??new URL(location.href).searchParams.get('trip');
   const available=requested&&trips.some(trip=>trip.id===requested);
+  if(selectId&&!available){plan=null;render();throw Error('This itinerary is unavailable. Its access may have been revoked.');}
   const id=available?requested:trips[0]?.id;
   render();
   if(id){await loadPlan(id);}else{plan=null;render();message('');}
@@ -59,7 +61,9 @@ async function loadPlan(id:string){
     if(!demo)plan=await api('get_itinerary',{tripId:id});
     const url=new URL(location.href);url.searchParams.set('trip',id);history.replaceState(null,'',url);
     render();message('');
-  }catch(error){message(errorText(error));throw error;}finally{loading=false;}
+  }catch(error){plan=null;
+    if(error&&typeof error==='object'&&'code' in error&&error.code==='FORBIDDEN_OR_NOT_FOUND')trips=trips.filter(t=>t.id!==id);
+    render();message(errorText(error));throw error;}finally{loading=false;}
 }
 function allDates(){
   if(!plan)return [];
@@ -72,12 +76,18 @@ function allDates(){
 function render(){
   $('trip-list').replaceChildren(...trips.map(t=>{
     const b=button(t.payload.name,()=>showPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
-    b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
+    b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
   }));
   $('empty-trips').hidden=!!plan||trips.length>0;$('trip-view').hidden=!plan;if(!plan)return;
   const p=plan.trip.payload,booked=plan.items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=plan.items.filter(i=>!i.payload.startDate).length;
+  const viewer=plan.role==='viewer';
+  $('add-item').hidden=viewer;$('share-trip').hidden=viewer||demo;$('history-section').hidden=viewer;
+  $('people-detail').textContent=viewer?'Shared with you. You can view this itinerary; the trip owner controls edits and access.':'Invite a friend to view this trip. Invitations are private, apply to one trip and can be revoked.';
+  $('booking-detail').textContent='Bookings are reported by the trip owner. Adding a plan never makes a reservation.';
+  if(viewer)$('plan-empty').textContent='The owner has not added any items yet. Refresh later to see their plan.';
+  else $('plan-empty').textContent='Your itinerary has no saved items yet. Review a flight above, or add a stay, transfer or activity. Saving research does not automatically add it to your plan.';
   $('trip-title').textContent=p.name;$('trip-destination').textContent=p.destination;
-  $('trip-meta').replaceChildren(node('span',`${date(p.startDate)} – ${date(p.endDate,{day:'numeric',month:'short',year:'numeric'})}`),node('span',`${p.adults} adults${demo?' · assumed':''}`),node('span','Private itinerary'));
+  $('trip-meta').replaceChildren(node('span',`${date(p.startDate)} – ${date(p.endDate,{day:'numeric',month:'short',year:'numeric'})}`),node('span',`${p.adults} adults${demo?' · assumed':''}`),node('span',viewer?'Shared · view only':'Your itinerary'));
   $('progress').replaceChildren(...[[`${plan.items.length}`,'items in the plan'],[`${booked}`,'bookings reported'],[`${unscheduled}`,'without a date']].map(([count,label])=>{const row=node('div','','progress-row');row.append(node('span',label!),node('strong',count!));return row;}));
   renderResearch($('research'),plan.research,item=>{
     const existing=plan!.items.find(row=>row.payload.type==='flight'&&row.payload.startDate===item.startDate
@@ -98,7 +108,7 @@ function render(){
     const nav=node('a',day==='unscheduled'?`Unscheduled${unscheduled?` (${unscheduled})`:''}`:date(day,{weekday:'short',day:'numeric',month:'short'}));nav.href=`#${section.id}`;$('day-nav').append(nav);
     const heading=node('div','','day-heading'),copy=node('div');heading.append(node('span',day==='unscheduled'?'…':day.slice(8),'day-number'));
     copy.append(node('h3',day==='unscheduled'?'Unscheduled':date(day,{weekday:'long'})),node('p',day==='unscheduled'?'Good ideas, waiting for their moment':date(day,{day:'numeric',month:'long',year:'numeric'})));heading.append(copy);section.append(heading);
-    if(!group.length)section.append(node('p',day==='unscheduled'?'Everything has a date. New ideas can live here until you’re ready.':'A little breathing room. Add something when you’re ready.','empty-day'));
+    if(!group.length)section.append(node('p',viewer?'No items planned here yet.':day==='unscheduled'?'Everything has a date. New ideas can live here until you’re ready.':'A little breathing room. Add something when you’re ready.','empty-day'));
     for(const [index,row]of group.entries())section.append(card(row,index,group.length));
     $('timeline').append(section);
   }
@@ -106,7 +116,7 @@ function render(){
 function card(row:Row,index:number,count:number){
   const item=row.payload,el=node('article','','item'),top=node('div','','item-top'),copy=node('div');
   top.append(node('span',icons[item.type],'item-icon'));copy.append(node('span',names[item.type],'item-type'),node('h3',item.title));top.append(copy);el.append(top);
-  const detail=node('div','','item-details');detail.append(node('span',item.status==='tentative'?'Tentative':'Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
+  const detail=node('div','','item-details');detail.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'?'Booked · reported by owner':'Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
   if(item.startTime)detail.append(node('p',`${item.startTime} · ${item.timeZone??'time zone not set'}`));
   else detail.append(node('p',item.startDate?'Time not set':'Date and time not set'));
   if(item.endDate)detail.append(node('p',`Until ${date(item.endDate)}${item.endTime?` at ${item.endTime} · ${item.endTimeZone??'time zone not set'}`:''}`));
@@ -115,8 +125,10 @@ function card(row:Row,index:number,count:number){
   if(item.openQuestion)detail.append(node('p',item.openQuestion,'question'));el.append(detail);
   const actions=node('div','','item-actions');
   if(item.url){const a=node('a','Open useful link ↗');a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';actions.append(a);}
+  if(plan?.role!=='viewer'){
   actions.append(button('Edit',()=>openItem(row)),button('Remove',()=>{removing=row;$('remove-title').textContent=item.title;$('remove-error').textContent='';$<HTMLDialogElement>('remove-dialog').showModal();}));
   for(const direction of ['up','down'] as const){const b=button(direction==='up'?'↑':'↓',()=>void move(row,direction));b.setAttribute('aria-label',`Move ${item.title} ${direction}`);b.disabled=direction==='up'?index===0:index===count-1;actions.append(b);}
+  }
   el.append(actions);return el;
 }
 function bookingField(){const booked=$<HTMLSelectElement>('item-status').value==='user_reported_booked';$('booking-label').hidden=!booked;($<HTMLFormElement>('item-form').elements.namedItem('bookingNote') as HTMLTextAreaElement).required=booked;}
@@ -190,14 +202,18 @@ function setupDemo(){
 }
 async function initialize(){
     if(demo){setupDemo();message('');return;}
+  const invitation=pendingInvitation();
+  if(invitation){$('access').querySelector('h1')!.textContent='You’ve been invited to a trip.';$('access').querySelectorAll('p')[1]!.textContent='Sign in or create an account to review the invitation. No AI assistant or API keys needed.';}
   const response=await fetch('/itinerary/config',{signal:AbortSignal.timeout(60_000)});if(!response.ok)throw Error('Unable to load the itinerary.');const config=await response.json();
   if(config.mode==='hosted'){
     client=createClient(config.supabaseUrl,config.publishableKey,{auth:{storage:sessionStorage,storageKey:'travel-account',flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-    const {data:{session}}=await client.auth.getSession();if(session){await loadTrips();return;}
+    const {data:{session}}=await client.auth.getSession();if(session){if(await openInvitation(api,mutate,id=>loadTrips(id))){message('');return;}await loadTrips();return;}
   }
   $('access').hidden=false;message('');
   if(config.mode==='local'){$('local-login').hidden=false;$('hosted-access').hidden=true;
-    $<HTMLFormElement>('local-login').onsubmit=event=>{event.preventDefault();localToken=$<HTMLInputElement>('local-token').value;$<HTMLInputElement>('local-token').value='';void loadTrips().catch(e=>message(errorText(e)));};
+    $<HTMLFormElement>('local-login').onsubmit=event=>{event.preventDefault();localToken=$<HTMLInputElement>('local-token').value;$<HTMLInputElement>('local-token').value='';void (async()=>{if(await openInvitation(api,mutate,id=>loadTrips(id))){message('');return;}await loadTrips();})().catch(e=>message(errorText(e)));};
   }else if(config.mode==='unavailable')message('Account sign-in is not configured yet. You can explore the demo.');
 }
+configureSharing(api,mutate,()=>plan?.role==='viewer'?null:plan?.trip.id??null);
+window.addEventListener('focus',()=>{if(plan?.role==='viewer'&&!loading)showPlan(plan.trip.id);});
 void initialize().catch(error=>{message(errorText(error));if($('workspace').hidden)$('access').hidden=false;});

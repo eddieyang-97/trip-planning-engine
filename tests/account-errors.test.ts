@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {accountAuthError,signupReceivedMessage} from '../web/account-errors.js';
 
 test('account feedback distinguishes email restrictions, limits and confirmation without provider text',()=>{
-  assert.match(accountAuthError({code:'email_address_not_authorized'},'signup'),/organization members/);
+  assert.match(accountAuthError({code:'email_address_not_authorized'},'signup'),/finish email delivery setup/);
   assert.match(accountAuthError({code:'over_email_send_rate_limit'},'signup'),/repeated clicks will not help/);
   assert.match(accountAuthError({code:'email_not_confirmed'},'signin'),/Confirm your account/);
   assert.match(accountAuthError({name:'AuthRetryableFetchError'},'signup'),/Unable to reach/);

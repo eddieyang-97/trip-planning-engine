@@ -7,10 +7,12 @@ import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
 import { dispatchItinerary, itinerarySchemas } from './itinerary.js';
 import {queueLiveSearch} from './live-search.js';
+import {dispatchSharing,sharingSchemas} from './itinerary-sharing.js';
 
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
   ...itinerarySchemas,
+  ...sharingSchemas,
   ...policySchemas,
   list_trips: z.strictObject({ limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).default(0) }),
   create_trip: tripInput,
@@ -28,7 +30,7 @@ export const schemas = {
   record_booking: z.strictObject({ ...edit, selectionId: uuid, bookedAt: z.iso.datetime({ offset: true }), note: z.string().min(1).max(1000) }),
 };
 export type ToolName = keyof typeof schemas;
-const reads = new Set<ToolName>(['get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
+const reads = new Set<ToolName>(['get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
 export const isRead = (name: ToolName) => reads.has(name);
 function fail(code: string, message: string): never { throw new DomainError(code, message); }
 
@@ -80,11 +82,14 @@ export async function saveOffer(tx: Queryable, decisionId: string, offer: Offer,
 export class Core {
   constructor(readonly db: Database, readonly fixtureEnabled: boolean,readonly liveEnabled=false) {}
   async call(name: ToolName, input: unknown, actor: Actor): Promise<Record<string, any>> {
+    // Existing assistant write grants do not authorize sharing with other accounts.
+    // Invitation management stays on the directly authenticated web surface for this MVP.
+    if(Object.hasOwn(sharingSchemas,name))fail('FORBIDDEN_OR_NOT_FOUND','Manage invitations in the web app with your travel account.');
     return this.execute(name,input,actor,true);
   }
   // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
   async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
-    if(!['list_trips','create_trip',...Object.keys(itinerarySchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    if(!['list_trips','create_trip',...Object.keys(itinerarySchemas),...Object.keys(sharingSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
     return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
   }
   private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
@@ -100,10 +105,15 @@ export class Core {
       if (!inserted.rows.length) {
         const old = (await tx.query('select * from mutation_requests where owner_id=$1 and operation=$2 and key=$3', [actor.userId, name, args.idempotencyKey])).rows[0]!;
         if (old.request_hash !== hash) fail('IDEMPOTENCY_CONFLICT', 'Key was already used with different inputs');
+        // Recheck invitation state on retries: a cached acceptance never overrides revocation.
+        if(name==='accept_itinerary_invite')return work();
         return old.response;
       }
       const result = await work();
-      await tx.query('update mutation_requests set response=$4 where owner_id=$1 and operation=$2 and key=$3', [actor.userId, name, args.idempotencyKey, JSON.stringify(result)]);
+      // Invitation credentials are shown once and only their hash is stored. Lost responses
+      // require revoking/recreating the invite, rather than retaining a reusable raw secret.
+      const cached=name==='create_itinerary_invite'?{...result,token:undefined,linkAvailable:false}:result;
+      await tx.query('update mutation_requests set response=$4 where owner_id=$1 and operation=$2 and key=$3', [actor.userId, name, args.idempotencyKey, JSON.stringify(cached)]);
       return result;
     },{readOnly:isRead(name)});
   }
@@ -116,9 +126,13 @@ export class Core {
     return { ...row, observations, attempts };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor): Promise<Record<string, any>> {
+    if(Object.hasOwn(sharingSchemas,name))return dispatchSharing(tx,name as keyof typeof sharingSchemas,a,actor.userId);
     if(Object.hasOwn(itinerarySchemas,name))return dispatchItinerary(tx,name as keyof typeof itinerarySchemas,a,actor.userId);
     if (Object.hasOwn(policySchemas,name)) return dispatchPolicy(tx,name as keyof typeof policySchemas,a,actor.userId);
-    if (name === 'list_trips') return { trips: (await tx.query('select * from trips where owner_id=$1 order by created_at,id limit $2 offset $3', [actor.userId, a.limit, a.offset])).rows };
+    if (name === 'list_trips') return { trips: (await tx.query(`select t.id,t.payload,t.created_at,t.itinerary_revision,
+      case when t.owner_id=$1 then 'owner' else 'viewer' end as role from trips t
+      where t.owner_id=$1 or exists(select 1 from itinerary_members m where m.trip_id=t.id and m.user_id=$1 and m.revoked_at is null)
+      order by t.created_at,t.id limit $2 offset $3`, [actor.userId, a.limit, a.offset])).rows };
     if (name === 'create_trip') {
       const { idempotencyKey: _, ...payload } = a;
       const id = randomUUID();

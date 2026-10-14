@@ -3,7 +3,7 @@ import { before, after, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Core } from '../src/core.js';
-import { embedded, migrate, type Database } from '../src/database.js';
+import { embedded, migrate, schemaVersion, type Database } from '../src/database.js';
 import { DomainError, type Actor } from '../src/domain.js';
 import { policyNoteSchema, policyView, type PolicyNote } from '../src/policies.js';
 import { flaineCriteria, flaineTrip } from '../src/acceptance.js';
@@ -108,6 +108,6 @@ test('policy migration upgrades an existing version-2 database without changing 
     await previous.query('insert into trips(id,owner_id,payload) values($1,$2,$3)',[trip,owner,JSON.stringify(flaineTrip)]);
     await migrate(previous);await migrate(previous);
     assert.deepEqual((await previous.query('select payload from trips where id=$1',[trip])).rows[0]!.payload,flaineTrip);
-    assert.equal((await previous.query('select max(version) as version from app_schema_migrations')).rows[0]!.version,5);
+    assert.equal((await previous.query('select max(version) as version from app_schema_migrations')).rows[0]!.version,schemaVersion);
   }finally{await previous.close();}
 });

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DomainError, mutation, uuid } from './domain.js';
 import type { Queryable } from './database.js';
 import {itineraryResearch} from './itinerary-research.js';
+import {activeViewer} from './itinerary-sharing.js';
 
 const localTime=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable();
 const zone=z.string().max(80).refine(value=>{try{new Intl.DateTimeFormat('en',{timeZone:value});return true;}catch{return false;}},'Use a valid time zone').nullable();
@@ -37,12 +38,17 @@ export const itinerarySchemas={
 function fail(code:string,message:string):never{throw new DomainError(code,message);}
 export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerarySchemas,a:any,userId:string) {
   const read=name==='get_itinerary';
-  const trip=(await tx.query(`select * from trips where id=$1 and owner_id=$2 ${read?'':'for update'}`,[a.tripId,userId])).rows[0];
+  let trip=(await tx.query(`select * from trips where id=$1 and owner_id=$2 ${read?'':'for update'}`,[a.tripId,userId])).rows[0];
+  const owner=!!trip;
+  if(!trip&&read&&await activeViewer(tx,a.tripId,userId))trip=(await tx.query('select id,payload,itinerary_revision from trips where id=$1',[a.tripId])).rows[0];
   if(!trip)fail('FORBIDDEN_OR_NOT_FOUND','Access denied or trip not found');
-  if(read)return {trip,revision:trip.itinerary_revision,
-    items:(await tx.query('select * from itinerary_items where trip_id=$1 and removed_at is null order by position,id',[a.tripId])).rows,
-    history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows,
-    research:await itineraryResearch(tx,a.tripId)};
+  if(read){
+    const items=(await tx.query('select * from itinerary_items where trip_id=$1 and removed_at is null order by position,id',[a.tripId])).rows;
+    return {trip,role:owner?'owner':'viewer',revision:trip.itinerary_revision,
+      items:owner?items:items.map(row=>({id:row.id,position:row.position,payload:{...row.payload,bookingNote:''}})),
+      history:owner?(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows:[],
+      research:owner?await itineraryResearch(tx,a.tripId):{decisions:[],truncatedDecisions:false}};
+  }
   if(a.expectedRevision!==trip.itinerary_revision)fail('REVISION_CONFLICT','The plan changed. Reload it before saving your edit.');
   let before:any=null,after:any=null,itemId=a.itemId,action='';
   if(name==='add_itinerary_item') {

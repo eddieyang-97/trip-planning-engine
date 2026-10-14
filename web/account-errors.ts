@@ -2,7 +2,7 @@
 export const signupReceivedMessage='Check your email, including spam, for confirmation. If this email is already registered, use Sign in. For a pending confirmation, choose Resend confirmation. For privacy, this response can also appear for an existing account; it does not confirm that a new account was created.';
 export function accountAuthError(error: { code?: string; name?: string; status?: number; details?: {code?: string}|null }, action: 'signup' | 'signin' | 'resend'): string {
   const messages: Record<string,string> = {
-    email_address_not_authorized: 'The Supabase email sender only allows organization members. Use the email attached to your Supabase organization for this pilot, or configure a verified email sender.',
+    email_address_not_authorized: 'Account confirmation email is not available for this address yet. The travel app administrator needs to finish email delivery setup. Please try again after that is ready.',
     over_email_send_rate_limit: 'The confirmation email limit has been reached. Wait before trying again; repeated clicks will not help.',
     over_request_rate_limit: 'Too many sign-in requests. Wait a few minutes before trying again.',
     email_address_invalid: 'This email address is not accepted. Use a real email address you can receive confirmation at.',
