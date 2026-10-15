@@ -87,3 +87,30 @@ Joint checks after deployment: add the correct Alba venues; switch days and back
 to Details; open the same pins on the friend's anonymous link; check two flight
 endpoints, pin removal and mobile map gestures. These are intentionally pending
 the user's joint testing session. Record deployment and CI evidence separately.
+
+## Hosted release evidence — 15 October 2026
+
+Implementation `d443ce9` and final UI refinement `d7dc2ac` are pushed to GitHub main.
+The [final CI run](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38784581875)
+passed **100 tests, zero skipped**, including all three pooled PostgreSQL checks.
+Local full-suite validation passed 97 with those three external checks skipped;
+the focused map suite and production build also passed after the privacy changes.
+
+[Render deployment](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db8hjdrrjlhs7386nrc0)
+explicitly selected `d7dc2ac0e9d632427e2b00b3eca01388bcc8abf2`. It succeeded in
+42.2 seconds and became live at **19:22 London time**. The live frontend matched
+the tested local bundle SHA-256
+`8e25613ec572ea9fd86766a1d05126a0ec6f59fab6367b6aa7d477f62c70cc58`.
+Health, map configuration and the distributed licence returned 200; anonymous
+place-search returned 401 without a provider request.
+
+The [hosted example map](https://trip-planning-engine.onrender.com/itinerary?demo=1&view=map)
+rendered its grouped pins, loaded four visible tiles at phone width and reported
+no browser errors or warnings. Document width and scroll width were both 375px
+at a 390×844 viewport. Tile image referrer policy was `origin`. The screenshot is
+`itinerary-map-live-2026-10-15.png` in this chat's visualization artifacts.
+
+Real trip pinning, hosted signed-in place lookup/save, friend-link map viewing and
+native phone gestures remain joint acceptance tasks. The real Alba and Flaine
+items were not changed. The temporary release worktree was archived; concurrent
+PRD/calendar document edits were retained byte-for-byte.
