@@ -36,7 +36,10 @@ export function configureDiscussion(options:{context:()=>Context|null;api:(opera
     if(busy)return;busy=true;$<HTMLButtonElement>('discussion-close').disabled=true;form.querySelector('button')!.disabled=true;$('discussion-error').textContent='';
     const signature=JSON.stringify([operation,tripId,args]);if(!pending||pending.signature!==signature)pending={signature,key:crypto.randomUUID()};
     try{await options.api(operation,{tripId,...args,idempotencyKey:pending.key});pending=null;if(operation==='add_itinerary_comment')body.value='';await refresh();}
-    catch(e){error(e);}finally{busy=false;$<HTMLButtonElement>('discussion-close').disabled=false;form.querySelector('button')!.disabled=false;draw();}
+    catch(e){
+      if(e&&typeof e==='object'&&'code' in e&&e.code==='FORBIDDEN_OR_NOT_FOUND'){comments=[];next=null;form.hidden=true;}
+      error(e);
+    }finally{busy=false;$<HTMLButtonElement>('discussion-close').disabled=false;form.querySelector('button')!.disabled=false;draw();}
   }
   async function open(target:string|null=null){
     const context=options.context();if(busy||!context?.allowed)return;
