@@ -5,10 +5,12 @@ import { z } from 'zod';
 import { Core, type ToolName } from './core.js';
 import { DomainError } from './domain.js';
 import {readItineraryViewLink} from './itinerary-view-links.js';
+import {calendarExportRoutes} from './calendar-export-web.js';
 
 export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(header?:string)=>Promise<{userId:string}>;
   supabaseUrl?:string;publishableKey?:string;local?:boolean}) {
   const router=Router();
+  router.use(calendarExportRoutes(options));
   router.use(['/itinerary','/itinerary-api','/itinerary-share','/assets/itinerary.js','/assets/itinerary.css','/assets/itinerary-views.css'],(_req,res,next)=>{
     res.setHeader('Content-Security-Policy',`default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${options.supabaseUrl??''}; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`);
     res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','no-store');res.setHeader('X-Robots-Tag','noindex, nofollow, noarchive');next();

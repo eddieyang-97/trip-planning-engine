@@ -1,6 +1,6 @@
 # Documentation
 
-Updated 14 October 2026. Start with the architecture and database diagrams, then user flows. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
+Updated 15 October 2026. Start with the architecture and database diagrams, then user flows. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
 
 ## Current guidance
 
@@ -8,8 +8,8 @@ Updated 14 October 2026. Start with the architecture and database diagrams, then
 | --- | --- |
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
 | [Database ER diagrams](database.md) | Deployed relationships and keys, including migration 006 viewer sharing |
-| [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations and planned proposal approval |
-| [Product requirements](prd.md) | Target behavior, scope and milestone order; PRD v0.4 gives web and MCP equal product standing |
+| [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, local calendar export and planned proposal approval |
+| [Product requirements](prd.md) | Target behavior, scope and milestone order; PRD v0.5 retains equal web/MCP standing and adds Apple Calendar export |
 | [Delivery status and acceptance](implementation.md) | Deployed capabilities, recorded acceptance and remaining gaps |
 
 Requirements define what should exist; delivery status says what has been implemented, deployed and verified. Deployment alone does not complete acceptance. Use the most recent dated evidence section when an older record describes an earlier state.
@@ -21,6 +21,7 @@ Requirements define what should exist; delivery status says what has been implem
 | [Account linking](account-linking.md) | Supabase/Brevo email configuration, consent, grants, revocation and dated OAuth/assistant acceptance |
 | [Hosted flight pilot](hosted-live-search.md) | SerpApi scope, configured allowances, durable attempts, recovery and actual hosted search |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
+| [Apple Calendar export](calendar-export.md) | Individual/all/subset .ics export, locally implemented and tested; hosted device acceptance pending |
 | [View-only itinerary sharing](itinerary-sharing.md) | Deployed private invitations, viewer privacy, revocation and hosted second-account acceptance |
 | [Private policy notes](policy-notes.md) | Versioned account-private manual references, separate from quote evidence |
 | [Correctness fixes](correctness-fixes.md) | Budget, airport-zone identity and read consistency corrections with regression evidence |
@@ -31,6 +32,7 @@ Requirements define what should exist; delivery status says what has been implem
 | --- | --- |
 | [Flight probe](flight-probe.md) | Standalone six-request diagnostic; its live trial is separate from hosted search |
 | [Accommodation probe](accommodation-probe.md) | Standalone hotel/rental/Airbnb diagnostics; no hosted accommodation provider |
+| [Apple Calendar probe](apple-calendar-probe.md) | User-confirmed three-event import on iPhone/iPad; agreed one-off export flow and pending production acceptance |
 | [11 October live probe results](spike/live-probe-results-2026-10-11.md) | Historical source observations/manual checks with unresolved quote and equipment questions |
 
 Diagnostic success is evidence for the observed request, not permission to expand scope, a supplier guarantee or proof of complete trip suitability.
