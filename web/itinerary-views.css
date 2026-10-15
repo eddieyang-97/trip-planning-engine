@@ -69,3 +69,31 @@
 @media(max-width:900px){.map-layout{grid-template-columns:minmax(0,1fr)}.map-canvas-wrap{position:relative;top:auto}.trip-map{height:390px}.map-place-list{max-height:none;overflow:visible}}
 @media(max-width:700px){.map-heading{align-items:flex-start}.map-heading h3{font-size:23px}.map-heading>button{font-size:10px;padding:9px}.trip-map{height:340px}.map-place-card{padding:14px}.map-place-card .item-actions{margin-top:12px}.map-layout{gap:12px}#map-all-days{margin:0 0 7px;font-size:11px}.plan-navigation:has(#map-all-days:not([hidden])) .view-switch{display:inline-flex;margin-right:9px}}
 @media print{#map-view{display:none}}
+
+/* One category vocabulary across the overview, details and map. Booking state
+   stays a separate text label; these colours describe the kind of item only. */
+:root{--category-stay:#6366F1;--category-dining:#F59E0B;--category-activity:#16A34A;--category-transport:#0284C7;--category-note:#64748B}
+[data-type=accommodation],[data-category=accommodation]{--category:var(--category-stay)}
+[data-type=restaurant],[data-category=dining]{--category:var(--category-dining)}
+[data-type=activity],[data-category=activity]{--category:var(--category-activity)}
+[data-type=flight],[data-type=transfer],[data-category=transport]{--category:var(--category-transport)}
+[data-type=note],[data-category=note]{--category:var(--category-note)}
+.overview-item[data-type]{background:color-mix(in srgb,var(--category) 8%,white);border:1px solid color-mix(in srgb,var(--category) 25%,white);border-left:3px solid var(--category)}
+.item[data-type]{border-left:3px solid var(--category)}
+.item[data-type] .item-icon{background:color-mix(in srgb,var(--category) 13%,white);color:var(--ink);border-bottom:3px solid var(--category)}
+.map-place-card[data-type]{border-left-color:var(--category)}
+.map-place-card.selected{outline:2px solid var(--ink);outline-offset:2px}
+.map-place-link[aria-pressed=true]{background:#e1ebe3;box-shadow:inset 0 0 0 2px var(--ink)}
+.map-legend{list-style:none;display:flex;flex-wrap:wrap;gap:10px 18px;padding:0;margin:18px 0 8px;font-size:11px}
+.map-legend li{display:flex;align-items:center;gap:7px;line-height:1.5}
+.category-symbol{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;flex:none;border-radius:6px;background:var(--category);color:#fff;font-size:20px;font-weight:700}
+.category-symbol[data-category=dining]{color:#173c3a}
+.map-pin{gap:3px;min-height:40px;background:var(--category);padding:2px 6px;border:2px solid white;transition:transform .12s;transform-origin:50% 100%}
+.map-pin[data-category=dining]{color:#173c3a}
+.map-pin[data-category=mixed]{background:#fff;color:var(--ink);border-color:var(--ink)}
+.map-pin .category-symbol{width:20px;height:23px;border-radius:4px;font-size:20px}
+.map-pin-number{background:#fff;color:#173c3a;border-radius:5px;padding:2px 3px;font-size:11px;line-height:1.5}
+.itinerary-marker.selected .map-pin{outline:3px solid var(--ink);outline-offset:3px;transform:scale(1.12)}
+.itinerary-marker:focus-visible .map-pin{outline:3px solid var(--ink);outline-offset:3px}
+.map-selection{font-size:12px;line-height:1.5;margin:0 0 12px;font-weight:600}.map-selection:empty{display:none}
+@media(prefers-reduced-motion:reduce){.map-pin{transition:none}}

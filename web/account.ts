@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import {AccountBoundary,createAccountClient,watchAccount} from './account-session.js';
 import { accountAuthError, signupReceivedMessage } from './account-errors.js';
 const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getElementById(id) as T;
 const status = (text:string) => { el('status').textContent=text; };
@@ -22,16 +22,26 @@ el<HTMLInputElement>('allow-write').onchange=()=>{
   const search=el<HTMLInputElement>('allow-search');search.disabled=!liveSearch||!el<HTMLInputElement>('allow-write').checked;
   if(search.disabled)search.checked=false;
 };
-const supabase = createClient(config.supabaseUrl, config.publishableKey, { global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.any([AbortSignal.timeout(20_000),...(init?.signal?[init.signal]:[])])})}, auth:{ storage:sessionStorage, storageKey:'travel-account', flowType:'pkce', persistSession:true, autoRefreshToken:true, detectSessionInUrl:true } });
+const supabase=createAccountClient(config),boundary=new AccountBoundary();
 let requestId:string|undefined;
+function clearPrivate(){
+  requestId=undefined;
+  for(const id of ['account','connections','consent'])el(id).hidden=true;
+  for(const id of ['identity','account-id','connection-list','client-name','client-id','client-redirect','client-scopes'])el(id).replaceChildren();
+  el<HTMLInputElement>('password').value='';el('signin').hidden=false;
+}
 async function api(path:string, body?:unknown) {
+  const generation=boundary.generation;
   const { data:{session},error } = await supabase.auth.getSession();
+  boundary.check(generation);
   if(error)throw new Error(accountAuthError(error,'signin'));
-  if (!session) throw new Error('Sign in to your travel account.');
+  if (!session){clearPrivate();throw new Error('Sign in to your travel account.');}
   let response:Response;try{response = await fetch(`/account/api/${path}`, { method:body===undefined?'GET':'POST',signal:AbortSignal.timeout(20_000),
     headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},
     ...(body===undefined?{}:{body:JSON.stringify(body)}) });}catch{throw new Error('Unable to reach the travel app. Check your connection and try again later.');}
   let result;try{result=await response.json();}catch{throw new Error('The travel app returned an unexpected response. Try again later.');}
+  boundary.check(generation);
+  if(response.status===401)clearPrivate();
   if(!response.ok) throw new Error(result.error??'Please try again.');return result;
 }
 async function busy(button:HTMLButtonElement, work:()=>Promise<void>) {
@@ -90,14 +100,15 @@ el<HTMLButtonElement>('resend').onclick=()=>busy(el('resend'),async()=>{
   if(result.error)throw new Error(accountAuthError(result.error,'resend'));
   status('If this address has an unconfirmed account, a confirmation email has been requested. Check your inbox and spam folder. If already confirmed, use Sign in.');
 });
-el<HTMLButtonElement>('signout').onclick=()=>busy(el('signout'),async()=>{await supabase.auth.signOut({scope:'local'});await render();});
+el<HTMLButtonElement>('signout').onclick=()=>busy(el('signout'),async()=>{clearPrivate();const {error}=await supabase.auth.signOut({scope:'local'});if(error)throw Error('Sign-out could not finish. Check your connection and retry sign-out from Your account.');await render();});
 for(const action of ['approve','deny'] as const)el<HTMLButtonElement>(action).onclick=()=>busy(el(action),async()=>{
   if(!requestId)throw new Error('Restart the connection from your assistant.');
   el<HTMLButtonElement>(action==='approve'?'deny':'approve').disabled=true;
   try{const permissions=action==='deny'?[]:['read'];if(action==='approve'&&el<HTMLInputElement>('allow-write').checked){permissions.push('write');if(liveSearch&&el<HTMLInputElement>('allow-search').checked)permissions.push('search');}const result=await api('consent',{requestId,action,permissions});redirect(result.redirectUrl);}
   finally{el<HTMLButtonElement>(action==='approve'?'deny':'approve').disabled=false;}
 });
-try{const {error}=await supabase.auth.initialize();if(error)throw new Error(accountAuthError(error,'signin'));await render();}catch(error){
+try{const {error}=await supabase.auth.initialize();if(error)throw new Error(accountAuthError(error,'signin'));
+  const {data:{session}}=await supabase.auth.getSession();boundary.update(session?.user.id??null);watchAccount(supabase,boundary,clearPrivate);await render();}catch(error){
   status(error instanceof Error?error.message:'Unable to load your account.');
   for(const id of ['account','connections','consent'])el(id).hidden=true;
   el('signin').hidden=false;

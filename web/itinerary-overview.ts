@@ -1,7 +1,7 @@
 import {dayItems,overlaps,staysOn,type LayoutRow} from './itinerary-layout.js';
+import {itemNames as names,itemIcons} from './itinerary-categories.js';
 function el<K extends keyof HTMLElementTagNameMap>(tag:K,text='',className=''){const n=document.createElement(tag);n.textContent=text;n.className=className;return n;}
 function date(day:string){return new Intl.DateTimeFormat('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'}).format(new Date(`${day}T12:00:00Z`));}
-const names={flight:'Flight',accommodation:'Stay',transfer:'Transfer',activity:'Activity',restaurant:'Food & drink',note:'Note'};
 export function renderOverview(root:HTMLElement,rows:LayoutRow[],dates:string[],viewer:boolean,open:(row:LayoutRow)=>void){
   root.replaceChildren();
   root.append(el('p','Times are local to each place. Browse each day from morning to evening; card height does not indicate duration. Tap any item for details.','overview-explainer'));
@@ -10,9 +10,9 @@ export function renderOverview(root:HTMLElement,rows:LayoutRow[],dates:string[],
     const i=row.payload,b=el('button','','overview-item');b.type='button';b.dataset.type=i.type;
     const time=i.startTime?`${i.startTime}${i.endTime?` → ${i.endDate&&i.endDate!==i.startDate?`${date(i.endDate)} `:''}${i.endTime}`:' · end not set'}`:i.startDate?'Time to confirm':'Date to confirm';
     const stay=stayDay?`${i.startDate===stayDay?'Check in':i.endDate===stayDay?'Check out':'Staying here'}${i.startDate===stayDay&&i.startTime?` · ${i.startTime}`:i.endDate===stayDay&&i.endTime?` · ${i.endTime}`:''}`:null;
-    b.append(el('span',`${names[i.type]} · ${stay??time}`,'overview-time'),el('strong',i.title));
+    b.append(el('span',`${itemIcons[i.type]} ${names[i.type]} · ${stay??time}`,'overview-time'),el('strong',i.title));
     if(i.timeZone&&i.startTime&&!stayDay&&i.endTimeZone&&i.endTimeZone!==i.timeZone)b.append(el('span',`${i.timeZone} → ${i.endTimeZone}`,'overview-zone'));
-    b.append(el('span',i.status==='tentative'?'Tentative':`Booked · reported by ${viewer?'owner':'you'}`,`overview-status ${i.status==='tentative'?'':'booked'}`));
+    b.append(el('span',i.status==='tentative'?'Tentative':`✓ Booked · reported by ${viewer?'owner':'you'}`,`overview-status ${i.status==='tentative'?'':'booked'}`));
     if(knownOverlaps.has(row.id))b.append(el('span','Overlapping times · check details','overview-conflict'));
     b.onclick=()=>open(row);return b;
   }

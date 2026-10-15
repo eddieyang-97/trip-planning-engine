@@ -1,4 +1,7 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import {AccountBoundary,createAccountClient,watchAccount} from './account-session.js';
+import {itemNames as names,itemIcons as icons} from './itinerary-categories.js';
+import {verifyMapSave} from './itinerary-save-verification.js';
 import type { ItineraryItem } from '../src/itinerary.js';
 import type {ItineraryResearch} from '../src/itinerary-research.js';
 import {renderResearch,researchQuestions} from './itinerary-research.js';
@@ -21,6 +24,17 @@ let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localTok
 let pending:{signature:string;key:string}|null=null;
 let loading=false;
 let anonymousToken:string|null=null,anonymousView=false;
+const accountBoundary=new AccountBoundary();
+function clearPrivate(){
+  if(anonymousView)return;
+  trips=[];plan=null;editing=null;removing=null;pending=null;collapsed.clear();
+  for(const dialog of document.querySelectorAll<HTMLDialogElement>('dialog'))if(dialog.open)dialog.close();
+  for(const form of document.querySelectorAll<HTMLFormElement>('dialog form'))form.reset();
+  mapEditor.set([]);timezonePickers.setValues(blank);
+  for(const id of ['trip-title','trip-destination','trip-meta','progress','research','questions','history','day-nav','invitation-detail','invitation-title','remove-title','access-list','link-details','calendar-trip','calendar-items','comment-list','discussion-scope'])document.getElementById(id)?.replaceChildren();
+  $<HTMLInputElement>('invite-link').value='';$('created-link').hidden=true;
+  $('invitation').hidden=true;$('workspace').hidden=true;$('access').hidden=false;render();
+}
 type View='overview'|'details'|'map';
 const initialView=new URL(location.href).searchParams.get('view');
 let view:View=initialView==='details'||initialView==='map'?initialView:'overview',mapDay='all';
@@ -62,8 +76,6 @@ new ResizeObserver(()=>document.documentElement.style.setProperty('--plan-nav-he
 $('view-overview').onclick=()=>setView('overview');$('view-details').onclick=()=>setView('details');
 $('view-map').onclick=()=>setView('map');
 $('map-all-days').onclick=()=>{mapDay='all';setView('map',false);};
-const names:Record<ItineraryItem['type'],string>={flight:'Flight',accommodation:'Stay',transfer:'Transfer',activity:'Activity',restaurant:'Food & drink',note:'Note'};
-const icons:Record<ItineraryItem['type'],string>={flight:'↗',accommodation:'⌂',transfer:'⇄',activity:'◇',restaurant:'♧',note:'≡'};
 const blank:ItineraryItem={type:'activity',title:'',startDate:null,startTime:null,endDate:null,endTime:null,timeZone:null,endTimeZone:null,
   location:'',url:null,notes:'',openQuestion:'',status:'tentative',bookingNote:''};
 function node<K extends keyof HTMLElementTagNameMap>(tag:K,text='',className=''){
@@ -77,12 +89,16 @@ function message(text:string){$('status').textContent=text;}
 function errorText(error:unknown){return error instanceof Error?error.message:'Unable to finish. Please try again.';}
 function showPlan(id:string){void loadPlan(id).catch(error=>message(errorText(error)));}
 async function api(operation:string,input:unknown){
+  const generation=accountBoundary.generation;
   let token=localToken;
-  if(client){const {data:{session},error}=await client.auth.getSession();if(error||!session)throw Error('Sign in to your travel account again.');token=session.access_token;}
+  if(client){const {data:{session},error}=await client.auth.getSession();if(error||!session){clearPrivate();throw Error('Sign in to your travel account again.');}token=session.access_token;}
+  accountBoundary.check(generation);
   let response:Response;
   try{response=await fetch(`/itinerary-api/${operation}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(input),signal:AbortSignal.timeout(60_000)});}
   catch{throw Error('The itinerary service did not respond. Refresh to check saved changes before trying again.');}
   let result:any;try{result=await response.json();}catch{throw Error('Unable to read the itinerary response. Refresh to check saved changes.');}
+  accountBoundary.check(generation);
+  if(response.status===401)clearPrivate();
   if(!response.ok)throw Object.assign(Error(result.error??'Unable to finish. Please try again.'),{code:result.code});return result;
 }
 async function mutate(operation:string,args:Record<string,unknown>){
@@ -91,10 +107,12 @@ async function mutate(operation:string,args:Record<string,unknown>){
   const result=await api(operation,{...args,idempotencyKey:pending.key});pending=null;return result;
 }
 async function loadTrips(selectId?:string){
+  const generation=accountBoundary.generation;
   if(!demo){
-    trips=[];
+    const collected:Trip[]=[];
     // Retrieve all pages rather than silently hiding older trips.
-    for(let offset=0;;offset+=50){const page=await api('list_trips',{limit:50,offset});trips.push(...page.trips);if(page.trips.length<50)break;}
+    for(let offset=0;;offset+=50){const page=await api('list_trips',{limit:50,offset});accountBoundary.check(generation);collected.push(...page.trips);if(page.trips.length<50)break;}
+    trips=collected;
   }
   $('workspace').hidden=false;$('access').hidden=true;
   const requested=selectId??new URL(location.href).searchParams.get('trip');
@@ -188,9 +206,9 @@ function render(){
 }
 function card(row:Row,index:number,count:number){
   const item=row.payload,el=node('details','','item'),top=node('summary','','item-top'),copy=node('div','','item-copy');
-  el.id=`item-${row.id}`;const key=`${plan!.trip.id}:${row.id}`;el.open=!collapsed.has(key);el.ontoggle=()=>{if(el.open)collapsed.delete(key);else collapsed.add(key);};
+  el.dataset.type=item.type;el.id=`item-${row.id}`;const key=`${plan!.trip.id}:${row.id}`;el.open=!collapsed.has(key);el.ontoggle=()=>{if(el.open)collapsed.delete(key);else collapsed.add(key);};
   top.append(node('span',icons[item.type],'item-icon'));copy.append(node('span',`${names[item.type]} · ${item.startTime??'Time to confirm'}`,'item-type'),node('h3',item.title));
-  copy.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'||plan?.role==='editor'?'Booked · reported by owner':'Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
+  copy.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'||plan?.role==='editor'?'✓ Booked · reported by owner':'✓ Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
   top.append(copy,node('span','⌄','item-chevron'));el.append(top);
   const detail=node('div','','item-details');
   if(item.startTime)detail.append(node('p',`${item.startTime} · ${item.timeZone??'time zone not set'}`));
@@ -246,7 +264,9 @@ $<HTMLFormElement>('item-form').onsubmit=event=>{
     if(item.url){const url=new URL(item.url);if(url.protocol!=='https:'||url.username||url.password)throw Error('Use an HTTPS link without credentials.');}
     if(demo)demoChange(editing?'edited':'added',editing?.id??crypto.randomUUID(),item);
     else{const operation=editor?(editing?'update_shared_itinerary_item':'add_shared_itinerary_item'):(editing?'update_itinerary_item':'add_itinerary_item');
-      await mutate(operation,{tripId:plan!.trip.id,expectedRevision:plan!.revision,...(editing?{itemId:editing.id}:{}),item});await loadPlan(plan!.trip.id);}
+      const tripId=plan!.trip.id,result=await mutate(operation,{tripId,expectedRevision:plan!.revision,...(editing?{itemId:editing.id}:{}),item});await loadPlan(tripId);
+      const saved=plan?.items.find(row=>row.id===result.itemId)?.payload.mapLocations??[];
+      verifyMapSave(item.mapLocations!,result,saved);}
     $<HTMLDialogElement>('item-dialog').close();message(demo?'Example updated. Reloading restores the demo.':'Saved to your itinerary.');
   });
 };
@@ -301,8 +321,10 @@ async function initialize(){
   if(invitation){$('access').querySelector('h1')!.textContent='You’ve been invited to a trip.';$('access').querySelectorAll('p')[1]!.textContent='Sign in or create an account to review the invitation. No AI assistant or API keys needed.';}
   const response=await fetch('/itinerary/config',{signal:AbortSignal.timeout(60_000)});if(!response.ok)throw Error('Unable to load the itinerary.');const config=await response.json();
   if(config.mode==='hosted'){
-    client=createClient(config.supabaseUrl,config.publishableKey,{auth:{storage:sessionStorage,storageKey:'travel-account',flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-    const {data:{session}}=await client.auth.getSession();if(session){if(await openInvitation(api,mutate,id=>loadTrips(id))){message('');return;}await loadTrips();return;}
+    client=createAccountClient(config);
+    const {data:{session},error}=await client.auth.getSession();if(error)throw Error('Unable to restore sign-in. Open Your account to sign in again.');
+    accountBoundary.update(session?.user.id??null);watchAccount(client,accountBoundary,clearPrivate);
+    if(session){if(await openInvitation(api,mutate,id=>loadTrips(id))){message('');return;}await loadTrips();return;}
   }
   $('access').hidden=false;message('');
   if(config.mode==='local'){$('local-login').hidden=false;$('hosted-access').hidden=true;

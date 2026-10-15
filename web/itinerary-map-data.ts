@@ -7,3 +7,8 @@ export function mapEntries(rows:LayoutRow[]){
   return rows.flatMap((row,index)=>(row.payload.mapLocations??[]).filter(p=>Number.isFinite(p.latitude)&&Math.abs(p.latitude)<=85&&Number.isFinite(p.longitude)&&Math.abs(p.longitude)<=180)
     .map((place,stop)=>({row,place,number:index+1,stop})));
 }
+export function groupMapEntries(entries:ReturnType<typeof mapEntries>){
+  const groups=new Map<string,typeof entries>();
+  for(const entry of entries){const key=`${entry.place.latitude.toFixed(5)},${entry.place.longitude.toFixed(5)}`;groups.set(key,[...(groups.get(key)??[]),entry]);}
+  return [...groups.values()];
+}

@@ -10,10 +10,23 @@ import {Core} from '../src/core.js';
 import {itineraryRoutes} from '../src/itinerary-web.js';
 import {readItineraryViewLink} from '../src/itinerary-view-links.js';
 import {flaineTrip} from '../src/acceptance.js';
-import {mapDayItems,mapEntries} from '../web/itinerary-map-data.js';
+import {mapDayItems,mapEntries,groupMapEntries} from '../web/itinerary-map-data.js';
+import {categories,itemCategory} from '../web/itinerary-categories.js';
+import {verifyMapSave} from '../web/itinerary-save-verification.js';
 const key=()=>({idempotencyKey:randomUUID()});
 const pin={label:'Flaine resort centre',latitude:46.005,longitude:6.687};
 const item:ItineraryItem={type:'accommodation',title:'Example stay',location:'Flaine',mapLocations:[pin],startDate:'2026-12-18',endDate:'2026-12-20',startTime:null,endTime:null,timeZone:null,endTimeZone:null,url:null,notes:'Shared',openQuestion:'',status:'user_reported_booked',bookingNote:'PRIVATE booking'};
+
+test('co-located map groups retain every category and pin; save confirmation checks counts and read-back coordinates',()=>{
+  const rows=['accommodation','restaurant','activity','flight','transfer','note'].map((type,index)=>({id:String(index),position:index,payload:{...item,type:type as ItineraryItem['type']}}));
+  const groups=groupMapEntries(mapEntries(rows));assert.equal(groups.length,1);assert.equal(groups[0]!.length,6);
+  assert.deepEqual([...new Set(groups[0]!.map(e=>itemCategory[e.row.payload.type]))],['accommodation','dining','activity','transport','note']);
+  assert.deepEqual(Object.values(categories).map(c=>c.colour),['#6366F1','#F59E0B','#16A34A','#0284C7','#64748B']);
+  verifyMapSave([pin],{mapLocationCount:1},[{longitude:pin.longitude,latitude:pin.latitude,label:pin.label}]);verifyMapSave([],{mapLocationCount:0},[]);
+  assert.throws(()=>verifyMapSave([pin],{mapLocationCount:0},[pin]),/did not match/);
+  assert.throws(()=>verifyMapSave([pin],{mapLocationCount:1},[{...pin,latitude:45}]),/did not match/);
+  assert.throws(()=>verifyMapSave([pin],{mapLocationCount:1},[]),/did not match/);
+});
 
 test('map pins validate coordinates and remain optional for existing items',()=>{
   const {mapLocations,...legacy}=item;assert.ok(itineraryItemSchema.safeParse(legacy).success);
