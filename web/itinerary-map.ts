@@ -64,7 +64,8 @@ export function configureMap(root:HTMLElement,open:(row:LayoutRow)=>void,locate:
         const popup=el('div','','map-popup');
         for(const e of group){const part=el('div');part.append(el('strong',`${itemIcons[e.row.payload.type]} ${e.number}. ${e.row.payload.title}`),el('p',e.place.label),button('View item details',()=>open(e.row)));popup.append(part);markers.set(`${e.row.id}:${e.stop}`,marker);}
         marker.bindPopup(popup,{maxWidth:280});marker.addTo(layer);bounds.push([first.place.latitude,first.place.longitude]);
-        marker.on('click',()=>select(`${first.row.id}:${first.stop}`));marker.getElement()?.setAttribute('aria-label',label);
+        // Leaflet opens popups on keyboard activation without emitting click.
+        marker.on('popupopen',()=>select(`${first.row.id}:${first.stop}`));marker.getElement()?.setAttribute('aria-label',label);
       }
     }
     for(const [index,row] of filtered.entries()){
