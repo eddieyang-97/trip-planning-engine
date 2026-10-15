@@ -73,59 +73,52 @@ Provider access, display/retention rights and cost determine which live research
 
 ## 5. Core experience
 
-The web app and connected assistant are two first-class ways to use the same workspace. The web app supplies direct trip controls, itinerary presentation and readable flight comparisons; MCP supplies structured tools and readable results for an assistant. Core trip, itinerary and flight workflows must be usable through each surface. Interfaces may differ to suit their users, but facts, validation, permissions and saved outcomes remain consistent. Neither an assistant account nor a custom embedded assistant widget is required to use the web app.
+Web and authorized MCP clients share trip IDs, evidence, permissions and revision rules; interface design may differ. The web app does not require an assistant account. Resolve ambiguous trip names using dates and stable IDs, and never guess a travel-account identity.
 
-The following research journey applies to both surfaces. Direct web controls perform the same operations as assistant tool calls; assistant-led clarification is represented by explicit web form fields, assumptions and unresolved conditions.
+1. **Create or import.** Start a trip or paste/import an existing itinerary and booking notes; review uncertain dates, amounts, statuses and participant assignments before committing.
+2. **Define logistics and decisions.** Represent different traveler arrivals, lodging, activity participation and returns. Save explicit hard constraints, preferences and assumptions for accommodation, restaurants and any flight-feasibility check.
+3. **Discover options.** Use approved provider results or manual/sourced links. Show provider coverage, prices and basis, local conditions, observation times and unknowns.
+4. **Compare and explain.** Accommodation emphasizes whole-party total cost, beds, location and cancellations; dining emphasizes menu, party fit, price/service and genuine reservation path; flights emphasize viable times, baggage and onward transfer.
+5. **Keep reasoning.** Save a shortlist, rejected alternatives and chosen rationale; repeat the search without losing evidence and distinguish genuine comparable changes from source/criteria changes.
+6. **Plan and record bookings.** Adding a selected candidate makes a tentative plan, not a booking. Click-out never implies confirmation; record reported bookings separately from independently verified ones.
+7. **Share and use.** Show a mobile itinerary with permission-filtered statuses and participant-specific logistics. Support basic sharing and one-off Apple Calendar exports.
 
-1. **Create a trip.** Enter the name, destination, dates, traveler count and display currency in the web app, or tell the assistant. Create or retrieve the same persisted trip and its decisions through the shared service.
-2. **Define the flight decision.** Select airports, local departure/arrival windows, passenger count, baggage requirements and any maximum known total cost. Choose preferences such as lower cost, later Friday departure or more usable time at the destination.
-3. **Review the criteria.** Both surfaces present structured hard constraints separately from preferences and expose consequential ambiguity. The assistant asks for clarification; the web app provides explicit fields and unresolved-condition labels. Save explicit user requirements before searching; inferred assumptions remain visible. The backend validates criteria and never silently relaxes them.
-4. **Run a search.** Return the selected source, coverage limitations and a stable SearchRun ID. Pending searches can be checked later. Partial results, no results and provider failure remain distinct outcomes even if the conversation ends.
-5. **Compare candidates.** Present a readable comparison in the web app and return structured shortlist data plus concise text for the assistant. Include local times, airport codes, stops, duration, cost breakdown, baggage, observation time, eligibility and unresolved conditions. A custom embedded assistant UI is optional.
-6. **Inspect the evidence.** Open the underlying offer or source link, see which facts came from the provider or the user, and understand each ranking contribution.
-7. **Choose and repeat.** Save or reject candidates with a reason. Retrieve them in a new conversation or another connected client, re-run the saved criteria, and review changes. Retain the selection unless the user changes it.
-8. **Record the outcome.** Mark an option selected. Open the external booking page. After booking externally, the user may record it as booked through web controls or the assistant, with actual paid amount and a note. A click-out alone never marks it booked.
-
-The assistant's comparison should answer four questions: Does this fit? What will it cost? Why might I prefer it? What still needs checking? A representative repeat request is: “Recheck my Flaine flights, include a snowboard, and tell me whether my selected option is still the best fit.”
-
-Each assistant client connects by signing into the same travel account used by the web app. The authorization screen identifies that account; connection management shows linked clients. Trips are keyed to the verified account ID, not a chat identity or an inferred email match. If a trip is missing, show the signed-in account and offer account switching; never merge accounts or their trips automatically.
-
-Resolve trip references within the authenticated account. A stable trip ID is authoritative. For a name such as “my Flaine flights,” show matching trip names, dates and IDs; if more than one plausible match exists, ask the user to choose before starting a search or changing state. A fuzzy match must not silently select a trip. If no match exists, ask whether to create one.
+For any comparison, answer: Does it fit? What will it cost? Why choose or avoid it? What remains unverified? The detailed flight-specific search and cost rules below remain applicable to the bounded feasibility feature, not mandatory prerequisites for accommodation or dining work.
 
 ### Itinerary experience and collaboration
 
-The web app presents a day-by-day itinerary with a clear trip overview. Flights, accommodation, transfers, activities and general notes are structured items with optional freeform detail. Show local dates and times, locations, useful links, practical notes and explicit tentative or booked status. Unscheduled items remain visible without inventing times. Support manual entries so the complete trip can be organized before hotel, activity or restaurant integrations exist.
+Provide an overview, readable day-by-day items, unscheduled ideas, and separate traveler arrangements for flights, stays, meals, transfers and activities. Preserve unknown fields without fabricating times or bookings.
 
-1. **Build the plan.** The organizer adds selected flights to the itinerary and enters accommodation, transfers and activities manually. Linked research retains its evidence and unresolved conditions. Selection makes an item tentative; booking status requires a separate booking record or explicit user report.
-2. **Share the trip.** The organizer invites friends through a normal web link. Friends authenticate to access a private trip and need no assistant account. View-only members can read; collaborators can comment and propose changes; the organizer controls membership and the agreed plan.
-3. **Discuss an item.** A friend attaches a comment or proposed change to a flight, stay, transfer or activity. General discussion can attach to the trip. Proposals show the existing value and suggested replacement, author and pending status.
-4. **Agree a change.** The organizer accepts or declines the proposal. An accepted change updates the shared plan and records who proposed and approved it. Direct organizer edits also appear in the activity history. A proposed change never silently replaces an agreed or booked item.
-5. **Use the itinerary.** Everyone sees the latest agreed plan on a phone, including open questions. The organizer retrieves and updates the same trip through MCP; updates made in either surface are visible when the other reloads the trip.
-6. **Export to Apple Calendar.** Open one export dialog with all eligible dated items selected by default. Export immediately for the whole itinerary, or untick items / use Deselect all and choose a subset. An individual item's Add to calendar action uses the same exporter for that item. Import the resulting .ics file into Apple Calendar on iPhone/iPad.
+- Trips are private until explicitly shared. The organizer may enable an **anonymous read-only link**, optionally expiring and always revocable, with a warning that a forwarded link also grants read access.
+- Signed-in viewers may read permitted details; signed-in editors may directly edit permitted shared itinerary fields, subject to client write consent, authorization and revision checks. No assistant account is required to use web.
+- Share useful booking status and selected-option rationale while restricting codes, personal details, private notes, sensitive research history and access controls using server-side field filtering.
+- Track edits with actor, time and revisions. Research changes must not silently change confirmed plans; conflict or revocation must not silently fail.
+- Discussion, item proposals and owner approval are **conditional enhancements**, not prerequisites for accommodation research or basic trip editing.
+- Export individual, all or selected dated items as a one-off .ics snapshot; automatic sync is out of scope.
 
-Manual itinerary presentation and organizer editing belong to the initial foundation. Steps involving friends, discussion and approval belong to the collaboration milestone. That milestone excludes simultaneous document editing, voting, complex permissions and automatic itinerary generation. The goal is to replace the organizer's working Google Doc with a clearer plan and discussion attached to the relevant items.
+Real-user acceptance requires a friend to understand the trip from a phone without a parallel Google Doc. Verify anonymous viewing, editor behavior, private fields and calendar acceptance separately.
 
 ## 6. Domain model
 
-Use Trip → Decision → Candidate as the ownership structure. A Decision also owns SearchRuns. Each SearchRun produces observations of candidates; a candidate may be encountered in many runs. Putting SearchRun only beneath Candidate would make run history and partial failures harder to represent correctly.
+Use Trip → Decision → Candidate as the ownership structure for accommodation, restaurant and flight choices. A Decision also owns SearchRuns. Each SearchRun produces observations of candidates; a candidate may be encountered in many runs. Putting SearchRun only beneath Candidate would make run history and partial failures harder to represent correctly.
 
 | Object | Meaning and essential information |
 |---|---|
 | Trip | Travel-account owner, name, destination, dates, display currency and traveler assumptions; ownership is independent of chat client |
 | Decision | Question to resolve, type, lifecycle state, current criteria version, selected candidate and rationale |
 | CriteriaVersion | Immutable snapshot of hard constraints, scoring preferences, baggage assumptions and passenger composition |
-| Candidate | A stable option within a decision: for flights, a particular combination of outbound and inbound segments; user disposition and notes persist across searches |
+| Candidate | A stable option within a decision: for flights, a stay/configuration, restaurant/meal option or flight itinerary; user disposition and notes persist across searches |
 | SearchRun | Criteria version, source, request time, completion time, outcome, coverage and errors; rerunning produces a new run |
-| OfferObservation | Provider-specific purchasable fare observation for a candidate, including fare conditions, price components, passenger basis, availability signal, currency, source reference and observation time |
+| OfferObservation | Provider- or user-sourced dated observation of a candidate: cost components, party/unit basis, booking terms, any supported availability signal, currency and source; flight fares are a subtype |
 | Evidence | Provenance for a fact: provider response, link or manual note; observed time, scope and whether the fact is quoted, calculated or assumed |
-| BookingRecord | User-reported external booking, linked candidate and offer when known, actual paid amount and timestamp |
+| BookingRecord | Separate external booking record with selected option, provenance (reported or verified), paid amount and timestamp |
 
-The organizer foundation adds ItineraryItem to the same trip without requiring a research decision for every manual item. The collaboration milestone adds membership, comments and proposals, building on shared activity history:
+The organizer foundation adds ItineraryItem to the same trip without requiring a research decision for every manual item. Basic access adds memberships and share links; optional future discussion adds comments and proposals, building on shared activity history:
 
 | Object | Meaning and essential information |
 |---|---|
 | ItineraryItem | Trip, item type, title, optional local dates/times and time zones, location, links, freeform notes, plan status and revision; optional links to a decision, selected candidate and booking record |
-| TripMembership | Authenticated account, trip and role: organizer, collaborator or viewer; invitation and revocation state |
+| TripMembership | Authenticated account, trip and role: organizer, editor or viewer; invitation and revocation state |\n| ShareLink | Explicit owner-enabled anonymous read-only access, optionally expiring and revocable; private fields excluded |\n| ParticipantPlan | Arrival, return, room and activity assignments for traveler subsets without requiring each traveler to be a member |\n| ImportBatch | Source content, suggested mapped items, ambiguities and explicit organizer review before commit |
 | Comment | Author, trip or itinerary-item target, text and timestamps; discussion does not itself change the agreed plan |
 | ChangeProposal | Author, proposed addition or target item for edit/removal, proposed values, expected revision for an existing item, pending/accepted/declined status and organizer resolution |
 | ActivityEvent | Actor, target, action and time; enough before/after context to explain an accepted proposal or organizer edit |
@@ -134,11 +127,20 @@ The initial Trip owner is the organizer. A represented traveler is not automatic
 
 Separate the flight itinerary from its fare offers. The same flights can have different baggage allowances, fare brands, sellers and prices. Never combine a cheap fare from one offer with a baggage entitlement from another.
 
-Candidate disposition is independent of live availability: saved, rejected or selected candidates remain in the record when an offer disappears. A decision may move from researching to selected to booked; reopening it preserves its history. Booking is a user-reported event in v1, not provider-verified fulfillment.
+Candidate disposition is independent of live availability: saved, rejected or selected candidates remain in the record when an offer disappears. A decision may move from researching to selected to booked; reopening it preserves its history. Booking status is user-reported unless independently verified through an authorized source; selection and booking-page clicks are never confirmation.
 
 Store monetary values exactly with currency and explicit units. Store flight instants and relevant IANA time zones, displaying the local date and time at each airport. Preserve source identifiers as well as normalized fields. Provider terms will determine which raw responses and historical facts may be retained and for how long.
 
 ## 7. Functional requirements
+
+### Import, accommodation, dining and participants
+
+- Import or paste existing itinerary/booking data as a reviewable proposal, preserving original source links and flagging uncertain date, amount, traveler and booking fields. Avoid duplicates; require confirmation for ambiguous merges.
+- Compare accommodations by whole-party known total, precise room/unit and actual beds, taxes/mandatory fees, refundable deposit separately, distance, transport, late check-in, cancellation/refund deadline and source freshness. Never infer that a selected stay is booked.
+- Compare restaurants by sourced menu, cuisine, dietary/group fit, meal time, party size, location, costs (including applicable documented service/taxes), atmosphere and actual reservation page. Never invent live table availability.
+- Save decision rationale, considered/rejected/shortlisted choices and new dated observations. Lack of a result does not mean unavailable.
+- Support participant-specific arrival and return routes, room assignments and activity participation, independent of login.
+- Distinguish selected/tentative, booking-requested, user-reported booked and verified confirmation statuses. Permit sharing useful status and reasoning without disclosing booking codes or identities.
 
 ### Constraints and feasibility
 
@@ -177,17 +179,12 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 
 ### Itinerary foundation and collaboration
 
-- Present the complete trip in a mobile-friendly day-by-day view with an overview, readable item detail and a visible place for unscheduled items. The organizer can add, edit, remove and reorder structured items and freeform notes.
-- Support flights, accommodation, transfers, activities and general notes without requiring live integrations for each type. Optional fields must stay optional; unknown times, costs and booking status must not be filled with invented values.
-- Keep tentative plans, user-reported bookings and unresolved conditions visibly distinct. Comments or proposal approval never constitute a booking.
-- Allow the organizer to add a selected candidate to the itinerary explicitly. Replacing a research selection flags a linked itinerary item for reconciliation; the organizer chooses whether to update the plan. Preserve the prior choice in history and never automatically modify a booked item.
-- Use the same authoritative trip state for web and MCP. The organizer can create and retrieve trips, maintain manual itinerary items and complete the bounded flight workflow through either surface. Both expose consistent constraints, assumptions, cost completeness, evidence, ranking and saved outcomes. The web workflow works without an assistant.
-- At the collaboration milestone, let the organizer retrieve discussion and resolve proposals through either surface. Collaboration writes use the same permission and revision rules in both surfaces.
-- Let the organizer invite viewers or collaborators and revoke access. An invitation URL is a path to authenticated membership, not a public disclosure of the itinerary. Public anonymous sharing is outside the initial milestone.
-- Let collaborators comment on items or the trip and propose item additions, edits or removals. Viewers can read the plan and discussion. Only the organizer changes the agreed plan or resolves proposals in the initial milestone.
-- Record authors and timestamps for comments, proposals and plan changes. Retain discussions when items are removed, with a clear removed-item label. Show pending proposals and unresolved questions alongside the relevant item.
-- Reject acceptance of a proposal against a changed item revision and ask the organizer to review it against the current plan. Concurrent edits must not silently overwrite each other.
-- Do not require synchronous co-editing, voting, custom roles, automated notifications or hotel/restaurant search to complete this milestone.
+- Present a mobile-friendly trip with stays, meals, flights, transfers, activities, notes and unscheduled options, including traveler-specific assignments.
+- Allow manual editing and reviewable import without provider integration. Preserve evidence, provenance and unknowns; never auto-mark a selected option booked.
+- Store user-reported bookings separately and never let new search observations overwrite them. Flag incompatible research changes for reconciliation instead.
+- Make anonymous share links explicitly opt-in, revocable and read-only with server-side field filtering. Signed-in editors can modify permitted shared fields; viewers read only.
+- Enforce same identity, permission and revision semantics through web and authorized MCP; unsupported client actions return explicit errors. Record attribution, reject stale writes and enforce revocations.
+- Rich comments, proposals and approvals are optional usage-driven increments, not dependencies for accommodation or dining comparisons.
 
 ### Calendar export
 
@@ -200,29 +197,32 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 - Keep undated items visible in the selection dialog with a reason they cannot be exported; do not invent dates. Show excluded-item counts before exporting, and leave the saved itinerary and its revision unchanged.
 - Validate the hosted browser-to-Calendar flow on a real iPhone/iPad with one item, all eligible items and a noncontiguous subset. Check event count, text, local times and time zones, all-day stay boundaries, missing schedule fields and private-field exclusion. The successful local probe is feasibility evidence, not delivery of this feature; see [delivery status](implementation.md) and [probe evidence](apple-calendar-probe.md).
 
-## 8. Ranking approach
+## 8. Comparison and ranking approach
 
-Use deterministic, inspectable scoring. AI does not assign factual values or overrule constraints.
+Apply hard constraints first. Classify candidates eligible, ineligible or needs verification; unknown facts never silently count as compliant, and missing costs must not make an incomplete option seem cheapest.
 
-First partition candidates by feasibility. Rank eligible candidates using a small set of user-visible preferences. Keep candidates needing verification in a separate section with provisional comparison information; never boost them because a missing fee makes the known subtotal look cheaper.
+Prefer transparent side-by-side trade-offs to an opaque aggregate score. Accommodation comparisons cover whole-party price, actual bed configuration, location and cancellation/check-in terms. Restaurant comparisons cover menu/group/dietary fit, known cost including documented service, atmosphere, location and booking pathway. Claim live availability only with approved evidence.
 
-For eligible candidates with sufficient comparable data:
+Where justified, a deterministic score may use `score = 100 × Σ(weight × utility) / Σ(weight)`. Utilities must be 0–1 with fixed, explained anchors per criteria version; missing inputs make the score provisional or omitted, never silently reweighted. Keep old evidence distinguishable from new searches and changed preferences.
 
-`score = 100 × Σ(weight × utility) / Σ(weight)`
+The existing bounded **flight** scoring settings remain off = 0, low = 1, medium = 2, high = 3, with defaults cost = medium, timing = off, duration = medium, stops = low. Enable timing only with explicit preferred windows. Flight comparisons provide an honest feasibility shortlist, not comprehensive market-wide optimization.
 
-Each utility is bounded from 0 to 1 and has an explicit definition. Initial dimensions are comparable cost, flight timing, travel duration and stops. Operational notes such as a possible 1 a.m. check-in appear alongside the score; they only enter scoring when there is an explicit, defensible input.
+## 9. Acceptance scenarios
 
-Use fixed, editable reference points within a criteria version, such as a preferred price and maximum acceptable price. Avoid normalizing against whichever candidates happen to be returned: an unchanged option's score should not change merely because another option disappears. Do not double-count correlated dimensions without explaining the weight allocation.
+The primary product tests use actual planning cases:
 
-If a required scoring input is missing, label the ranking provisional or omit the aggregate score. Do not silently redistribute its weight. Give users direct sorts by complete price, outbound departure and inbound arrival, plus an explanation such as “£35 more, but departs after work and includes the required bag.”
+| Case | Required behavior |
+|---|---|
+| Alba, 13–15 Nov 2026 | Import existing itinerary, preserve separate flight groups, transfers, booked dining and uncertain confirmation details without manually rebuilding |
+| Zermatt, 14–18 Jan 2027 | Compare competing stays with full group price, actual beds, location and cancellation deadlines; retain alternatives and rationale |
+| Center Parcs, 27–30 Nov 2026 | Preserve separate Sunday/Monday return groups and activity participation; friends see the right plan on mobile |
+| Restaurant options | Compare a sourced shortlist by party fit, menu, expected cost/service and authentic booking path; revisiting retains earlier decisions |
 
-Record the scoring version and weights. Preference changes can rescore saved evidence without another provider call, with the age of that evidence still visible. The recommended option is the best fit among the results found under the displayed assumptions, not necessarily the cheapest flight on the market.
+These are acceptance targets, not claims of shipped functionality.
 
-Users set an importance level for each scoring dimension through update_decision_criteria: off = 0, low = 1, medium = 2 and high = 3. Initial defaults are cost = medium, flight timing = off, duration = medium and stops = low. Timing can be enabled only after its preferred windows and utility anchors are explicit. Present the levels, numeric mapping and anchors before the first ranked comparison and save them in the criteria version. The assistant may propose changes from natural language, but must show the proposed settings and obtain confirmation before saving them; it must never silently invent weights. Defaults and mapping are versioned product settings, not learned personalization. Hard constraints remain independent of importance levels.
+### Flaine — bounded flight-feasibility test
 
-## 9. Flaine acceptance scenario
-
-The initial end-to-end scenario is Flaine, 18–20 December 2026. The user confirmed the year, four travelers, bringing a snowboard and all London airports. Treat four adults and one snowboard as explicit test assumptions until ages and equipment quantity are confirmed.
+The supporting flight slice is Flaine, 18–20 December 2026. The user confirmed the year, four travelers, bringing a snowboard and all London airports. Treat four adults and one snowboard as explicit test assumptions until ages and equipment quantity are confirmed.
 
 Historical context recovered from the existing “Flaine Trip” conversation:
 
@@ -252,7 +252,7 @@ Acceptance setup: compare all London airports (LHR, LGW, LCY, LTN, STN and SEN) 
 | Provider fails | Failure is visible, historical results retain their original timestamps and retry is available |
 | Select and book externally | Selection and user-reported booking remain separate; external click-out does not imply a booking |
 
-A pilot passes when the organizer completes the bounded flight workflow in the web app without an assistant and through both ChatGPT and Claude, identifies a preferred flight with trade-offs and open conditions, and records the outcome. Create the trip in one surface, retrieve the same persisted decision in another, and repeat a search without re-entering criteria. Make a manual itinerary edit in the web app and retrieve it through MCP; make another through MCP and retrieve it in the web app. Ending a conversation or browser session must not lose saved data. Verify retry deduplication, pending-run recovery, stale-revision handling and isolation between separate accounts on both surfaces. Muse joins acceptance testing only after compatibility is established. Use real integration checks plus controlled fixtures; future fares are not fixed test expectations.
+The bounded flight slice passes when supported clients expose plausible schedules or honest coverage gaps, preserve a selection and disclose baggage/transfer uncertainty. Exact four-person quotes, snowboard prices and all-airport coverage are separate verification requirements when supported, not assumptions. Create the trip in one surface, retrieve the same persisted decision in another, and repeat a search without re-entering criteria. Make a manual itinerary edit in the web app and retrieve it through MCP; make another through MCP and retrieve it in the web app. Ending a conversation or browser session must not lose saved data. Verify retry deduplication, pending-run recovery, stale-revision handling and isolation between separate accounts on both surfaces. Muse joins acceptance testing only after compatibility is established. Use real integration checks plus controlled fixtures; future fares are not fixed test expectations.
 
 ### Itinerary and collaboration acceptance scenario
 
@@ -276,18 +276,18 @@ The organizer uses the same Flaine trip to assemble flights, accommodation, Frid
 | Export a flight and a date-only stay | Departure/arrival instants respect their recorded zones; hotel nights end at checkout using an exclusive all-day end; unknown dates, zones or durations are not guessed |
 | Edit an item after exporting or import again | The export is visibly a snapshot; no automatic calendar update is promised and duplicate risk is explained |
 
-The organizer foundation must pass itinerary assembly, explicit booking labels and web/MCP state continuity. The collaboration milestone passes when the organizer completes the full scenario and can retire the Google Doc as the working itinerary. Verify one real friend collaboration session, role enforcement, revocation and conflicting edits, as well as web/MCP state continuity.
+The organizer foundation must pass itinerary assembly, explicit booking labels and web/MCP state continuity. Basic sharing passes when friends can understand the correct trip on mobile and editors' permitted changes work without maintaining a Google Doc. Complex proposals and approvals require separate usage-driven validation. Verify one real friend collaboration session, role enforcement, revocation and conflicting edits, as well as web/MCP state continuity.
 
 ## 10. Quality and operating requirements
 
 - Authenticate each web and MCP request and authorize access to the requested trip. Resolve identity from verified credentials, never a browser- or model-supplied user ID. Verify direct web account sessions and link each supported assistant client to the same travel account through a tested OAuth flow. Keep provider credentials on the server and verify isolation using separate accounts on both surfaces.
-- Keep data collection small: v1 does not need passports, payment cards, passenger legal names or booking-reference uploads to compare flights.
+- Minimize collected data: basic research does not require passports, payment details or full legal identities. Imported confirmations, if supported, need explicit consent and restricted field-level disclosure.
 - Return concise structured data plus readable text through MCP and present the same facts through web controls, with explicit status labels, source references and timestamps. Assistant workflows must not depend on client-specific widgets. Keep the web app, comparisons and sign-in pages accessible on phones, keyboards and screen readers.
 - Persist pending search state and expose status retrieval through get_search_run. Bound provider timeouts and retries. Use idempotency keys for paid search starts and mutations; repeat delivery of the same request must not duplicate charges or records. Protect criteria and selection updates with expected revisions to prevent silent overwrites across clients.
 - Track provider request count, cost, latency, errors and search completion, plus client connection failures, tool-call failures and duplicate retries. Treat provider text as untrusted data; the server enforces permissions, budgets and constraints independently of assistant instructions.
 - The existing narrow live pilot has explicit [request ceilings](hosted-live-search.md#persistence-cost-and-recovery): three requests/run, two runs/owner/day, four globally/day and twenty globally/30 days. These owner/global reservations do not establish a full-product per-trip allowance. Before expanding coverage, cost one all-London-airports search, a repeat search and bounded retries, including airport fan-out, repricing and baggage calls; set the target searches-per-trip allowance and maximum provider cost per trip. Publish those broader limits when verified. If repeat use exceeds the viable budget, change provider, allowance or scope before expansion. Display reached limits; do not substitute invented results.
 - Deleting a trip removes its associated private records according to a documented retention policy. Provider restrictions may require earlier evidence expiry.
-- At the collaboration milestone, apply trip membership and role authorization to every web and MCP read or write, including comments, proposals, history and linked evidence. Invitations and membership grants must be bounded and revocable. Keep private booking details out of the shared view unless the organizer explicitly includes them; comparing or presenting the itinerary does not require passports, payment details or booking-reference uploads.
+- Apply membership, anonymous-link and field-level authorization to every web and MCP read/write, history and linked evidence. Invitations, memberships and share links must be separately revocable; display useful booking status without exposing private references or traveler identities.
 - Make the itinerary and collaboration controls usable on phones, keyboards and screen readers. Show local date/time context for overnight transfers and stays, including travel across time zones. Protect itinerary writes and proposal resolutions with expected revisions and idempotency where retrying could duplicate actions.
 
 ## 11. Architecture direction and spike brief
@@ -300,8 +300,8 @@ flowchart LR
     MCP --> Core[Trip, itinerary and research service]
     Web[Trip planning web app] --> Core
     Core --> Store[(Supabase: trips and evidence)]
-    Core --> Adapter[Flight provider adapter]
-    Adapter --> Provider[External flight source]
+    Core --> Adapter[Approved provider adapters]
+    Adapter --> Provider[Stay / dining / flight sources]
     Core --> Rank[Deterministic eligibility and ranking]
 ```
 
@@ -309,12 +309,12 @@ The selected initial architecture is one Render service for the web app, hosted 
 
 Initial tool contract: list_trips, create_trip and get_trip retrieve durable context; create_decision and update_decision_criteria manage versioned requirements; start_search and get_search_run manage live queries; compare_candidates and compare_search_runs expose trade-offs and changes; save_candidate and set_candidate_disposition support manual evidence, saving, rejection and restoration; select_candidate and record_booking record distinct outcomes. Each tool needs validated inputs, typed outputs, explicit effects and bounded results. Return stable IDs, source references, observation times, completeness and verification status. Keep full evidence retrievable without returning every historical record on each call.
 
-The organizer foundation exposes itinerary management through web and MCP alongside flight research. At the collaboration milestone, extend the service and MCP contract for comments, proposals and membership. Define exact tool names and schemas during milestone design. Web and MCP must reference the same item IDs and revisions; neither surface requires a separate backend LLM for these workflows.
+The organizer foundation exposes itinerary management, saved research and the existing bounded flight tools through web and MCP. Prioritize import review, stay/dining candidates and participant logistics; extend discussion and proposals only when usage supports them. Define exact tool names and schemas during milestone design. Web and MCP must reference the same item IDs and revisions; neither surface requires a separate backend LLM for these workflows.
 
 The technical/product spike and remaining validation must:
 
 1. Inspect Ripwords/ai-trip, jivanb7/trip-planner, Prot10/MyTripPlanner and seanmorley15/AdventureLog, plus stronger relevant projects discovered during research. Compare architecture, UX, data model, live sources, collaboration, deployment, maintenance and actual licenses.
-2. Verify current flight, hotel, places, restaurant-reservation and routing providers using primary documentation. Record access requirements, pricing, free tiers, affiliate obligations and whether results are indicative, live, repriceable or actually bookable. Treat permission to cache, retain and redisplay observations for dated evidence and repeat-search comparison as a go/no-go criterion before committing to the provider-dependent data architecture. Record permitted fields, retention windows, expiry/deletion rules, attribution and display restrictions. If the core continuity workflow is prohibited, select another provider or explicitly rescope; do not assume storing a normalized copy avoids the restriction. Keep implementation focused on flights.
+2. Verify current flight, hotel, places, restaurant-reservation and routing providers using primary documentation. Record access requirements, pricing, free tiers, affiliate obligations and whether results are indicative, live, repriceable or actually bookable. Treat permission to cache, retain and redisplay observations for dated evidence and repeat-search comparison as a go/no-go criterion before committing to the provider-dependent data architecture. Record permitted fields, retention windows, expiry/deletion rules, attribution and display restrictions. If the core continuity workflow is prohibited, select another provider or explicitly rescope; do not assume storing a normalized copy avoids the restriction. Prioritize the stay and dining validation paths; keep flight-provider work bounded to feasibility.
 3. Prove whether a reachable provider serves the first route, relevant carriers, exact passenger counts and needed fare/baggage fields. Specifically test easyJet LGW–GVA for the confirmed Flaine dates and four travelers, including fare-specific baggage allowance and snowboard availability/pricing in each direction. Distinguish unsupported carrier/ancillary coverage from a completed search returning no offers. Capture reproducible capability evidence without assuming a particular future fare must exist. Document gaps and a manual fallback; require an explicit rescope if the provider cannot support the baggage-aware hero scenario. An inaccessible commercial feed is not an implementation plan.
 4. Produce concrete TypeScript interfaces, database schema, MCP input/output schemas and error contracts, provider capabilities, normalization and scoring rules, repo layout, deployment plan and roadmap. Prove ChatGPT and Claude account linking and tool compatibility; identify the intended Muse product and test its support before promising it.
 5. Recommend build versus reuse at component level. Preserve required attribution for any permitted reuse; review actual licenses and dependencies. Treat GPL/AGPL projects as idea references unless their use is explicitly decided. A missing license is not permission to copy.
