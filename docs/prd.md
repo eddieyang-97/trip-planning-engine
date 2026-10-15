@@ -186,6 +186,14 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 - Enforce same identity, permission and revision semantics through web and authorized MCP; unsupported client actions return explicit errors. Record attribution, reject stale writes and enforce revocations.
 - Rich comments, proposals and approvals are optional usage-driven increments, not dependencies for accommodation or dining comparisons.
 
+### Map presentation and pin semantics
+
+- Use consistent map-pin colors by **location type** throughout maps, legends and itinerary cards: accommodation = indigo (`#6366F1`); restaurants/cafés/bars = amber (`#F59E0B`); activities/attractions = green (`#16A34A`); transport hubs/pickup points = blue (`#0284C7`).
+- Pair each category color with a distinct recognizable icon and accessible text label; never rely on color alone to identify a pin. Provide a clear legend and sufficient marker/icon contrast.
+- Highlight a selected or focused pin using size, outline or similar emphasis **without changing its category color**. For comparisons within one category (such as several accommodations), use the same category color across candidates and visually emphasize the selected one.
+- Show booking/confirmation state separately from category via an icon or text badge (for example a checkmark for confirmed); color must not simultaneously mean location type and reservation status. Preserve tentative, requested, user-reported booked and externally verified distinctions.
+- Apply the same category, selection and status conventions to web maps, linked itinerary entries and accessible interactions. This is a presentation requirement, not a new provider or mapping integration commitment.
+
 ### Calendar export
 
 - Support an individual itinerary item, the whole itinerary and a selected subset through one shared .ics export implementation. All and selection use the same dialog: eligible dated items start selected, with Select all, Deselect all and an explicit selected count. Export is disabled for an empty selection.
