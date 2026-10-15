@@ -1,6 +1,6 @@
 # Architecture and accepted decisions
 
-Updated 14 October 2026. This is the current architecture for **Trip Planning Workspace**, based on accepted product direction and the recorded deployed implementation `f6f1670`. Repository/package/service identifiers remain `trip-planning-engine`. See the [PRD](prd.md) for target behavior and [delivery status](implementation.md) for acceptance evidence.
+Updated 15 October 2026. This is the current architecture for **Trip Planning Workspace**, based on accepted product direction and the recorded deployed implementation `f6f1670`. Repository/package/service identifiers remain `trip-planning-engine`. See the [PRD](prd.md) for target behavior and [delivery status](implementation.md) for acceptance evidence.
 
 ## High-level architecture
 
@@ -82,6 +82,7 @@ A candidate survives repeat searches; prices belong to dated observations. A sel
 | Evidence | Candidate identity is separate from dated offer observations; criteria versions are immutable | Synthetic, user-reported and provider-reported facts stay distinct; unknown costs are never zero |
 | Outcomes | Selection and user-reported external booking are separate records | No purchase, payment, passenger submission, cancellation or ticket servicing capability |
 | Itinerary | Manual items organize the full trip before further provider integrations | Saved research prepares a tentative manual draft; durable research links/reconciliation remain future work |
+| Apple Calendar export | One-off .ics snapshots of individual, all or selected saved itinerary items; one combined all/selection dialog | Implemented and tested locally on 15 October; deployment and final hosted iPhone/iPad acceptance pending. Two-minute file tickets recheck source access; no Apple account integration or subscription feed |
 | Collaboration | Organizer controls the agreed plan; collaborators discuss/propose and viewers read | View-only memberships/invitations are deployed; discussion and approval follow before accommodation integrations. Invitation management currently requires a direct web session |
 | Expansion | Accommodation follows collaboration; restaurants/places follow their own evidence and access gates | Standalone diagnostics do not constitute hosted integrations; voting, co-editing and scheduled alerts remain deferred |
 
@@ -126,5 +127,7 @@ The adapter retains up to ten seller observations for one sampled pair with part
 The organizer maintains manual flight, accommodation, transfer, activity, restaurant and note items, with tentative/reported-booked labels and change history. The saved-research projection uses the same read snapshot and bounds decisions, recent observations and pinned outcomes. Reviewing a flight opens a draft; saving creates/updates a manual item. The draft is a snapshot, not a durable research link or automatic update.
 
 Complete the organizer foundation across web and MCP: direct web flight controls, honest comparisons, explicit research links/reconciliation and actual edit continuity. View-only invitations and revocable memberships are deployed; hosted second-account onboarding and revocation passed, and later work adds discussion, revision-checked proposals and organizer approval. Preserve history and private-booking visibility rules. These capabilities do not themselves require a new provider or additional infrastructure.
+
+Calendar export serializes the saved itinerary into iCalendar (.ics) files using one exporter for the individual action and combined all/selection flow. It reuses existing trip read permissions and privacy projections without mutating trip state. A bounded in-memory ticket grants access to one frozen file for two minutes; delivery rechecks the original authenticated session or view-link access. Native Calendar can follow that file URL without receiving the web bearer header. Text/calendar delivery preserves known instants and exclusive all-day ends. No database schema or additional service is needed. Apple account integration, subscriptions and synchronization are outside this slice. See [calendar requirements](prd.md#calendar-export), [implementation and access details](calendar-export.md) and [earlier device evidence](apple-calendar-probe.md); deployment and final hosted acceptance remain pending.
 
 Outstanding operating work includes least-privilege database roles, throttling, bounded public output contracts, consent recovery, retention/deletion/export, telemetry and backup/restore. [Delivery status](implementation.md) distinguishes completed proof from remaining acceptance; the [architecture review](architecture-review.md) preserves the original findings.

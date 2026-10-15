@@ -5,6 +5,7 @@ import {renderResearch,researchQuestions} from './itinerary-research.js';
 import {configureSharing,openInvitation,pendingInvitation} from './itinerary-sharing.js';
 import {renderOverview} from './itinerary-overview.js';
 import {viewLinkToken,loadViewLink} from './itinerary-view-links.js';
+import {configureCalendarExport} from './itinerary-calendar.js';
 import {configureTimezonePickers} from './timezone-picker.js';
 import {configureDiscussion} from './itinerary-comments.js';
 
@@ -122,6 +123,7 @@ const discussion=configureDiscussion({context:()=>plan?{tripId:plan.trip.id,allo
 $('trip-discussion').onclick=()=>void discussion.open();
 function render(){
   discussion.reset();
+  calendarExport.reset();
   $('trip-list').replaceChildren(...trips.map(t=>{
     const b=button(t.payload.name,()=>showPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
     b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':t.role==='editor'?' · Shared, can edit':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
@@ -185,6 +187,7 @@ function card(row:Row,index:number,count:number){
   if(item.openQuestion)detail.append(node('p',item.openQuestion,'question'));el.append(detail);
   const actions=node('div','','item-actions');
   if(!anonymousView&&!demo)actions.append(button('Comments',()=>void discussion.open(row.id)));
+  actions.append(button('Add to calendar',()=>calendarExport.open(row.id)));
   if(item.url){const a=node('a','Open useful link ↗');a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';actions.append(a);}
   if(plan?.role!=='viewer'){
   actions.append(button('Edit',()=>openItem(row)),button('Remove',()=>{removing=row;$('remove-title').textContent=item.title;$('remove-error').textContent='';$<HTMLDialogElement>('remove-dialog').showModal();}));
@@ -295,4 +298,12 @@ window.addEventListener('hashchange',()=>{
   if(['view','invite','leave-view'].some(key=>fragment.has(key)))location.reload();
 });
 window.addEventListener('focus',()=>{if((plan?.role==='viewer'||plan?.role==='editor')&&!loading&&!document.querySelector('dialog[open]'))showPlan(plan.trip.id);});
+const calendarExport=configureCalendarExport({getPlan:()=>plan,demo,prepare:async(p,itemIds)=>{
+  const body={itemIds,expectedRevision:p.revision};
+  if(!anonymousView)return api('calendar-export',{...body,tripId:p.trip.id});
+  if(!anonymousToken)throw Error('This view link is unavailable. Ask the owner for a new link.');
+  const response=await fetch('/itinerary-share/calendar-export',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',cache:'no-store',
+    body:JSON.stringify({...body,token:anonymousToken}),signal:AbortSignal.timeout(60_000)});
+  const result=await response.json();if(!response.ok)throw Error(result.error??'Unable to export the shared itinerary.');return result;
+}});
 void initialize().catch(error=>{message(errorText(error));if(!anonymousView&&$('workspace').hidden)$('access').hidden=false;});

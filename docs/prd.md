@@ -1,10 +1,10 @@
 # Trip Planning Workspace — PRD
 
-Version: 0.4 · 13 October 2026 · Status: agreed product direction; requirements and acceptance targets
+Version: 0.5 · 14 October 2026 · Status: agreed product direction; requirements and acceptance targets
 
 This document defines product requirements; implementation status is tracked separately. The web app and hosted MCP interface are equally first-class product surfaces over the same trip workspace. The initial organizer foundation includes manual itinerary management and bounded flight research across both surfaces. Invitations, discussion and proposed changes follow that foundation, before accommodation search integrations. Use the [accepted architecture](architecture.md) for chosen technical direction, [delivery status](implementation.md) for recorded proof, and [documentation index](README.md) for feature guides and historical research. Proposed success measures remain hypotheses to test.
 
-“Trip Planning Workspace” is the working product name. Repository, package and deployment identifiers remain unchanged. This revision records the user's decision to give web and MCP equal product standing; delivery status does not imply either surface has passed its acceptance gates.
+“Trip Planning Workspace” is the working product name. Repository, package and deployment identifiers remain unchanged. Web and MCP retain equal product standing. This revision adds the agreed Apple Calendar export flow; delivery status does not imply either surface has passed its acceptance gates.
 
 ## 1. Product thesis
 
@@ -70,6 +70,7 @@ V1 is a private, single-owner organizer workspace with a web app and remote MCP,
 |---|---|
 | Web app, hosted MCP tools, shared account state and private trips | Invitations, item comments and proposed changes: collaboration milestone |
 | Manual itinerary presentation and editing through web and MCP | Voting, simultaneous document editing and complex permissions |
+| One-off Apple Calendar export of individual, all or selected itinerary items from the web app | Calendar subscriptions, automatic synchronization and direct Apple account integration |
 | One or more flight decisions per trip | Hotel, restaurant and reservation search integrations |
 | Editable constraints and scoring preferences | Flexible-date calendars, multi-city travel, cabin mixing and complex traveler types |
 | One live flight search integration, subject to access validation | Multi-provider aggregation and claims of comprehensive market coverage |
@@ -112,6 +113,7 @@ The web app presents a day-by-day itinerary with a clear trip overview. Flights,
 3. **Discuss an item.** A friend attaches a comment or proposed change to a flight, stay, transfer or activity. General discussion can attach to the trip. Proposals show the existing value and suggested replacement, author and pending status.
 4. **Agree a change.** The organizer accepts or declines the proposal. An accepted change updates the shared plan and records who proposed and approved it. Direct organizer edits also appear in the activity history. A proposed change never silently replaces an agreed or booked item.
 5. **Use the itinerary.** Everyone sees the latest agreed plan on a phone, including open questions. The organizer retrieves and updates the same trip through MCP; updates made in either surface are visible when the other reloads the trip.
+6. **Export to Apple Calendar.** Open one export dialog with all eligible dated items selected by default. Export immediately for the whole itinerary, or untick items / use Deselect all and choose a subset. An individual item's Add to calendar action uses the same exporter for that item. Import the resulting .ics file into Apple Calendar on iPhone/iPad.
 
 Manual itinerary presentation and organizer editing belong to the initial foundation. Steps involving friends, discussion and approval belong to the collaboration milestone. That milestone excludes simultaneous document editing, voting, complex permissions and automatic itinerary generation. The goal is to replace the organizer's working Google Doc with a clearer plan and discussion attached to the relevant items.
 
@@ -199,6 +201,17 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 - Reject acceptance of a proposal against a changed item revision and ask the organizer to review it against the current plan. Concurrent edits must not silently overwrite each other.
 - Do not require synchronous co-editing, voting, custom roles, automated notifications or hotel/restaurant search to complete this milestone.
 
+### Calendar export
+
+- Support an individual itinerary item, the whole itinerary and a selected subset through one shared .ics export implementation. All and selection use the same dialog: eligible dated items start selected, with Select all, Deselect all and an explicit selected count. Export is disabled for an empty selection.
+- Target Apple Calendar on iPhone/iPad for initial acceptance. Mac-specific UI or testing is not required for this slice.
+- Export a snapshot of saved itinerary items; later edits do not update imported events. Explain that repeat imports may produce duplicates. Subscription feeds, background updates and direct Apple account writes are deferred.
+- Preserve titles, locations, safe source links, practical notes and tentative/reported-booked labels. Respect the reader's existing trip access; export must not expose owner-only booking notes, research or history through a shared view. Exclude private booking notes by default.
+- Preserve actual instants for timed events, including flights whose departure and arrival use different time zones. Never silently use the exporting device's time zone for an unknown itinerary zone. Missing information needed for an accurate export must be resolved or the item excluded with an explanation.
+- Represent date-only items as all-day events, hotel nights through checkout with the calendar's exclusive end-date convention, and known cross-midnight ends correctly. Do not invent a duration where an end is unknown.
+- Keep undated items visible in the selection dialog with a reason they cannot be exported; do not invent dates. Show excluded-item counts before exporting, and leave the saved itinerary and its revision unchanged.
+- Validate the hosted browser-to-Calendar flow on a real iPhone/iPad with one item, all eligible items and a noncontiguous subset. Check event count, text, local times and time zones, all-day stay boundaries, missing schedule fields and private-field exclusion. The successful local probe is feasibility evidence, not delivery of this feature; see [delivery status](implementation.md) and [probe evidence](apple-calendar-probe.md).
+
 ## 8. Ranking approach
 
 Use deterministic, inspectable scoring. AI does not assign factual values or overrule constraints.
@@ -270,6 +283,10 @@ The organizer uses the same Flaine trip to assemble flights, accommodation, Frid
 | A repeat search changes a fare or research selection | Bookings persist; research changes are visible and selection changes require explicit reconciliation with the itinerary |
 | Revoke a member or attempt access from another account | Revoked and nonmember accounts cannot retrieve the private trip through web or MCP; viewers cannot write comments or proposals |
 | Use the trip without a parallel Google Doc | The organizer can maintain the full plan and friends can review, discuss and propose changes entirely within the shared itinerary |
+| Export one item to Apple Calendar | The item action produces one event with the saved schedule and accessible details; the real iPhone/iPad import succeeds |
+| Export all or a selected subset | One dialog defaults to all eligible dated items; deselecting items produces exactly the chosen events, with exclusions explained and no itinerary write |
+| Export a flight and a date-only stay | Departure/arrival instants respect their recorded zones; hotel nights end at checkout using an exclusive all-day end; unknown dates, zones or durations are not guessed |
+| Edit an item after exporting or import again | The export is visibly a snapshot; no automatic calendar update is promised and duplicate risk is explained |
 
 The organizer foundation must pass itinerary assembly, explicit booking labels and web/MCP state continuity. The collaboration milestone passes when the organizer completes the full scenario and can retire the Google Doc as the working itinerary. Verify one real friend collaboration session, role enforcement, revocation and conflicting edits, as well as web/MCP state continuity.
 
@@ -321,7 +338,7 @@ The technical/product spike and remaining validation must:
 |---|---|---|
 | 0 — Product definition | This PRD and confirmed acceptance-trip assumptions | Core problem, v1 boundaries and success criteria are clear |
 | 1 — Technical/product spike | Repository and provider research, MCP/auth compatibility proof and concrete architecture | Live-data and baggage access, permitted retention/redisplay, viable searches-per-trip budget, working client authentication and a justified backend host; otherwise explicit rescope |
-| 2 — Organizer workspace | Web and MCP trip/itinerary management plus criteria → live flight search → comparison → selection → repeat search | Independent web workflow and ChatGPT/Claude workflows pass, including manual itinerary use, recovery, permissions and state continuity between surfaces |
+| 2 — Organizer workspace | Web and MCP trip/itinerary management plus criteria → live flight search → comparison → selection → repeat search; one-off Apple Calendar export from the web app | Independent web workflow and ChatGPT/Claude workflows pass, including manual itinerary use, recovery, permissions and state continuity between surfaces; individual/all/subset calendar export passes on iPhone/iPad |
 | 3 — Collaboration | Invitations, item comments, proposed changes and organizer approval across the shared workspace | Organizer maintains and shares the Flaine trip without a parallel Google Doc; a friend collaborates on a phone without an assistant; permissions and conflict handling pass |
 | 4 — Pilot and refinement | Real trip decisions and shared itineraries, usability fixes and measured search cost | Evidence of improved decisions or reduced repeated effort, successful replacement of the working Google Doc and known operational costs |
 | 5 — Accommodation | Hotels, apartments, chalets, aparthotels and holiday rentals; compare whole-party stay cost, sleeping layout, cancellation and check-in conditions | Provider access validated and demand demonstrated in the pilot; unsupported sources can be represented by links and user-reported evidence |
@@ -347,6 +364,7 @@ Accommodation research includes Airbnb-style entire-place stays as well as hotel
 | What should the shared itinerary replace? | The organizer's working Google Doc; friends review and collaborate on the itinerary directly without an assistant account | Shared-itinerary acceptance pilot |
 | Who controls changes to the agreed plan? | Organizer edits directly and accepts or declines collaborator proposals; viewers read only | Direction decided; role enforcement and real collaboration acceptance remain work |
 | How much Google Docs functionality is required? | Structured items and freeform notes; simultaneous document editing, voting and complex permissions are deferred | Revisit from shared-itinerary pilot feedback |
+| How should itinerary items reach Apple Calendar? | User agreed individual export plus one combined all/selection dialog, using a one-off .ics snapshot. Initial target is iPhone/iPad; Mac-specific work is unnecessary. On 14 October the user confirmed that all three fictional probe events imported successfully | Export interaction decided; feature implemented and verified locally on 15 October. Deployment and hosted device acceptance remain pending; see the [feature guide](calendar-export.md) |
 | Which infrastructure and open-source code should be used? | One existing Free Render service for web and MCP plus Supabase; no additional host, paid upgrade or committed project-code reuse | Hosting direction decided; production hardening and component license review remain work |
 
 Delivery order: validate account access and shared state for web and MCP, alongside live flight data, retention rights and search economics; complete the organizer foundation across both surfaces; then deliver collaboration before adding accommodation search integrations. Manual itinerary validation need not wait for live-provider approval. Application implementation and deployment status are tracked separately from this requirements document.

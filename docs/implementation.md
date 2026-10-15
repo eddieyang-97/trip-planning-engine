@@ -1,6 +1,6 @@
 # Delivery status and acceptance
 
-Updated 14 October 2026. Current decisions are in the [architecture](architecture.md) and [PRD v0.4](prd.md). This summarizes recorded delivery and acceptance evidence.
+Updated 15 October 2026. Current decisions are in the [architecture](architecture.md) and [PRD v0.5](prd.md). This summarizes recorded delivery and acceptance evidence.
 
 ## Current release
 
@@ -30,6 +30,7 @@ Editor invitations and shared editing are included in the live release. Automate
 | Account-free view links | Implemented, deployed and verified | Reusable, optionally expiring and revocable; two hosted anonymous visitors, reload, Overview/Details and revoke/refresh denial passed. Private booking notes, research and history stay hidden |
 | Account-bound invitations and editor access | Implemented and deployed | Legacy viewer onboarding/revocation passed. Editors sign in; isolated editor writes/revocation and CI passed, while hosted editor joining/writes remain unverified |
 | Standalone flight/accommodation probes | Live diagnostics recorded | 11 October observations/manual checks; no hosted accommodation provider or comprehensive market coverage |
+| Apple Calendar export | Implemented and verified locally on 15 October; not deployed | Individual action and combined all/selection dialog, schedule-aware .ics serialization, short-lived file delivery and access rechecks. Build passed; full suite 87 passed / 3 external PostgreSQL checks skipped; browser selection/download and 390px layout passed. Hosted iPhone/iPad acceptance remains pending. [Feature guide](calendar-export.md); [earlier device probe](apple-calendar-probe.md) |
 
 The hosted trip/run IDs and actual attempt results are in [the flight acceptance record](hosted-live-search.md#real-hosted-acceptance--13-october-2026). Latest hosted research view and connected itinerary read returned manual revision 1 and zero manual items. An isolated preview save did not change that real trip.
 
@@ -48,12 +49,15 @@ Configured ceilings are three requests/run, six reserved requests/owner/day, twe
 3. **Flight completeness:** broader airport/pair coverage, exact party-price basis, booking-specific snowboard evidence, seller repricing/handoff, transfers and provider-specific freshness/retention. No baggage-complete or comprehensive live-product claim yet.
 4. **Collaboration:** pilot email delivery, hosted viewer joining and revocation passed; add comments, proposals and organizer approval afterward. Account-free viewing and signed-in editor invitations are deployed; hosted editor write acceptance and broader collaboration remain before accommodation integration.
 5. **Operating hardening:** least-privilege runtime role, throttling, output bounds/versioning, deletion/export/retention, consent recovery, telemetry and backup/restore. Accommodation/dining need separate access/evidence validation later.
+6. **Apple Calendar export:** deploy the locally verified feature and validate individual/all/subset imports through the actual hosted iPhone/iPad flow, including displayed times, checkout boundaries and repeat-import behavior. The individual action, combined dialog, serializer, private-field exclusion and revocation-aware file delivery passed local checks. Automatic sync/subscriptions and Mac-specific acceptance remain deferred.
 
 ## Evidence and history
 
 - [Account linking](account-linking.md): configuration, dated deployment/acceptance and remaining client/security checks.
 - [Hosted live flight pilot](hosted-live-search.md): admission/recovery, readiness and real hosted search.
 - [Itinerary web app](itinerary-web.md): manual slice and saved-research release/acceptance.
+- [Apple Calendar probe](apple-calendar-probe.md): standalone transport test and user-confirmed three-event import on iPhone/iPad; production export remains pending.
+- [Apple Calendar export](calendar-export.md): locally implemented flow, schedule rules, delivery/access boundaries and current validation.
 - [11 October live probes](spike/live-probe-results-2026-10-11.md): diagnostic/source findings.
 - [Earlier implementation record](history/implementation-2026-10-11.md): preserved 8–11 October status, setup and deployment history.
 - [Architecture review](architecture-review.md): original findings with follow-up; [spike index](spike/README.md) for historical proposals.
