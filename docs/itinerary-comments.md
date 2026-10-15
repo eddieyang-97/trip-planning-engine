@@ -80,3 +80,20 @@ acceptance run, then revoked.
 Proposals, approval workflows, voting, notifications and live collaborative
 presence remain future work; this does not mark the full collaboration roadmap
 complete.
+
+## Release status — 15 October 2026
+
+Implementation commits: `a5d284e` and final UI fix `c608f0f`.
+[Final CI run](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712376361)
+passed all 86 tests with zero skipped, including pooled PostgreSQL checks.
+
+The browser extension disconnected before Render deployment. Comments are
+pushed to GitHub but are **not yet verified live**. Resume by deploying the tested
+`c608f0f0fcf8f48a41cd840870d9f0021394e8c2` commit to the existing service, then
+verify organizer/editor comment exchange, moderation and access revocation on
+**Sharing test — fictional itinerary**. The fictional editor item was removed;
+the temporary editor membership still needs revocation after that run. Do not
+change real itinerary data or grant new access to a real trip for acceptance.
+
+The separate calendar-export work remains uncommitted and was excluded from
+this release. No new services, paid plans or provider searches were used.
