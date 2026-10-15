@@ -22,7 +22,7 @@ The existing dedicated project uses the following settings. Verify them when set
 
 These are project settings, not the user's account on the Supabase dashboard. Do not alter dashboard credentials, disable email confirmation, use wildcard redirect URLs, or weaken JWT audience checks. Existing signing-key migration, if required, needs a separate reviewed rollout.
 
-The first user creates a travel account at `/account`, confirms the email, and signs in. The browser stores its direct Supabase session in tab-scoped session storage. Confirmation opened in a different tab may require returning to the original tab and signing in again. The existing project uses Brevo custom SMTP as described below; a new environment needs its own sender configuration.
+The first user creates a travel account at `/account`, confirms the email, and signs in. Since 16 October, Account and Itinerary share a refreshable Supabase session in persistent browser storage. Closing app tabs does not end valid sign-in; sign-out clears private views across tabs. Passwords are not persisted. Pending invitations remain tab-specific, so return to the invitation tab after confirmation. See [session lifecycle and acceptance](persistent-sign-in-and-map-presentation.md). The existing project uses Brevo custom SMTP as described below; a new environment needs its own sender configuration.
 
 The assistant connects to `https://trip-planning-engine.onrender.com/mcp`. Discover the authorization server through its protected-resource metadata. Do not claim support for a particular assistant until its real registration, PKCE, consent and refresh flow succeeds.
 

@@ -19,6 +19,7 @@ Requirements define what should exist; delivery status says what has been implem
 | Document | Scope |
 | --- | --- |
 | [Account linking](account-linking.md) | Supabase/Brevo email configuration, consent, grants, revocation and dated OAuth/assistant acceptance |
+| [Persistent sign-in and map presentation](persistent-sign-in-and-map-presentation.md) | Trip Planner branding, session lifecycle, verified pin saves, category styling and 16 October release evidence |
 | [Hosted flight pilot](hosted-live-search.md) | SerpApi scope, configured allowances, durable attempts, recovery and actual hosted search |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
 | [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | User-confirmed 15 October deployment, hosted smoke checks and remaining acceptance |

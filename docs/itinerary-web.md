@@ -40,7 +40,7 @@ npm run dev
 
 Open `http://127.0.0.1:3000/itinerary?demo=1` for the deliberately labelled Flaine example. It contains no confirmed bookings, invented fares or invented flight times. Four adults and the Geneva gateway are labelled or noted assumptions. Demo changes live only in page memory and reset on reload; no private trip is loaded or written. This is an interactive design preview, not the user's saved itinerary.
 
-The actual `/itinerary` view uses the existing travel-account session and directs signed-out hosted users to `/account`. The account page links back to itineraries. Sign in and follow that link in the same tab because the existing session uses tab-scoped session storage. No MCP client or provider API key is needed to use the hosted web app. Real account sign-in passed on 13 October; the Supabase dashboard account is separate.
+The actual `/itinerary` view uses the existing travel-account session and directs signed-out hosted users to `/account`. Since 16 October, Account and Itinerary share persistent, refreshable browser sign-in across navigation and closed/reopened app tabs. Sign-out/account changes clear private views and invalidate outstanding responses; see [session and map release evidence](persistent-sign-in-and-map-presentation.md). No MCP client or provider API key is needed to use the hosted web app. Real account sign-in passed on 13 October; the Supabase dashboard account is separate.
 
 Local development accepts the existing local bearer token through a password field. That token is held only in memory, not embedded in the page or written to browser storage. It remains a developer option; friends use hosted sign-in. In this work session the review server uses port 3084 and the isolated `.data/itinerary-preview` database.
 
