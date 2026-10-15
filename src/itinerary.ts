@@ -83,6 +83,9 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
     before={payload:row.payload,position:row.position};
     if(name==='update_itinerary_item'||name==='update_shared_itinerary_item') {
       const item=shared?itineraryItemSchema.parse({...a.item,status:row.payload.status,bookingNote:row.payload.bookingNote}):a.item;
+      // Older assistant clients omit optional fields from their cached tool schema.
+      // Omission must not erase saved pins; an explicit [] still removes them.
+      if(!Object.hasOwn(a.item,'mapLocations')&&row.payload.mapLocations)item.mapLocations=row.payload.mapLocations;
       action='edited';after={payload:item,position:row.position};
       await tx.query('update itinerary_items set payload=$2,updated_at=now() where id=$1',[itemId,JSON.stringify(item)]);
     }else if(name==='remove_itinerary_item') {
@@ -102,5 +105,5 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
   await tx.query('insert into itinerary_events(id,trip_id,item_id,actor_id,action,before_payload,after_payload,revision) values($1,$2,$3,$4,$5,$6,$7,$8)',
     [randomUUID(),a.tripId,itemId,userId,action,before?JSON.stringify(before):null,after?JSON.stringify(after):null,revision]);
   await tx.query('update trips set itinerary_revision=$2 where id=$1',[a.tripId,revision]);
-  return {itemId,revision,supplierTransactionMade:false};
+  return {itemId,revision,supplierTransactionMade:false,...(after?{mapLocationCount:after.payload.mapLocations?.length??0}:{})};
 }

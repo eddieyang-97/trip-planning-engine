@@ -114,3 +114,26 @@ Real trip pinning, hosted signed-in place lookup/save, friend-link map viewing a
 native phone gestures remain joint acceptance tasks. The real Alba and Flaine
 items were not changed. The temporary release worktree was archived; concurrent
 PRD/calendar document edits were retained byte-for-byte.
+
+## Assistant metadata gap — 15 October 2026
+
+A later read of Alba returned revision 36, 28 items and zero mapLocations. Recent
+assistant edits had saved itinerary text but no coordinates. The connected plugin
+still advertised the older 23-tool inventory and item input without mapLocations;
+the deployed MCP server already advertised the new optional field. This is a
+client discovery gap, not evidence that saved pins failed to render. No real
+itinerary mutation was made during diagnosis.
+
+The official-SDK regression now checks that both add/update discovery include
+mapLocations, writes a pin through MCP and reads it back, checks an old-schema
+update preserves it, then explicitly clears it with `[]`. Omission preserves
+existing pins for both owner and editor updates. Mutation responses include
+mapLocationCount, and add/update descriptions distinguish textual locations from
+saved coordinates and require checking the result before claiming success.
+
+After deployment, directly connected ChatGPT custom MCP apps require a metadata
+refresh in their connection settings, then a new conversation. See
+[OpenAI's refresh instructions](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata).
+Refreshing does not backfill coordinates: the requested places still need to be
+resolved, saved as mapLocations, and read back. This chat's connected tool schema
+must also refresh before it can submit that new field.

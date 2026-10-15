@@ -40,6 +40,10 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
     const tools = await client.listTools(); assert.equal(tools.tools.length, 26);
     assert.ok(tools.tools.every(t => t.inputSchema.type === 'object'));
+    for(const name of ['add_itinerary_item','update_itinerary_item']){
+      const itemSchema=tools.tools.find(t=>t.name===name)!.inputSchema.properties!.item as {properties:Record<string,unknown>};
+      assert.ok(itemSchema.properties.mapLocations,'MCP discovery must expose saved map coordinates');
+    }
     const call = async (name: string, args: Record<string, unknown>) => {
       const result = await client.callTool({ name, arguments: args });
       assert.ok(!result.isError, JSON.stringify(result)); return result.structuredContent as Record<string, any>;
@@ -51,6 +55,15 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
       location:'',url:null,notes:'Manual note',openQuestion:'',status:'tentative',bookingNote:'',
     }});
     assert.equal((await call('get_itinerary',{tripId:t.tripId})).items[0].payload.title,'MCP itinerary note');
+    const manualPlan=await call('get_itinerary',{tripId:t.tripId}),savedItem=manualPlan.items[0];
+    const pinned=await call('update_itinerary_item',{tripId:t.tripId,itemId:savedItem.id,expectedRevision:manualPlan.revision,idempotencyKey:randomUUID(),item:{...savedItem.payload,mapLocations:[{label:'Flaine — fictional pin',latitude:46.005,longitude:6.687}]}});
+    assert.equal(pinned.mapLocationCount,1);
+    const pinnedPlan=await call('get_itinerary',{tripId:t.tripId});assert.equal(pinnedPlan.items[0].payload.mapLocations[0].latitude,46.005);
+    const {mapLocations,...legacyItem}=pinnedPlan.items[0].payload;
+    const preserved=await call('update_itinerary_item',{tripId:t.tripId,itemId:savedItem.id,expectedRevision:pinnedPlan.revision,idempotencyKey:randomUUID(),item:{...legacyItem,notes:'Older client update'}});
+    assert.equal(preserved.mapLocationCount,1,'cached clients cannot erase pins by omitting the new field');
+    const cleared=await call('update_itinerary_item',{tripId:t.tripId,itemId:savedItem.id,expectedRevision:preserved.revision,idempotencyKey:randomUUID(),item:{...legacyItem,mapLocations:[]}});
+    assert.equal(cleared.mapLocationCount,0);
     const comment=await call('add_itinerary_comment',{tripId:t.tripId,body:'Discuss through MCP',idempotencyKey:randomUUID()});
     assert.equal((await call('list_itinerary_comments',{tripId:t.tripId})).comments[0].body,'Discuss through MCP');
     await call('remove_itinerary_comment',{tripId:t.tripId,commentId:comment.commentId,idempotencyKey:randomUUID()});
