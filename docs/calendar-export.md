@@ -103,3 +103,16 @@ subscriptions and automatic synchronization are outside this slice.
 Release verification against main including member discussion on 15 October: the
 isolated worktree build passed and 90 tests passed, with the same three external
 PostgreSQL checks skipped. Hosted CI and deployment are recorded after release.
+
+## Merge and CI — 15 October 2026
+
+[PR #1](https://github.com/eddieyang-97/trip-planning-engine/pull/1) merged as
+45998a94d324d3f4a0b930826d1e3ee3e1509f4d. The merged file tree matches the
+CI-tested branch. [CI run 38712785769](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712785769)
+passed the build and all 93 tests, with zero skipped, including pooled PostgreSQL.
+
+Manual Render deployment has not started: auto-deploy is disabled and the
+deployment browser requires sign-in. The public itinerary was checked before
+deployment and still lacked the calendar export control. No live calendar
+acceptance is claimed. Resume by deploying the merged release to the existing
+Free service and verifying its health and saved-itinerary export.
