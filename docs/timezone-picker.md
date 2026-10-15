@@ -1,0 +1,9 @@
+# Itinerary timezone picker
+
+Start and end time zones use separate searchable city/country comboboxes. Users can search city names, country names or IANA identifiers, choose with mouse/touch or arrow keys and Enter, and leave either field empty when unknown. The displayed label is friendly (for example, Rome — Italy); saved itinerary fields remain the existing IANA identifiers. The picker never guesses a zone from the destination and does not change stored dates or local times.
+
+Saved aliases retain their original IDs. Unknown future saved IDs remain intact when another item field is edited. Unselected search text cannot silently replace or reuse the previous zone: users must choose a result or clear the field before saving. Keyboard Escape closes the results before closing the item dialog. On narrow screens each picker spans the editor width.
+
+The bundled country-specific metadata derives from IANA tzdb’s public-domain [zone.tab](https://github.com/eggert/tz/blob/main/zone.tab), including aliases that retain a city/country label. The source URL, retrieval date and SHA-256 are recorded in `web/timezone-data.ts`. Browser Intl supplies country labels and supported timezone names; existing server validation remains authoritative. No provider, geocoder, runtime service or npm dependency is added. The stored identifiers retain daylight-saving rules rather than freezing a UTC offset. A few explicit destination search aliases help find the appropriate representative city; they do not populate the fields automatically.
+
+Validation covers city/country/identifier and destination searches, distinct regional clock rules, legacy and unknown ID preservation, and seasonal Rome offsets. Isolated browser acceptance verified keyboard and pointer selection, separate start/end values surviving save/reopen, invalid-text rejection, optional clearing and the narrow-screen layout. Release CI and hosted acceptance are recorded below once complete.

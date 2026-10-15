@@ -5,11 +5,13 @@ import {renderResearch,researchQuestions} from './itinerary-research.js';
 import {configureSharing,openInvitation,pendingInvitation} from './itinerary-sharing.js';
 import {renderOverview} from './itinerary-overview.js';
 import {viewLinkToken,loadViewLink} from './itinerary-view-links.js';
+import {configureTimezonePickers} from './timezone-picker.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
 type Plan={trip:Trip;role?:'owner'|'viewer'|'editor';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
+const timezonePickers=configureTimezonePickers($<HTMLFormElement>('item-form'));
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
 let pending:{signature:string;key:string}|null=null;
@@ -193,6 +195,7 @@ function openItem(row:Row|null,draft?:ItineraryItem){
   editing=row;pending=null;const form=$<HTMLFormElement>('item-form');form.reset();
   const payload=row?.payload??draft??blank;
   for(const [key,value]of Object.entries(payload)){const field=form.elements.namedItem(key) as HTMLInputElement|null;if(field)field.value=value??'';}
+  timezonePickers.setValues(payload);
   $('editor-title').textContent=row?'Edit this item':draft?'Review flight for your plan':'Add to the plan';$('research-draft').hidden=!draft;$('item-error').textContent='';bookingField();$<HTMLDialogElement>('item-dialog').showModal();
 }
 async function withForm(form:HTMLFormElement,errorId:string,work:()=>Promise<void>){
@@ -209,6 +212,7 @@ function demoChange(action:string,id:string,payload?:ItineraryItem){
 $<HTMLFormElement>('item-form').onsubmit=event=>{
   event.preventDefault();const form=event.currentTarget as HTMLFormElement;
   void withForm(form,'item-error',async()=>{
+    timezonePickers.validate();
     const editor=plan?.role==='editor',fields=Object.fromEntries(new FormData(form)),item={...fields} as unknown as ItineraryItem;
     for(const field of ['startDate','startTime','endDate','endTime','timeZone','endTimeZone','url'] as const)item[field]=String(fields[field]??'').trim()||null;
     if(item.status==='tentative')item.bookingNote='';
