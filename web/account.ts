@@ -35,13 +35,13 @@ async function api(path:string, body?:unknown) {
   const { data:{session},error } = await supabase.auth.getSession();
   boundary.check(generation);
   if(error)throw new Error(accountAuthError(error,'signin'));
-  if (!session){clearPrivate();throw new Error('Sign in to your travel account.');}
+  if (!session){boundary.update(null);clearPrivate();throw new Error('Sign in to your travel account.');}
   let response:Response;try{response = await fetch(`/account/api/${path}`, { method:body===undefined?'GET':'POST',signal:AbortSignal.timeout(20_000),
     headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},
     ...(body===undefined?{}:{body:JSON.stringify(body)}) });}catch{throw new Error('Unable to reach the travel app. Check your connection and try again later.');}
   let result;try{result=await response.json();}catch{throw new Error('The travel app returned an unexpected response. Try again later.');}
   boundary.check(generation);
-  if(response.status===401)clearPrivate();
+  if(response.status===401){boundary.update(null);clearPrivate();}
   if(!response.ok) throw new Error(result.error??'Please try again.');return result;
 }
 async function busy(button:HTMLButtonElement, work:()=>Promise<void>) {

@@ -8,7 +8,7 @@ Account and Itinerary use the same Supabase client configuration and `travel-acc
 
 A one-time migration moves the previous tab session and pending PKCE verifiers into persistent storage. An existing persistent account wins. The migration marker remains after sign-out so an old tab cannot restore its stale session. Invitation/view-link credentials stay in tab storage. If browser storage is blocked, the app reports a recoverable error rather than silently promising persistence. Private browsing and clearing site data can end persistence.
 
-Auth events and cross-tab storage changes synchronously clear private UI on sign-out/account changes, then reload outside Supabase's auth callback. Account generations reject responses started under a previous identity. Token refresh for the same identity does not reload the page. Anonymous shared views continue to work without a session. Two-account testing now requires separate browser profiles or private windows; ordinary tabs share the signed-in account.
+Auth events and cross-tab storage changes synchronously clear private UI on sign-out/account changes, then reload outside Supabase's auth callback. Account generations reject responses started under a previous identity; rejected authentication also invalidates outstanding responses. Browser back/forward-cache restoration clears and rechecks private pages that may have missed broadcasts. Token refresh for the same identity does not reload the page. Anonymous shared views continue to work without a session. Two-account testing now requires separate browser profiles or private windows; ordinary tabs share the signed-in account.
 
 “Your account” opens account settings; only sign-in/invitation return links automatically continue into the itinerary.
 
@@ -27,7 +27,7 @@ Booking remains a separate labelled checkmark: **Booked · reported by you/owner
 ## Validation
 
 - Production build passes.
-- Local suite: 104 tests, 101 passed, 3 external-PostgreSQL checks skipped. No paid provider calls.
+- Local suite: 105 tests, 102 passed, 3 external-PostgreSQL checks skipped. No paid provider calls.
 - New checks cover one-time migration, PKCE migration, persistent account precedence, stale-tab non-resurrection, isolated stores, blocked storage, identity generations, SDK restoration, expired-JWT refresh, sign-out and revoked refresh sessions. Map tests cover mixed-category grouping and save/read-back mismatches; the official MCP integration covers pin write/read, omission preservation and explicit clearing.
 - Fictional loopback browser acceptance: Account and Itinerary share sign-in; closing all app tabs and reopening retains it; sign-out removes the other tab's private title/cards; switching to a second fixture identity shows only its trip. Existing pins survive a browser save with verified read-back. Phone-size map legend, category pins and selection inspected.
 - A full browser-process restart and real-account hosted sign-in remain joint acceptance checks. Local client recreation/tab closure is evidence of persistence, not a claim those manual checks were performed. Real trips were not changed for these tests.

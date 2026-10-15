@@ -91,14 +91,14 @@ function showPlan(id:string){void loadPlan(id).catch(error=>message(errorText(er
 async function api(operation:string,input:unknown){
   const generation=accountBoundary.generation;
   let token=localToken;
-  if(client){const {data:{session},error}=await client.auth.getSession();if(error||!session){clearPrivate();throw Error('Sign in to your travel account again.');}token=session.access_token;}
+  if(client){const {data:{session},error}=await client.auth.getSession();if(error||!session){accountBoundary.update(null);clearPrivate();throw Error('Sign in to your travel account again.');}token=session.access_token;}
   accountBoundary.check(generation);
   let response:Response;
   try{response=await fetch(`/itinerary-api/${operation}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(input),signal:AbortSignal.timeout(60_000)});}
   catch{throw Error('The itinerary service did not respond. Refresh to check saved changes before trying again.');}
   let result:any;try{result=await response.json();}catch{throw Error('Unable to read the itinerary response. Refresh to check saved changes.');}
   accountBoundary.check(generation);
-  if(response.status===401)clearPrivate();
+  if(response.status===401){accountBoundary.update(null);clearPrivate();}
   if(!response.ok)throw Object.assign(Error(result.error??'Unable to finish. Please try again.'),{code:result.code});return result;
 }
 async function mutate(operation:string,args:Record<string,unknown>){

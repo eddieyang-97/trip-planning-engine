@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {createClient,type SupabaseClient} from '@supabase/supabase-js';
-import {AccountBoundary,accountStorageKey,prepareAccountStorage} from '../web/account-session.js';
+import {AccountBoundary,accountStorageKey,prepareAccountStorage,watchAccount} from '../web/account-session.js';
 const store=()=>{const values=new Map<string,string>();return {getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);},removeItem:(key:string)=>{values.delete(key);}};};
 
 test('auth migration preserves the authoritative account and never resurrects a signed-out legacy tab',()=>{
@@ -24,6 +24,27 @@ test('account generations reject in-flight private responses on sign-out and acc
   assert.equal(boundary.update('first'),false);boundary.check(generation);
   assert.equal(boundary.update(null),true);assert.throws(()=>boundary.check(generation),/account changed/);
   const signedOut=boundary.generation;boundary.update('second');assert.throws(()=>boundary.check(signedOut),/account changed/);boundary.check(boundary.generation);
+});
+
+test('auth watchers clear private UI synchronously for cross-tab changes and cached-page restore, with reload outside the auth callback',async()=>{
+  const originals=new Map(['window','localStorage','location'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
+  let reloads=0,clears=0;const storage=store(),listeners=new Map<string,(event:any)=>void>();let authChanged:(event:string,session:{user:{id:string}}|null)=>void=()=>{};
+  const fake={auth:{onAuthStateChange(callback:typeof authChanged){authChanged=callback;}}} as unknown as SupabaseClient;
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:storage});
+  Object.defineProperty(globalThis,'window',{configurable:true,value:{addEventListener:(type:string,callback:(event:any)=>void)=>listeners.set(type,callback)}});
+  Object.defineProperty(globalThis,'location',{configurable:true,value:{reload:()=>{reloads++;}}});
+  const flush=()=>new Promise(resolve=>setTimeout(resolve,5));
+  try{
+    const boundary=new AccountBoundary('first');watchAccount(fake,boundary,()=>{clears++;});
+    authChanged('TOKEN_REFRESHED',{user:{id:'first'}});assert.equal(clears,0);
+    authChanged('SIGNED_OUT',null);assert.equal(clears,1);assert.equal(reloads,0);assert.equal(boundary.userId,null);await flush();assert.equal(reloads,1);
+    const next=new AccountBoundary('first');watchAccount(fake,next,()=>{clears++;});
+    listeners.get('storage')!({storageArea:storage,key:'travel-pending-invitation',newValue:null});assert.equal(clears,1);
+    listeners.get('storage')!({storageArea:storage,key:accountStorageKey,newValue:JSON.stringify({user:{id:'second'}})});assert.equal(clears,2);assert.equal(next.userId,'second');await flush();
+    const resumed=new AccountBoundary('second');watchAccount(fake,resumed,()=>{clears++;});
+    listeners.get('pageshow')!({persisted:false});assert.equal(clears,2);
+    listeners.get('pageshow')!({persisted:true});assert.equal(clears,3);assert.equal(resumed.userId,null);await flush();assert.equal(reloads,3);
+  }finally{for(const [key,descriptor]of originals){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}
 });
 
 test('Supabase sessions survive new clients, refresh expired JWTs, clear on sign-out/revocation and remain browser-isolated',async()=>{

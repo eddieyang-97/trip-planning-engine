@@ -50,4 +50,7 @@ export function watchAccount(client:SupabaseClient,boundary:AccountBoundary,clea
     try{id=event.newValue?JSON.parse(event.newValue).user?.id??null:null;}catch{}
     changed(id);
   });
+  // Back/forward cache can resume a page that missed sign-out broadcasts.
+  // Never show its private snapshot until the current session is checked again.
+  window.addEventListener('pageshow',event=>{if(event.persisted&&boundary.userId!==null)changed(null);});
 }
