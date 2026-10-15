@@ -21,6 +21,8 @@ release and keeps an in-progress option gesture alive across input blur. Touch
 selection finishes keyboard editing before setting the chosen label; scrolling,
 cancelled gestures and secondary buttons do not select. A following compatibility
 click is ignored, while keyboard and assistive click activation remain supported.
+The search inputs also disable keyboard autocorrection and automatic capitals
+for city names and IANA identifiers.
 The relative ordering of focus/blur and pointer events varies between browsers;
 see the [Pointer Events specification](https://w3c.github.io/pointerevents/).
 
