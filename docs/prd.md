@@ -298,6 +298,25 @@ The organizer uses the same Flaine trip to assemble flights, accommodation, Frid
 
 The organizer foundation must pass itinerary assembly, explicit booking labels and web/MCP state continuity. Basic sharing passes when friends can understand the correct trip on mobile and editors' permitted changes work without maintaining a Google Doc. Complex proposals and approvals require separate usage-driven validation. Verify one real friend collaboration session, role enforcement, revocation and conflicting edits, as well as web/MCP state continuity.
 
+### Persistent web sign-in
+
+- A user who signs into the web app should normally remain signed in after navigating between the Account and Itinerary pages, closing a tab, and restarting the browser on the **same device and browser profile**, until explicit sign-out, expiry/revocation of the refresh session, or cleared browser storage. Do not promise a permanent or cross-device login.
+- Reuse the existing Supabase Auth session persistence and automatic access-token refresh. The account and itinerary web clients currently supply `sessionStorage` despite `persistSession: true`; adopt a shared persistent browser-storage strategy (for the existing clients, `localStorage` with the same storage key) or a reviewed secure cookie-based alternative. Avoid storing passwords or extending short-lived access-token lifetimes to achieve persistence.
+- An explicit sign-out must clear the local session and remove access to private itinerary/account data from that browser. Handle expired, revoked, malformed or missing sessions by returning to sign-in without leaking private data. Keep protected APIs backed by server-verified credentials; never trust display IDs, browser data or a stale token as authorization.
+- Account web sign-in and the separately granted MCP/OAuth client connection are different session lifecycles. Persistence or sign-out of one must not falsely claim to authorize or revoke the other; provide explicit client-connection revocation controls.
+- Treat browser storage as sensitive: maintain XSS defenses, CSP and appropriate token-handling hygiene, and document the security trade-off of persistent local storage. Users on shared devices can sign out; private/incognito or aggressively cleared browser storage may not retain a session.
+
+### Persistent sign-in acceptance
+
+| Test | Expected behavior |
+|---|---|
+| Sign in and navigate | One sign-in works across Account and Itinerary pages within the same browser profile |
+| Close tab and restart browser | On returning to either page, the current account and trips load without a new sign-in while the refresh session remains valid and browser data is retained |
+| Access token expires | Automatic refresh allows continued authenticated use without a visible login prompt; the backend still validates requests |
+| Explicit sign-out | The local web session is cleared and protected pages/API calls require sign-in again, including after browser restart |
+| Session revoked/expired or browser storage cleared | No private content is shown; the app safely prompts for a new sign-in |
+| MCP client connected separately | Website persistence does not silently grant client permissions; web logout does not falsely report that an independent MCP/OAuth grant has been revoked |
+
 ## 10. Quality and operating requirements
 
 - Authenticate each web and MCP request and authorize access to the requested trip. Resolve identity from verified credentials, never a browser- or model-supplied user ID. Verify direct web account sessions and link each supported assistant client to the same travel account through a tested OAuth flow. Keep provider credentials on the server and verify isolation using separate accounts on both surfaces.
