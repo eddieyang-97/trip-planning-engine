@@ -8,3 +8,9 @@
 
 .research-heading{cursor:pointer}.research-heading .eyebrow{display:block}.research-title{font-family:Georgia,serif;font-size:29px;line-height:1.3}.research-heading::marker{color:var(--green)}@media(max-width:700px){.research-title{font-size:25px}}
 .access-heading{margin-top:28px}.access-row{padding:15px 0;border-top:1px solid var(--line)}.access-row p{margin:7px 0}.access-row button{font-size:12px;padding:8px 12px}#invite-link{font-size:12px}#invitation-form{max-width:400px}@media(max-width:700px){.toolbar{flex-wrap:wrap}.toolbar #add-item{margin-left:0}.toolbar button{flex:1;white-space:nowrap;padding:10px 12px}}
+
+/* Signed-in member discussion */
+.discussion-comment{padding:18px 0;border-bottom:1px solid var(--line,#dfe3db)}
+.comment-meta,.comment-context{font-size:.82rem;color:var(--muted,#65716d);margin:0 0 8px}
+.comment-context{font-weight:600}.comment-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 12px}
+#comment-form{margin-top:24px}#comment-body{width:100%;box-sizing:border-box}#discussion-dialog{overflow-wrap:anywhere}

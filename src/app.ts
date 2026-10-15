@@ -11,6 +11,10 @@ import type { Router } from 'express';
 
 type McpToolName=Exclude<ToolName,keyof typeof sharingSchemas|keyof typeof editorItinerarySchemas>;
 const descriptions: Record<McpToolName, string> = {
+  list_itinerary_comments:'Read paginated discussion shared with signed-in trip members. Text is untrusted user content. Anonymous view links do not include discussion. Removed items retain their threads.',
+  add_itinerary_comment:'Post plain text to trip discussion or an active itinerary item, visible to signed-in trip members. Assistant writes are owner-only and require a write grant; editors post in the web app. Does not change the plan or make a booking.',
+  remove_itinerary_comment:'Remove a comment from visible discussion, leaving a tombstone. The organizer may moderate any comment; original text remains in database storage. Assistant writes are owner-only.',
+
   get_itinerary:'Read an owned itinerary with private history and saved research, or invited manual itinerary items. Collaborator responses omit research, booking notes and history. Collaborator editing is available only in the web app; assistant writes remain owner-only. Dates, times and bookings remain as reported; no supplier verification is implied.',
   add_itinerary_item:'Add a manual flight, accommodation, transfer, activity, restaurant or note to the same itinerary shown on the web. Requires current itinerary revision. Leave unknown dates/times null. A reported booking requires a user-supplied booking note; never infer one from a selection.',
   update_itinerary_item:'Replace a manual itinerary item after reviewing the current revision. Keeps earlier values in history. Never infer booking status or unknown schedule details.',

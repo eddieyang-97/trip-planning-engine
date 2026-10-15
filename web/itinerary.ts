@@ -6,6 +6,7 @@ import {configureSharing,openInvitation,pendingInvitation} from './itinerary-sha
 import {renderOverview} from './itinerary-overview.js';
 import {viewLinkToken,loadViewLink} from './itinerary-view-links.js';
 import {configureTimezonePickers} from './timezone-picker.js';
+import {configureDiscussion} from './itinerary-comments.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
@@ -117,7 +118,10 @@ function allDates(){
   for(let n=0;n<60;n++){const day=start.toISOString().slice(0,10);if(day>end)break;dates.add(day);start.setUTCDate(start.getUTCDate()+1);}
   return [...dates].sort();
 }
+const discussion=configureDiscussion({context:()=>plan?{tripId:plan.trip.id,allowed:!anonymousView&&!demo}:null,api});
+$('trip-discussion').onclick=()=>void discussion.open();
 function render(){
+  discussion.reset();
   $('trip-list').replaceChildren(...trips.map(t=>{
     const b=button(t.payload.name,()=>showPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
     b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':t.role==='editor'?' · Shared, can edit':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
@@ -180,6 +184,7 @@ function card(row:Row,index:number,count:number){
   if(item.bookingNote)detail.append(node('p',`Booking note: ${item.bookingNote}`,'notes'));
   if(item.openQuestion)detail.append(node('p',item.openQuestion,'question'));el.append(detail);
   const actions=node('div','','item-actions');
+  if(!anonymousView&&!demo)actions.append(button('Comments',()=>void discussion.open(row.id)));
   if(item.url){const a=node('a','Open useful link ↗');a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';actions.append(a);}
   if(plan?.role!=='viewer'){
   actions.append(button('Edit',()=>openItem(row)),button('Remove',()=>{removing=row;$('remove-title').textContent=item.title;$('remove-error').textContent='';$<HTMLDialogElement>('remove-dialog').showModal();}));

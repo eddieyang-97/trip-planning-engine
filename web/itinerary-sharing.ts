@@ -28,7 +28,7 @@ export async function openInvitation(api:Api,mutate:Mutate,joined:(id:string)=>P
     const preview=await api('get_itinerary_invite',{token}),p=preview.trip.payload;
     $('invitation-title').textContent=p.name;
     $('invitation-detail').textContent=`${p.destination} · ${p.startDate} to ${p.endDate} · ${p.adults} adults`;
-    $('invitation-permissions').textContent=preview.role==='editor'?'You can add, edit, remove and reorder this trip’s itinerary items, including practical notes and links. Booking status, private booking notes, research and invitations stay with the owner. Changes save directly to the shared plan.':'You can view this trip’s itinerary, practical notes and useful links. The owner controls edits and can revoke access. Saved research and private booking notes are not shared.';
+    $('invitation-permissions').textContent=preview.role==='editor'?'You can add, edit, remove and reorder this trip’s itinerary items, including practical notes and links. Booking status, private booking notes, research and invitations stay with the owner. Changes save directly to the shared plan. You can post comments visible to signed-in trip members.':'You can view this trip’s itinerary, practical notes and useful links. The owner controls edits and can revoke access. Saved research and private booking notes are not shared. You can read discussion shared with signed-in members, but posting requires editor access.';
     $('invitation-form').hidden=false;
     $('join-invitation').textContent=preview.alreadyJoined?'Open shared itinerary':preview.role==='editor'?'Join as itinerary editor':'Join view-only itinerary';
     $<HTMLInputElement>('viewer-name').required=!preview.alreadyJoined;

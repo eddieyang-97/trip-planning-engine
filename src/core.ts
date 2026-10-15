@@ -8,12 +8,14 @@ import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyRefere
 import { dispatchItinerary, itinerarySchemas,editorItinerarySchemas,itineraryAccess } from './itinerary.js';
 import {queueLiveSearch} from './live-search.js';
 import {dispatchSharing,sharingSchemas} from './itinerary-sharing.js';
+import {dispatchComments,commentSchemas} from './itinerary-comments.js';
 
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
   ...itinerarySchemas,
   ...editorItinerarySchemas,
   ...sharingSchemas,
+  ...commentSchemas,
   ...policySchemas,
   list_trips: z.strictObject({ limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).default(0) }),
   create_trip: tripInput,
@@ -31,7 +33,7 @@ export const schemas = {
   record_booking: z.strictObject({ ...edit, selectionId: uuid, bookedAt: z.iso.datetime({ offset: true }), note: z.string().min(1).max(1000) }),
 };
 export type ToolName = keyof typeof schemas;
-const reads = new Set<ToolName>(['get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
+const reads = new Set<ToolName>(['list_itinerary_comments','get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
 export const isRead = (name: ToolName) => reads.has(name);
 function fail(code: string, message: string): never { throw new DomainError(code, message); }
 
@@ -90,7 +92,7 @@ export class Core {
   }
   // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
   async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
-    if(!['list_trips','create_trip',...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    if(!['list_trips','create_trip',...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
     return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
   }
   private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
@@ -108,7 +110,7 @@ export class Core {
         if (old.request_hash !== hash) fail('IDEMPOTENCY_CONFLICT', 'Key was already used with different inputs');
         // Recheck invitation state on retries: a cached acceptance never overrides revocation.
         if(name==='accept_itinerary_invite')return work();
-        if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name))await itineraryAccess(tx,args.tripId,actor.userId,true,!checkGrant);
+        if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name)||Object.hasOwn(commentSchemas,name))await itineraryAccess(tx,args.tripId,actor.userId,true,!checkGrant);
         return old.response;
       }
       const result = await work();
@@ -128,6 +130,7 @@ export class Core {
     return { ...row, observations, attempts };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor,fromWeb:boolean): Promise<Record<string, any>> {
+    if(Object.hasOwn(commentSchemas,name))return dispatchComments(tx,name as keyof typeof commentSchemas,a,actor.userId,fromWeb);
     if(Object.hasOwn(sharingSchemas,name))return dispatchSharing(tx,name as keyof typeof sharingSchemas,a,actor.userId);
     if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name))return dispatchItinerary(tx,name as keyof typeof itinerarySchemas|keyof typeof editorItinerarySchemas,a,actor.userId,fromWeb);
     if (Object.hasOwn(policySchemas,name)) return dispatchPolicy(tx,name as keyof typeof policySchemas,a,actor.userId);
