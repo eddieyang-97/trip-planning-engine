@@ -87,13 +87,34 @@ Implementation commits: `a5d284e` and final UI fix `c608f0f`.
 [Final CI run](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712376361)
 passed all 86 tests with zero skipped, including pooled PostgreSQL checks.
 
-The browser extension disconnected before Render deployment. Comments are
-pushed to GitHub but are **not yet verified live**. Resume by deploying the tested
-`c608f0f0fcf8f48a41cd840870d9f0021394e8c2` commit to the existing service, then
-verify organizer/editor comment exchange, moderation and access revocation on
-**Sharing test — fictional itinerary**. The fictional editor item was removed;
-the temporary editor membership still needs revocation after that run. Do not
-change real itinerary data or grant new access to a real trip for acceptance.
+The user started the Render deployment from their phone after Chrome
+became unavailable. The comments build is now serving on the existing hosted
+app. Public verification on 15 October 2026 confirmed:
 
-The separate calendar-export work remains uncommitted and was excluded from
-this release. No new services, paid plans or provider searches were used.
+- `/health` returned 200 with `status: ok`.
+- Itinerary HTML includes the discussion dialog and composer.
+- The hosted JavaScript exactly matches the tested `c608f0f` release bundle
+  (SHA-256 `d89781335c48623c2ba3bb33a587f2cce9abccfe27910c3201e491e5f9c4c94a`).
+- The browser demo renders successfully and hides discussion as intended.
+- An unauthenticated discussion read returned 401; an invalid anonymous request
+  with a tool-dispatch field returned 400.
+- The existing connected MCP account successfully read the fictional itinerary:
+  owner access, revision 6, one remaining original test item. This was read-only.
+
+Render dashboard status and the exact deployed backend commit were not
+independently inspected because the available in-app browser is signed out of
+Render. The tested code checks migration 009 before startup; healthy startup
+with this release is consistent with its migration completing.
+
+**Still pending:** hosted organizer/editor comment exchange, moderation and
+revocation on **Sharing test — fictional itinerary**. The temporary editor
+membership must be revoked after that run. Posting was not verified through a
+signed-in browser in this deployment check. The connector's current discovery
+still lists the previous 23 tools, so the three new MCP comment tools require a
+metadata refresh before use through that connection. Do not change real
+itinerary data or grant new access to a real trip for acceptance.
+
+The separate calendar-export work was excluded from the deployed `c608f0f`
+release. That work subsequently merged into GitHub main (`abe6ba3`); the
+verified hosted bundle still matches the comments release. No new services,
+paid plans or provider searches were used for these deployment checks.
