@@ -1,9 +1,10 @@
 import {timezoneChoices,searchTimezones,savedTimezoneChoice,type TimezoneChoice} from './timezones.js';
+import {bindTimezoneOption} from './timezone-option.js';
 
 export function timezonePicker(root:HTMLElement,choices:TimezoneChoice[]){
   const input=root.querySelector<HTMLInputElement>('[role=combobox]')!,value=root.querySelector<HTMLInputElement>('input[type=hidden]')!;
   const list=root.querySelector<HTMLElement>('[role=listbox]')!,hint=root.querySelector<HTMLElement>('[role=status]')!;
-  let selected:TimezoneChoice|null=null,results:TimezoneChoice[]=[],active=-1;
+  let selected:TimezoneChoice|null=null,results:TimezoneChoice[]=[],active=-1,choosing=false;
   const close=()=>{list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;};
   function select(choice:TimezoneChoice|null){
     selected=choice;value.value=choice?.id??'';input.value=choice?.label??'';
@@ -25,8 +26,16 @@ export function timezonePicker(root:HTMLElement,choices:TimezoneChoice[]){
       const option=document.createElement('div');option.id=`${input.id}-option-${index}`;option.role='option';
       option.setAttribute('aria-selected',String(choice.id===selected?.id));
       const title=document.createElement('strong'),detail=document.createElement('span');title.textContent=choice.label;detail.textContent=choice.id;
-      option.append(title,detail);option.onpointerdown=event=>event.preventDefault();
-      option.onclick=()=>{select(choice);input.focus();close();};list.append(option);
+      option.append(title,detail);
+      bindTimezoneOption(option,{
+        start:()=>{choosing=true;},
+        choose:touch=>{
+          // Commit any in-progress keyboard text before writing the selected label.
+          if(touch)input.blur();
+          select(choice);if(!touch)input.focus();close();
+        },
+        end:()=>{choosing=false;if(document.activeElement!==input)close();},
+      });list.append(option);
     }
     hint.textContent=count?`${count} matching timezones${count>60?'; showing the first 60. Keep typing to narrow the list.':'. Use arrow keys and Enter to choose.'}`:'No matching timezone. Try a city or country, or clear the field if unknown.';
     if(!count){const empty=document.createElement('div');empty.className='timezone-no-results';empty.textContent='No matching timezone';list.append(empty);}
@@ -35,6 +44,9 @@ export function timezonePicker(root:HTMLElement,choices:TimezoneChoice[]){
   input.onfocus=()=>{open();if(selected&&input.value===selected.label)input.select();};
   input.oninput=()=>{input.setCustomValidity('');input.removeAttribute('aria-invalid');open();};
   input.onblur=()=>{
+    // A touch browser may blur between press and release. Keep the option alive
+    // until that gesture either selects it or is cancelled by scrolling.
+    if(choosing)return;
     close();const query=input.value.trim();
     if(!query)select(null);
     else if(selected&&query===selected.label)select(selected);

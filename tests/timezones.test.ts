@@ -7,6 +7,7 @@ test('timezone search finds countries, destination aliases and IANA names withou
   assert.ok(choices.length>400);
   assert.ok(searchTimezones(choices,'rome italy').some(c=>c.id==='Europe/Rome'&&c.label==='Rome — Italy'));
   assert.ok(searchTimezones(choices,'Turin').some(c=>c.id==='Europe/Rome'));
+  assert.equal(searchTimezones(choices,'alba')[0]?.id,'Europe/Rome');
   assert.ok(searchTimezones(choices,'Geneva').some(c=>c.id==='Europe/Zurich'));
   assert.ok(searchTimezones(choices,'Europe/London').some(c=>c.id==='Europe/London'));
   assert.ok(searchTimezones(choices,'new york').some(c=>c.id==='America/New_York'));

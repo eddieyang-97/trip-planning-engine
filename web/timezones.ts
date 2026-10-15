@@ -27,7 +27,13 @@ export function timezoneChoices():TimezoneChoice[]{
 }
 export function searchTimezones(choices:TimezoneChoice[],query:string){
   const words=normalize(query.trim()).split(/\s+/).filter(Boolean);
-  return choices.filter(choice=>words.every(word=>choice.search.includes(word)));
+  const rank=(choice:TimezoneChoice)=>{
+    const tokens=choice.search.split(/\s+/);
+    return words.reduce((score,word)=>score+(tokens.includes(word)?0:tokens.some(token=>token.startsWith(word))?1:2),0);
+  };
+  // An exact destination alias (Alba → Rome) precedes incidental substrings
+  // such as Albania or Svalbard. Equal matches retain their alphabetical order.
+  return choices.filter(choice=>words.every(word=>choice.search.includes(word))).sort((a,b)=>rank(a)-rank(b));
 }
 export function savedTimezoneChoice(choices:TimezoneChoice[],id:string):TimezoneChoice{
   // A saved identifier can be newer than the visitor's ICU data. Preserve it
