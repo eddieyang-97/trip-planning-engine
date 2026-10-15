@@ -13,6 +13,7 @@ const itemFields={
   type:z.enum(['flight','accommodation','transfer','activity','restaurant','note']),title:z.string().trim().min(1).max(160),
   startDate:z.iso.date().nullable(),startTime:localTime,endDate:z.iso.date().nullable(),endTime:localTime,
   timeZone:zone,endTimeZone:zone,location:z.string().trim().max(250),url:link,
+  mapLocations:z.array(z.strictObject({label:z.string().trim().min(1).max(250),latitude:z.number().finite().min(-85).max(85),longitude:z.number().finite().min(-180).max(180)})).max(2).optional(),
   notes:z.string().trim().max(4000),openQuestion:z.string().trim().max(1000),
   status:z.enum(['tentative','user_reported_booked']),bookingNote:z.string().trim().max(1000),
 };

@@ -8,6 +8,8 @@ import {viewLinkToken,loadViewLink} from './itinerary-view-links.js';
 import {configureCalendarExport} from './itinerary-calendar.js';
 import {configureTimezonePickers} from './timezone-picker.js';
 import {configureDiscussion} from './itinerary-comments.js';
+import {configureMap} from './itinerary-map.js';
+import {configureMapEditor} from './itinerary-map-editor.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
@@ -19,7 +21,9 @@ let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localTok
 let pending:{signature:string;key:string}|null=null;
 let loading=false;
 let anonymousToken:string|null=null,anonymousView=false;
-let view:'overview'|'details'=new URL(location.href).searchParams.get('view')==='details'?'details':'overview';
+type View='overview'|'details'|'map';
+const initialView=new URL(location.href).searchParams.get('view');
+let view:View=initialView==='details'||initialView==='map'?initialView:'overview',mapDay='all';
 let activeDay='',scrollFrame=0;
 const collapsed=new Set<string>();
 function dayTarget(day:string){return document.getElementById(`${view==='overview'?'overview-day':'day'}-${day}`);}
@@ -32,16 +36,19 @@ function markDay(day:string){
     }else link.removeAttribute('aria-current');
   }
 }
-function jumpDay(day:string){markDay(day);dayTarget(day)?.scrollIntoView({block:'start'});}
-function setView(next:'overview'|'details',jump=true){
+function jumpDay(day:string){if(view==='map'){mapDay=day;itineraryMap.show(day);$('map-all-days').setAttribute('aria-pressed','false');markDay(day);return;}markDay(day);dayTarget(day)?.scrollIntoView({block:'start'});}
+function setView(next:View,jump=true){
   view=next;$('overview').hidden=view!=='overview';$('details-layout').hidden=view!=='details';
+  $('map-view').hidden=view!=='map';$('map-all-days').hidden=view!=='map';$('view-map').setAttribute('aria-pressed',String(view==='map'));
+  if(view==='map'){itineraryMap.show(mapDay);if(mapDay==='all'){for(const a of $('day-nav').querySelectorAll('a'))a.removeAttribute('aria-current');}else markDay(mapDay);}else itineraryMap.hide();
+  $('map-all-days').setAttribute('aria-pressed',String(mapDay==='all'));
   $('view-overview').setAttribute('aria-pressed',String(view==='overview'));$('view-details').setAttribute('aria-pressed',String(view==='details'));
   const url=new URL(location.href);url.searchParams.set('view',view);history.replaceState(null,'',url);
-  for(const link of $('day-nav').querySelectorAll<HTMLAnchorElement>('a'))link.href=`#${view==='overview'?'overview-day':'day'}-${link.dataset.day}`;
-  if(jump&&activeDay)jumpDay(activeDay);
+  for(const link of $('day-nav').querySelectorAll<HTMLAnchorElement>('a'))link.href=view==='map'?'#map-view':`#${view==='overview'?'overview-day':'day'}-${link.dataset.day}`;
+  if(jump&&activeDay&&view!=='map')jumpDay(activeDay);
 }
 function trackDay(){
-  scrollFrame=0;if(!plan||$('trip-view').hidden)return;
+  scrollFrame=0;if(!plan||$('trip-view').hidden||view==='map')return;
   const boundary=$('plan-navigation').getBoundingClientRect().bottom+24;
   const sections=[...(view==='overview'?$('overview'):$('timeline')).querySelectorAll<HTMLElement>(view==='overview'?'.overview-day,.overview-unscheduled':'.day')];
   // Side-by-side calendar columns share their vertical position; preserve the
@@ -53,6 +60,8 @@ function trackDay(){
 window.addEventListener('scroll',()=>{if(!scrollFrame)scrollFrame=requestAnimationFrame(trackDay);},{passive:true});
 new ResizeObserver(()=>document.documentElement.style.setProperty('--plan-nav-height',`${$('plan-navigation').getBoundingClientRect().height+16}px`)).observe($('plan-navigation'));
 $('view-overview').onclick=()=>setView('overview');$('view-details').onclick=()=>setView('details');
+$('view-map').onclick=()=>setView('map');
+$('map-all-days').onclick=()=>{mapDay='all';setView('map',false);};
 const names:Record<ItineraryItem['type'],string>={flight:'Flight',accommodation:'Stay',transfer:'Transfer',activity:'Activity',restaurant:'Food & drink',note:'Note'};
 const icons:Record<ItineraryItem['type'],string>={flight:'↗',accommodation:'⌂',transfer:'⇄',activity:'◇',restaurant:'♧',note:'≡'};
 const blank:ItineraryItem={type:'activity',title:'',startDate:null,startTime:null,endDate:null,endTime:null,timeZone:null,endTimeZone:null,
@@ -120,6 +129,16 @@ function allDates(){
   return [...dates].sort();
 }
 const discussion=configureDiscussion({context:()=>plan?{tripId:plan.trip.id,allowed:!anonymousView&&!demo}:null,api});
+function openDetail(row:Row){
+  collapsed.delete(`${plan!.trip.id}:${row.id}`);const detail=$<HTMLDetailsElement>(`item-${row.id}`);detail.open=true;
+  activeDay=row.payload.startDate??'unscheduled';setView('details',false);markDay(activeDay);detail.scrollIntoView({block:'start'});detail.querySelector('summary')?.focus({preventScroll:true});
+}
+const itineraryMap=configureMap($('map-view'),openDetail,row=>{openItem(row);$<HTMLDetailsElement>('map-place-editor').open=true;mapEditor.focus(row.payload.location||row.payload.title);});
+const mapEditor=configureMapEditor($('map-place-editor'),async query=>{
+  if(demo)throw Error('Place search is available in your saved trips. The demo already includes example pins.');
+  if(!plan)throw Error('Open a trip first.');return (await api('place-search',{tripId:plan.trip.id,query})).places;
+});
+$('item-dialog').addEventListener('close',()=>mapEditor.cancel());
 $('trip-discussion').onclick=()=>void discussion.open();
 function render(){
   discussion.reset();
@@ -129,7 +148,7 @@ function render(){
     b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':t.role==='editor'?' · Shared, can edit':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
   }));
   $('empty-trips').hidden=anonymousView||!!plan||trips.length>0;$('trip-view').hidden=!plan;
-  if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();return;}
+  if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();itineraryMap.reset();return;}
   const p=plan.trip.payload,booked=plan.items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=plan.items.filter(i=>!i.payload.startDate).length;
   const viewer=plan.role==='viewer',editor=plan.role==='editor',shared=viewer||editor;
   $('add-item').hidden=viewer;$('share-trip').hidden=shared||demo;$('history-section').hidden=shared;
@@ -164,13 +183,8 @@ function render(){
     for(const [index,row]of group.entries())section.append(card(row,index,group.length));
     $('timeline').append(section);
   }
-  renderOverview($('overview'),plan.items,dates,shared,row=>{
-    collapsed.delete(`${plan!.trip.id}:${row.id}`);
-    const detail=$<HTMLDetailsElement>(`item-${row.id}`);detail.open=true;
-    activeDay=row.payload.startDate??'unscheduled';setView('details',false);markDay(activeDay);
-    detail.scrollIntoView({block:'start'});detail.querySelector('summary')?.focus({preventScroll:true});
-  });
-  setView(view,false);markDay(activeDay);
+  renderOverview($('overview'),plan.items,dates,shared,openDetail);
+  itineraryMap.update(plan.items,!viewer);setView(view,false);if(view!=='map')markDay(activeDay);
 }
 function card(row:Row,index:number,count:number){
   const item=row.payload,el=node('details','','item'),top=node('summary','','item-top'),copy=node('div','','item-copy');
@@ -202,8 +216,9 @@ function bookingField(){const editor=plan?.role==='editor',status=$<HTMLSelectEl
 function openItem(row:Row|null,draft?:ItineraryItem){
   editing=row;pending=null;const form=$<HTMLFormElement>('item-form');form.reset();
   const payload=row?.payload??draft??blank;
-  for(const [key,value]of Object.entries(payload)){const field=form.elements.namedItem(key) as HTMLInputElement|null;if(field)field.value=value??'';}
+  for(const [key,value]of Object.entries(payload)){const field=form.elements.namedItem(key) as HTMLInputElement|null;if(field&&!Array.isArray(value))field.value=value??'';}
   timezonePickers.setValues(payload);
+  mapEditor.set(payload.mapLocations);$<HTMLDetailsElement>('map-place-editor').open=!!payload.mapLocations?.length;
   $('editor-title').textContent=row?'Edit this item':draft?'Review flight for your plan':'Add to the plan';$('research-draft').hidden=!draft;$('item-error').textContent='';bookingField();$<HTMLDialogElement>('item-dialog').showModal();
 }
 async function withForm(form:HTMLFormElement,errorId:string,work:()=>Promise<void>){
@@ -222,6 +237,7 @@ $<HTMLFormElement>('item-form').onsubmit=event=>{
   void withForm(form,'item-error',async()=>{
     timezonePickers.validate();
     const editor=plan?.role==='editor',fields=Object.fromEntries(new FormData(form)),item={...fields} as unknown as ItineraryItem;
+    item.mapLocations=mapEditor.values();
     for(const field of ['startDate','startTime','endDate','endTime','timeZone','endTimeZone','url'] as const)item[field]=String(fields[field]??'').trim()||null;
     if(item.status==='tentative')item.bookingNote='';
     // Server is authoritative. Demo uses these small checks without importing backend dependencies.
@@ -268,6 +284,9 @@ function setupDemo(){
     {type:'flight',title:'One more run, then home',startDate:'2026-12-20',location:'Flaine → London',openQuestion:'Work backwards from the return flight to allow enough transfer time.'},
     {type:'note',title:'Before we go',notes:'Check snowboard bag dimensions, travel documents and equipment plans.'},
   ];
+  const geneva={label:'Geneva Airport — example endpoint',latitude:46.2381,longitude:6.109};
+  const flaine={label:'Flaine — example resort centre',latitude:46.005,longitude:6.687};
+  demoItems[0]!.mapLocations=[geneva];demoItems[1]!.mapLocations=[geneva,flaine];demoItems[2]!.mapLocations=[flaine];demoItems[3]!.mapLocations=[flaine];
   plan={trip,revision:1,items:demoItems.map((item,index)=>({id:`demo-${index}`,position:index+1,payload:{...blank,...item}})),history:[]};
   $('workspace').hidden=false;render();
 }
