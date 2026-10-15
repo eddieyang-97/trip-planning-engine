@@ -26,6 +26,7 @@ export function configureMapEditor(root:HTMLElement,search:(query:string)=>Promi
     finally{if(current===generation)find.disabled=places.length>=2;}
   };
   query.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();if(!find.disabled)find.click();}};
+  query.oninput=()=>{generation++;results.replaceChildren();status.textContent='';find.disabled=places.length>=2;};
   return {
     set(values:MapLocation[]=[]){generation++;places=values.map(p=>({...p}));query.value='';results.replaceChildren();status.textContent='';render();},
     values:()=>places.map(p=>({...p})),

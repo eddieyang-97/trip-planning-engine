@@ -56,6 +56,10 @@ UI displays this boundary and returns results as text, never provider HTML.
   the tile host. No bulk prefetch, offline feature or tile proxy is introduced.
   These public services have no availability guarantee.
 
+Empty map filters show their unpinned item list without loading a background map.
+Changing a search query or closing/reopening the editor invalidates older pending
+results, so an earlier response cannot replace the current search choices.
+
 Defaults require no API key, paid plan, worker or database migration. Optional
 `MAP_SEARCH_URL`, `MAP_TILE_URL` and `MAP_TILE_ATTRIBUTION` replace providers through
 deployment configuration. Both endpoints require HTTPS; tile CSP uses the configured

@@ -21,6 +21,7 @@ export function configureMap(root:HTMLElement,open:(row:LayoutRow)=>void,locate:
   async function initialize(){
     if(map)return;
     map=L.map(canvas,{scrollWheelZoom:false,worldCopyJump:true}).setView([46.5,7],5);layer=L.layerGroup().addTo(map);
+    draw();fitPins();
     const current=sequence;
     try{
       const response=await fetch('/itinerary/map-config',{credentials:'omit'});if(!response.ok)throw Error();
@@ -37,6 +38,7 @@ export function configureMap(root:HTMLElement,open:(row:LayoutRow)=>void,locate:
   function draw(){
     if(!visible)return;
     const filtered=mapDayItems(rows,day),entries=mapEntries(filtered),unplaced=filtered.filter(r=>!entries.some(e=>e.row.id===r.id));
+    canvas.hidden=!entries.length;
     status.textContent=`${filtered.length} ${filtered.length===1?'item':'items'} · ${entries.length} saved ${entries.length===1?'pin':'pins'} · ${unplaced.length} ${unplaced.length===1?'needs':'need'} a location${day==='all'?' · Whole trip':''}`;
     list.replaceChildren();layer?.clearLayers();markers.clear();bounds=[];fit.disabled=!entries.length;
     const groups=new Map<string,typeof entries>();
@@ -70,7 +72,7 @@ export function configureMap(root:HTMLElement,open:(row:LayoutRow)=>void,locate:
   }
   return {
     update(next:LayoutRow[],editable:boolean){rows=next;canEdit=editable;if(visible)draw();},
-    show(filter:string){visible=true;day=filter;if(!map)void initialize();else draw();},
+    show(filter:string){visible=true;day=filter;if(!map&&mapEntries(mapDayItems(rows,day)).length)void initialize();else draw();},
     hide(){visible=false;map?.closePopup();},
     reset(){sequence++;visible=false;rows=[];list.replaceChildren();markers.clear();bounds=[];map?.remove();map=null;layer=null;unavailable.hidden=true;},
   };
