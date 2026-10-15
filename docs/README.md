@@ -8,7 +8,7 @@ Updated 15 October 2026. Start with the architecture and database diagrams, then
 | --- | --- |
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
 | [Database ER diagrams](database.md) | Deployed relationships and keys, including migration 006 viewer sharing |
-| [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, local calendar export and planned proposal approval |
+| [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
 | [Product requirements](prd.md) | Target behavior, scope and milestone order; PRD v0.5 retains equal web/MCP standing and adds Apple Calendar export |
 | [Delivery status and acceptance](implementation.md) | Deployed capabilities, recorded acceptance and remaining gaps |
 
@@ -21,7 +21,8 @@ Requirements define what should exist; delivery status says what has been implem
 | [Account linking](account-linking.md) | Supabase/Brevo email configuration, consent, grants, revocation and dated OAuth/assistant acceptance |
 | [Hosted flight pilot](hosted-live-search.md) | SerpApi scope, configured allowances, durable attempts, recovery and actual hosted search |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
-| [Apple Calendar export](calendar-export.md) | Individual/all/subset .ics export, locally implemented and tested; hosted device acceptance pending |
+| [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | User-confirmed 15 October deployment, hosted smoke checks and remaining acceptance |
+| [Apple Calendar export](calendar-export.md) | Deployed individual/all/subset .ics export; saved-trip/native device acceptance pending |
 | [View-only itinerary sharing](itinerary-sharing.md) | Deployed private invitations, viewer privacy, revocation and hosted second-account acceptance |
 | [Private policy notes](policy-notes.md) | Versioned account-private manual references, separate from quote evidence |
 | [Correctness fixes](correctness-fixes.md) | Budget, airport-zone identity and read consistency corrections with regression evidence |

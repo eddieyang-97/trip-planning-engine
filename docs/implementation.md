@@ -4,7 +4,9 @@ Updated 15 October 2026. Current decisions are in the [architecture](architectur
 
 ## Current release
 
-The existing Free Render service hosts accounts, MCP, manual itineraries, saved flight research, account-free view links and signed-in editor invitations, backed by Supabase. Latest verified deployed implementation: `1444ac82afe1dc174119481d35781379bd621021`, deployed on 14 October 2026 after Render resolved its outage. It passed [CI run 38635202838](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38635202838): **81 tests passed, none skipped**, including three pooled PostgreSQL checks. Its [exact-commit deployment](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db80emaj9qps73b5pjvg) completed in 42.8 seconds; the dashboard identifies it as Live and `/health` returned 200 with status ok.
+The calendar export and member-discussion release is deployed as of 15 October 2026. See [hosted release evidence](release-calendar-comments-2026-10-15.md) for the tested build and hosted checks. A fresh public check confirmed health, calendar controls, frontend export code and protected backend routes. Saved-trip HTTP export and final native iPhone/iPad acceptance remain pending. The Render dashboard deployment ID/backend commit was not independently inspected.
+
+The existing Free Render service hosts accounts, MCP, manual itineraries, saved flight research, account-free view links and signed-in editor invitations, backed by Supabase. Earlier 14 October deployment: `1444ac82afe1dc174119481d35781379bd621021`, deployed on 14 October 2026 after Render resolved its outage. It passed [CI run 38635202838](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38635202838): **81 tests passed, none skipped**, including three pooled PostgreSQL checks. Its [exact-commit deployment](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db80emaj9qps73b5pjvg) completed in 42.8 seconds; the dashboard identifies it as Live and `/health` returned 200 with status ok.
 
 The release applies migrations 001–008; hosted startup completes only after the current schema version is verified. Existing invitations remain account-bound, existing viewers stay viewers, and no real trip was granted anonymous access. Live searches still require explicit server opt-in and a private SerpApi key; no provider request was made in this acceptance. No paid plan or additional host was used.
 
@@ -30,7 +32,7 @@ Editor invitations and shared editing are included in the live release. Automate
 | Account-free view links | Implemented, deployed and verified | Reusable, optionally expiring and revocable; two hosted anonymous visitors, reload, Overview/Details and revoke/refresh denial passed. Private booking notes, research and history stay hidden |
 | Account-bound invitations and editor access | Implemented and deployed | Legacy viewer onboarding/revocation passed. Editors sign in; isolated editor writes/revocation and CI passed, while hosted editor joining/writes remain unverified |
 | Standalone flight/accommodation probes | Live diagnostics recorded | 11 October observations/manual checks; no hosted accommodation provider or comprehensive market coverage |
-| Apple Calendar export | Merged to main on 15 October; deployment pending | [PR #1](https://github.com/eddieyang-97/trip-planning-engine/pull/1), merge 45998a9. [CI](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712785769) passed all 93 tests with zero skipped, including pooled PostgreSQL. Individual/all/subset browser export and 390px layout passed. Render sign-in is required before manual deployment; hosted iPhone/iPad acceptance remains pending. [Feature guide](calendar-export.md); [earlier device probe](apple-calendar-probe.md) |
+| Apple Calendar export | Deployed on 15 October; hosted smoke checks passed | User-confirmed deployment; health 200, calendar UI/bundle present, protected routes returned expected 401/400/404 with no-store and no-referrer. Hosted demo selection/download checks and 93-test CI are recorded in [hosted release evidence](release-calendar-comments-2026-10-15.md). Saved-trip/native iPhone/iPad acceptance remains pending. [Feature guide](calendar-export.md) |
 
 The hosted trip/run IDs and actual attempt results are in [the flight acceptance record](hosted-live-search.md#real-hosted-acceptance--13-october-2026). Latest hosted research view and connected itinerary read returned manual revision 1 and zero manual items. An isolated preview save did not change that real trip.
 
@@ -49,15 +51,15 @@ Configured ceilings are three requests/run, six reserved requests/owner/day, twe
 3. **Flight completeness:** broader airport/pair coverage, exact party-price basis, booking-specific snowboard evidence, seller repricing/handoff, transfers and provider-specific freshness/retention. No baggage-complete or comprehensive live-product claim yet.
 4. **Collaboration:** pilot email delivery, hosted viewer joining and revocation passed; add comments, proposals and organizer approval afterward. Account-free viewing and signed-in editor invitations are deployed; hosted editor write acceptance and broader collaboration remain before accommodation integration.
 5. **Operating hardening:** least-privilege runtime role, throttling, output bounds/versioning, deletion/export/retention, consent recovery, telemetry and backup/restore. Accommodation/dining need separate access/evidence validation later.
-6. **Apple Calendar export:** deploy the locally verified feature and validate individual/all/subset imports through the actual hosted iPhone/iPad flow, including displayed times, checkout boundaries and repeat-import behavior. The individual action, combined dialog, serializer, private-field exclusion and revocation-aware file delivery passed local checks. Automatic sync/subscriptions and Mac-specific acceptance remain deferred.
+6. **Apple Calendar export:** deployment is complete. Validate saved-trip individual/all/subset HTTP exports and native iPhone/iPad imports, including displayed times, checkout boundaries and repeat-import behavior. Hosted demo/browser selection, public route boundaries and CI passed; subscriptions and Mac-specific acceptance remain deferred.
 
 ## Evidence and history
 
 - [Account linking](account-linking.md): configuration, dated deployment/acceptance and remaining client/security checks.
 - [Hosted live flight pilot](hosted-live-search.md): admission/recovery, readiness and real hosted search.
 - [Itinerary web app](itinerary-web.md): manual slice and saved-research release/acceptance.
-- [Apple Calendar probe](apple-calendar-probe.md): standalone transport test and user-confirmed three-event import on iPhone/iPad; production export remains pending.
-- [Apple Calendar export](calendar-export.md): locally implemented flow, schedule rules, delivery/access boundaries and current validation.
+- [Apple Calendar probe](apple-calendar-probe.md): standalone transport test and user-confirmed three-event import on iPhone/iPad; the full feature is now deployed; saved-trip/native acceptance remains pending.
+- [Apple Calendar export](calendar-export.md): deployed flow, schedule rules, delivery/access boundaries and current validation.
 - [11 October live probes](spike/live-probe-results-2026-10-11.md): diagnostic/source findings.
 - [Earlier implementation record](history/implementation-2026-10-11.md): preserved 8–11 October status, setup and deployment history.
 - [Architecture review](architecture-review.md): original findings with follow-up; [spike index](spike/README.md) for historical proposals.

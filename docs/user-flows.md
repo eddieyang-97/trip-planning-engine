@@ -73,9 +73,9 @@ flowchart TB
 
 A copied research draft remains tentative and never creates a research selection or booking. A matching existing flight opens for editing rather than automatically adding another copy. The saved manual item is a snapshot; new research does not update it automatically. Booked labels require an explicit user report and booking note. See [itinerary behavior](itinerary-web.md).
 
-## Export to Apple Calendar — implemented locally; hosted acceptance pending
+## Export to Apple Calendar — deployed; saved-trip/native acceptance pending
 
-The user confirmed that all three fictional probe events imported into Apple Calendar on their iPhone/iPad on 14 October 2026. The feature below was implemented and browser-tested locally on 15 October; deployment and hosted device acceptance remain pending. All and selection are one flow; an individual item action uses the same exporter with that item chosen. See [requirements](prd.md#calendar-export), [feature guide](calendar-export.md) and [probe evidence](apple-calendar-probe.md).
+The user confirmed that all three fictional probe events imported into Apple Calendar on their iPhone/iPad on 14 October 2026. The feature below was deployed on 15 October; see [hosted release evidence](release-calendar-comments-2026-10-15.md). Hosted demo/browser and public boundary checks passed; saved-trip HTTP export and native device acceptance remain pending. All and selection are one flow; an individual item action uses the same exporter with that item chosen. See [requirements](prd.md#calendar-export), [feature guide](calendar-export.md) and [probe evidence](apple-calendar-probe.md).
 
 ```mermaid
 flowchart TB

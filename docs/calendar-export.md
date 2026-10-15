@@ -1,7 +1,9 @@
 # Apple Calendar export
 
-Implemented locally on 15 October 2026. Deployment and acceptance of the hosted
-feature on a physical iPhone/iPad remain pending. The earlier standalone probe's
+Deployed on 15 October 2026; the user confirmed deployment and public checks
+verified the calendar controls, frontend code and protected backend routes.
+See [hosted release evidence](release-calendar-comments-2026-10-15.md). Saved-trip export on a physical
+iPhone/iPad still needs acceptance. The earlier standalone probe's
 three-event import was confirmed by the user on 14 October; see [probe evidence](apple-calendar-probe.md).
 
 ## User flow
@@ -96,7 +98,7 @@ points, following [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545.html).
   file contained the expected meeting/flight UTC fields and hotel checkout date.
   No browser console errors or warnings were recorded.
 
-Hosted deployment and the final feature's native iPhone/iPad handoff, displayed
+The final feature's saved-trip HTTP export, native iPhone/iPad handoff, displayed
 times and repeated-import behavior remain acceptance work. Mac-specific work,
 subscriptions and automatic synchronization are outside this slice.
 
@@ -111,8 +113,8 @@ PostgreSQL checks skipped. Hosted CI and deployment are recorded after release.
 CI-tested branch. [CI run 38712785769](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712785769)
 passed the build and all 93 tests, with zero skipped, including pooled PostgreSQL.
 
-Manual Render deployment has not started: auto-deploy is disabled and the
-deployment browser requires sign-in. The public itinerary was checked before
-deployment and still lacked the calendar export control. No live calendar
-acceptance is claimed. Resume by deploying the merged release to the existing
-Free service and verifying its health and saved-itinerary export.
+At merge time, manual deployment was pending Render sign-in. The user later
+deployed the release on 15 October; [hosted release evidence](release-calendar-comments-2026-10-15.md) supersedes
+that earlier status. A subsequent public check returned healthy status, calendar
+controls and the expected unauthenticated/malformed/invalid-ticket responses.
+Saved-trip and native device acceptance remain separate.
