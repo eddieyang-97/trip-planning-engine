@@ -1,6 +1,6 @@
 # User flow diagrams
 
-Updated 14 October 2026. The diagrams describe the recorded deployed release unless marked **work in progress** or **target flow**. Implementation does not imply that every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [delivery evidence](implementation.md).
+Updated 15 October 2026. The diagrams describe the recorded deployed release unless marked **work in progress** or **target flow**. Implementation does not imply that every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [delivery evidence](implementation.md).
 
 ## Sign in and connect an assistant
 
@@ -72,6 +72,32 @@ flowchart TB
 ```
 
 A copied research draft remains tentative and never creates a research selection or booking. A matching existing flight opens for editing rather than automatically adding another copy. The saved manual item is a snapshot; new research does not update it automatically. Booked labels require an explicit user report and booking note. See [itinerary behavior](itinerary-web.md).
+
+## Export to Apple Calendar — implemented locally; hosted acceptance pending
+
+The user confirmed that all three fictional probe events imported into Apple Calendar on their iPhone/iPad on 14 October 2026. The feature below was implemented and browser-tested locally on 15 October; deployment and hosted device acceptance remain pending. All and selection are one flow; an individual item action uses the same exporter with that item chosen. See [requirements](prd.md#calendar-export), [feature guide](calendar-export.md) and [probe evidence](apple-calendar-probe.md).
+
+```mermaid
+flowchart TB
+    Open[Open the saved itinerary] --> Entry{Export entry point}
+    Entry -->|Whole itinerary or subset| Dialog[Open Export to calendar with eligible dated items selected]
+    Entry -->|Individual item| Single[Choose that item]
+    Dialog --> Choice[Keep all selected or choose a subset]
+    Choice --> Review[Review selected count and exclusions]
+    Single --> Review
+    Review --> Valid{Selection has an accurate exportable schedule?}
+    Valid -->|No| Resolve[Explain missing fields or empty selection]
+    Resolve --> Review
+    Valid -->|Yes| File[Create an ics snapshot with accessible item details]
+    File --> Ready[Show short-lived file link and download alternative]
+    Ready --> Tap[User taps Open in Apple Calendar]
+    Tap --> Access{Original session or view link still has access?}
+    Access -->|No or file link expired| Retry[Return to the itinerary and prepare again]
+    Access -->|Yes| Import[Open in Apple Calendar on iPhone or iPad]
+    Import --> Add[User chooses destination calendar and adds events]
+```
+
+Export leaves the saved itinerary and revision unchanged. Missing dates, time zones or durations are not guessed; exclusions are visible. Private booking notes are excluded by default. Imported events do not automatically follow later edits, and repeat imports may create duplicates. A subscription feed is a separate deferred feature; Mac-specific acceptance is not required for this slice.
 
 ## Viewer invitation — deployed; hosted pilot passed
 
