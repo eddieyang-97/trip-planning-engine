@@ -118,6 +118,7 @@ The organizer foundation adds ItineraryItem to the same trip without requiring a
 | Object | Meaning and essential information |
 |---|---|
 | ItineraryItem | Trip, item type, title, optional local dates/times and time zones, location, links, freeform notes, plan status and revision; optional links to a decision, selected candidate and booking record |
+| AccountProfile | Immutable account ID, validated editable display handle, optional avatar reference; profile changes do not change authorization or historical attribution |
 | TripMembership | Authenticated account, trip and role: organizer, editor or viewer; invitation and revocation state |\n| ShareLink | Explicit owner-enabled anonymous read-only access, optionally expiring and revocable; private fields excluded |\n| ParticipantPlan | Arrival, return, room and activity assignments for traveler subsets without requiring each traveler to be a member |\n| ImportBatch | Source content, suggested mapped items, ambiguities and explicit organizer review before commit |
 | Comment | Author, trip or itinerary-item target, text and timestamps; discussion does not itself change the agreed plan |
 | ChangeProposal | Author, proposed addition or target item for edit/removal, proposed values, expected revision for an existing item, pending/accepted/declined status and organizer resolution |
@@ -185,6 +186,14 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 - Make anonymous share links explicitly opt-in, revocable and read-only with server-side field filtering. Signed-in editors can modify permitted shared fields; viewers read only.
 - Enforce same identity, permission and revision semantics through web and authorized MCP; unsupported client actions return explicit errors. Record attribution, reject stale writes and enforce revocations.
 - Rich comments, proposals and approvals are optional usage-driven increments, not dependencies for accommodation or dining comparisons.
+
+### Account profile and trip member roster
+
+- Provide an **Account** page where a signed-in user can choose, edit and see their public **display ID/handle** and avatar. Support a selected/default avatar and an optional image upload, with accessible fallback initials when no avatar is set.
+- Keep the user-facing display ID separate from the **immutable internal account ID** used for authentication, permissions and ownership. Validate handle format and uniqueness. Changing a display ID or avatar must not change access rights, trip IDs or historical attribution.
+- Each trip has a **Members** section showing accepted signed-in members with avatar, display ID and role (**organizer, editor, viewer**). It is mobile-readable and distinguishes pending invitations from accepted members. Participants represented in travel plans are not automatically members.
+- Member displays reflect current account profiles after changes rather than permanently copied names/avatars. Use a safe fallback label for an incomplete profile.
+- Limit member-profile visibility to authorized signed-in members by default. Anonymous read-only shares must not reveal profile/account IDs, emails or the member roster unless an explicit separate sharing setting allows it; profile changes never elevate permissions or undo revocation.
 
 ### Map presentation and pin semantics
 
@@ -271,6 +280,9 @@ The organizer uses the same Flaine trip to assemble flights, accommodation, Frid
 | Assemble the complete weekend | A readable day-by-day itinerary shows the trip overview, local times, locations, links and notes; missing times and unresolved transfer/check-in conditions remain explicit |
 | Add a selected flight and manually entered accommodation | The flight remains tentative until a booking is recorded; manually reported bookings are labelled; research evidence is accessible from the linked item |
 | Invite a friend who has no assistant account | The friend signs in through a normal web link and can open the private itinerary on a phone with the assigned role |
+| Set account display ID and avatar | Account page saves and displays the chosen handle/avatar, with a fallback; underlying account identity remains unchanged |
+| View trip members | The trip shows accepted members with avatar, handle and organizer/editor/viewer role; invitations are separate; anonymous read shares do not expose member profiles |
+| Change a member's profile | Display ID/avatar changes appear in trip member lists across authorized clients without changing permissions or losing edit history |
 | Comment on the late Friday transfer | The discussion appears on that transfer and retains author and time; the agreed transfer is unchanged |
 | Propose an earlier flight or a new activity | The proposal is pending and visible in context; it does not replace the plan until the organizer accepts it |
 | Accept or decline a proposal | The decision and actors are recorded; acceptance updates the relevant plan item, while decline leaves the agreed plan unchanged |
