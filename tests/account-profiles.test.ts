@@ -13,15 +13,18 @@ import {flaineTrip} from '../src/acceptance.js';
 import {initials} from '../web/profile-display.js';
 const key=()=>({idempotencyKey:randomUUID()});
 
-test('handles normalize and stay unique; profile revisions serialize edits without changing account identity',async()=>{
+test('display names need no handle or uniqueness; revisions and legacy handles preserve account identity',async()=>{
   const db=await embedded(),a=randomUUID(),b=randomUUID();try{
     await migrate(db);assert.equal((await readProfile(db,a)).revision,0);
-    const first=await saveProfile(db,a,{expectedRevision:0,handle:'  ALEx_1 ',displayName:' Alex Owner '});assert.equal(first.handle,'alex_1');assert.equal(first.displayName,'Alex Owner');
-    await assert.rejects(saveProfile(db,b,{expectedRevision:0,handle:'alex_1',displayName:'Friend'}),/already in use/);assert.equal((await readProfile(db,b)).revision,0);
-    const edits=await Promise.allSettled(['alex_2','alex_3'].map(handle=>saveProfile(db,a,{expectedRevision:1,handle,displayName:'Renamed'})));assert.equal(edits.filter(e=>e.status==='fulfilled').length,1);assert.equal((await readProfile(db,a)).revision,2);
-    for(const handle of ['ab','two words','1start','ümlaut','a'.repeat(25)])await assert.rejects(saveProfile(db,b,{expectedRevision:0,handle,displayName:'Friend'}));
-    await assert.rejects(saveProfile(db,b,{expectedRevision:0,handle:'friend_1',displayName:'Invisible\u202Ename'}));
-    await assert.rejects(saveProfile(db,b,{expectedRevision:0,handle:'friend_1',displayName:'Friend',userId:a}));
+    const first=await saveProfile(db,a,{expectedRevision:0,displayName:' Alex Owner '});assert.equal(first.handle,null);assert.equal(first.displayName,'Alex Owner');
+    const duplicate=await saveProfile(db,b,{expectedRevision:0,displayName:'Alex Owner'});assert.equal(duplicate.displayName,first.displayName);assert.equal(duplicate.handle,null);
+    const legacy=await saveProfile(db,a,{expectedRevision:1,handle:'  ALEx_1 ',displayName:'Alex Owner'});assert.equal(legacy.handle,'alex_1');
+    const edits=await Promise.allSettled(['Renamed','Other name'].map(displayName=>saveProfile(db,a,{expectedRevision:2,displayName})));assert.equal(edits.filter(e=>e.status==='fulfilled').length,1);
+    const renamed=await readProfile(db,a);assert.equal(renamed.revision,3);assert.equal(renamed.handle,'alex_1');
+    await assert.rejects(saveProfile(db,b,{expectedRevision:1,handle:'ALEX_1',displayName:'Friend'}),/already in use/);assert.equal((await readProfile(db,b)).revision,1);
+    for(const handle of ['ab','two words','1start','a'.repeat(25)])await assert.rejects(saveProfile(db,b,{expectedRevision:1,handle,displayName:'Friend'}));
+    await assert.rejects(saveProfile(db,b,{expectedRevision:1,displayName:'Invisible\u202Ename'}));
+    await assert.rejects(saveProfile(db,b,{expectedRevision:1,displayName:'Friend',userId:a}));
     const roles=(await db.query("select relrowsecurity from pg_class where relname='account_profiles'")).rows;assert.equal(roles[0]!.relrowsecurity,true);
     assert.equal(initials('Alex Owner'),'AO');assert.equal(initials(' 李 明 '),'李明');assert.equal(initials(''),'TR');
   }finally{await db.close();}
@@ -50,20 +53,20 @@ test('profile and avatar HTTP routes isolate accounts; rosters include accepted 
     http.on('request',createApp({core,publicOrigin:origin,authenticate:async()=>{throw Error('MCP disabled');},accounts:accountRoutes({db,origin,provider,issuer:'https://fixture.invalid/auth/v1',publishableKey:'fixture'}),itinerary:itineraryRoutes({core,origin,authenticate:provider.authenticate})}));
     const request=(path:string,user='owner',body?:unknown,headers:Record<string,string>={})=>fetch(origin+path,{method:body===undefined?'GET':'POST',headers:{authorization:`Bearer ${user}`,origin,'content-type':'application/json',...headers},...(body===undefined?{}:{body:Buffer.isBuffer(body)?new Uint8Array(body).buffer:JSON.stringify(body)})});
     assert.equal((await request('/account/api/profile','missing')).status,401);
-    assert.equal((await request('/account/api/profile','owner',{handle:'owner_1',displayName:'Organizer',expectedRevision:0},{origin:'https://other.invalid'})).status,403);
-    const saved=await(await request('/account/api/profile','owner',{handle:'owner_1',displayName:'Organizer',expectedRevision:0})).json();assert.equal(saved.profile.revision,1);
-    assert.equal((await request('/account/api/profile','editor',{handle:'OWNER_1',displayName:'Other',expectedRevision:0})).status,409);
+    assert.equal((await request('/account/api/profile','owner',{displayName:'Organizer',expectedRevision:0},{origin:'https://other.invalid'})).status,403);
+    const saved=await(await request('/account/api/profile','owner',{displayName:'Organizer',expectedRevision:0})).json();assert.equal(saved.profile.revision,1);
+    assert.equal((await request('/account/api/profile','editor',{userId:owner,displayName:'Other',expectedRevision:0})).status,400);
     const png=await sharp({create:{width:32,height:32,channels:3,background:'#F59E0B'}}).png().toBuffer();
     const upload=await request('/account/api/profile/avatar','owner',png,{'content-type':'image/png','x-profile-revision':'1'});assert.equal(upload.status,200);const withPhoto=(await upload.json()).profile;assert.ok(withPhoto.avatarDataUrl.startsWith('data:image/webp;base64,'));assert.equal(withPhoto.revision,2);
     assert.equal((await request('/account/api/profile/avatar','owner',png,{'content-type':'image/png','x-profile-revision':'1'})).status,409);
     assert.equal((await(await request('/account/api/profile','editor')).json()).profile.avatarDataUrl,null);
     assert.equal((await request('/account/api/profile/avatar','editor',Buffer.alloc(2*1024*1024+1),{'content-type':'image/png','x-profile-revision':'0'})).status,413);
     const roster=async(user='owner')=>request('/itinerary-api/trip-members',user,{tripId});
-    const data=await(await roster()).json();assert.equal(data.members.length,3);assert.equal(data.members[0].displayName,'Organizer');assert.equal(data.members[0].handle,'owner_1');assert.ok(data.members[0].avatarDataUrl);assert.equal(data.members[0].isMe,true);assert.ok(!JSON.stringify(data).includes('private@example'));assert.ok(!JSON.stringify(data).includes('Pending person'));
+    const data=await(await roster()).json();assert.equal(data.members.length,3);assert.equal(data.members[0].displayName,'Organizer');assert.equal(data.members[0].handle,null);assert.ok(data.members[0].avatarDataUrl);assert.equal(data.members[0].isMe,true);assert.ok(!JSON.stringify(data).includes('private@example'));assert.ok(!JSON.stringify(data).includes('Pending person'));
     assert.equal((await roster('viewer')).status,200);assert.equal((await roster('stranger')).status,404);assert.equal((await roster('missing')).status,401);
     const anon=await(await fetch(origin+'/itinerary-share/read',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({token:link.token})})).json();assert.equal(anon.members,undefined);assert.ok(!JSON.stringify(anon).includes('owner_1'));assert.ok(!JSON.stringify(anon).includes('data:image'));
-    await request('/account/api/profile','editor',{handle:'friend_1',displayName:'New Friend Name',expectedRevision:0});
-    assert.ok((await(await roster()).json()).members.some((m:any)=>m.displayName==='New Friend Name'&&m.handle==='friend_1'));
+    await request('/account/api/profile','editor',{displayName:'New Friend Name',expectedRevision:0});
+    assert.ok((await(await roster()).json()).members.some((m:any)=>m.displayName==='New Friend Name'&&m.handle===null));
     assert.ok((await core.callFromWeb('list_itinerary_access',{tripId},owner)).invites.some((i:any)=>i.display_name==='New Friend Name'));
     const removed=await(await request('/account/api/profile/remove-avatar','owner',{expectedRevision:2})).json();assert.equal(removed.profile.avatarDataUrl,null);assert.equal(removed.profile.avatarVersion,null);
     await core.callFromWeb('revoke_itinerary_access',{...key(),tripId,inviteId:editorInvite},owner);assert.equal((await roster('editor')).status,404);assert.equal((await(await roster()).json()).members.length,2);

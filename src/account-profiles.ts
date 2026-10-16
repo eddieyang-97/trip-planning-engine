@@ -7,7 +7,8 @@ import {activeMember} from './itinerary-sharing.js';
 
 const revision=z.number().int().min(0).max(2_147_483_646);
 export const profileInput=z.strictObject({expectedRevision:revision,
-  handle:z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9_]{2,23}$/,'Use 3–24 letters, numbers or underscores, starting with a letter.'),
+  // Retained for older clients; names alone configure a profile in the web app.
+  handle:z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9_]{2,23}$/,'Use 3–24 letters, numbers or underscores, starting with a letter.').optional(),
   displayName:z.string().trim().min(1).max(60).refine(s=>!/[\p{Cc}\p{Cf}]/u.test(s),'Use a name without control characters.'),
 });
 export const profileRevision=revision;
@@ -26,7 +27,7 @@ export async function saveProfile(db:Database,userId:string,input:unknown){
   const a=profileInput.parse(input);
   try{return await db.transaction(async tx=>{
     await locked(tx,userId,a.expectedRevision);
-    await tx.query('update account_profiles set handle=$2,display_name=$3,revision=revision+1,updated_at=now() where user_id=$1',[userId,a.handle,a.displayName]);
+    await tx.query('update account_profiles set handle=coalesce($2,handle),display_name=$3,revision=revision+1,updated_at=now() where user_id=$1',[userId,a.handle??null,a.displayName]);
     return readProfile(tx,userId);
   });}catch(error:any){if(error.code==='23505')throw new DomainError('HANDLE_TAKEN','That handle is already in use. Try another.');throw error;}
 }

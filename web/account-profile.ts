@@ -5,14 +5,14 @@ export function configureProfile(api:AccountApi){
   const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
   const form=$<HTMLFormElement>('profile-form'),photo=$<HTMLInputElement>('avatar-file'),status=$('profile-status');
   let profile:Profile|null=null,draft:Blob|null=null,draftPreview:string|null=null,generation=0,busy=false;
-  function drawAvatar(data=draftPreview??profile?.avatarDataUrl??null){$('profile-photo').replaceChildren(avatarElement({displayName:profile?.displayName||profile?.handle||'Traveler',handle:profile?.handle??null,avatarDataUrl:data}));}
+  function drawAvatar(data=draftPreview??profile?.avatarDataUrl??null){$('profile-photo').replaceChildren(avatarElement({displayName:profile?.displayName||'Traveler',avatarDataUrl:data}));}
   function controls(){for(const c of $('profile-editor').querySelectorAll<HTMLButtonElement|HTMLInputElement>('button,input'))c.disabled=busy||!profile;
     $<HTMLButtonElement>('avatar-save').disabled=busy||!draft||!profile;$<HTMLButtonElement>('avatar-remove').disabled=busy||!profile?.avatarVersion;
     $<HTMLButtonElement>('profile-reload').disabled=busy;
   }
   function accept(saved:Profile,fields=true,keepPhoto=false){profile=saved;if(!keepPhoto){draft=null;draftPreview=null;photo.value='';}drawAvatar();
-    $('profile-current').textContent=profile.handle?`${profile.displayName} · @${profile.handle}`:'Choose a name and unique handle';
-    if(fields){$<HTMLInputElement>('profile-name').value=profile.displayName;$<HTMLInputElement>('profile-handle').value=profile.handle??'';}controls();
+    $('profile-current').textContent=profile.displayName||'Choose a display name';
+    if(fields){$<HTMLInputElement>('profile-name').value=profile.displayName;}controls();
   }
   async function work(action:()=>Promise<void>){if(busy)return;busy=true;controls();status.textContent='';const current=generation;
     try{await action();}catch(error){if(current===generation)status.textContent=error instanceof Error?error.message:'Unable to update your profile.';}
@@ -23,8 +23,8 @@ export function configureProfile(api:AccountApi){
     catch(error){if(current===generation){status.textContent=error instanceof Error?error.message:'Unable to load your profile.';controls();}}
   }
   form.onsubmit=event=>{event.preventDefault();void work(async()=>{
-    const data=await api('profile',{displayName:$<HTMLInputElement>('profile-name').value,handle:$<HTMLInputElement>('profile-handle').value,expectedRevision:profile!.revision});
-    accept(data.profile,true,true);status.textContent=draft?'Profile saved. Choose Save photo to keep your photo preview.':'Profile saved. Your name and handle appear across your trips.';
+    const data=await api('profile',{displayName:$<HTMLInputElement>('profile-name').value,expectedRevision:profile!.revision});
+    accept(data.profile,true,true);status.textContent=draft?'Profile saved. Choose Save photo to keep your photo preview.':'Profile saved. Your name appears across your trips.';
   });};
   photo.onchange=()=>void work(async()=>{
     const file=photo.files?.[0];if(!file)return;draft=null;draftPreview=null;drawAvatar();$<HTMLButtonElement>('avatar-save').disabled=true;

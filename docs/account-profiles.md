@@ -4,17 +4,17 @@ Implemented 16 October 2026. Public names are presentation data; immutable Supab
 
 ## User flow
 
-Open **Your account** and save a display name plus unique handle. Names accept 1–60 characters; handles use 3–24 lowercase letters, numbers or underscores and start with a letter. Case-insensitive collisions return a specific error without changing either account. Name/handle edits and photo updates use a profile revision to prevent another tab silently overwriting newer changes. Existing accounts need no migration/onboarding step before using their trips.
+Open **Your account** and save a display name. Names accept 1–60 characters and do not need to be unique. The web app does not request or display handles. Existing stored handles are preserved for older clients when a name-only update omits the handle. Name edits and photo updates use a profile revision to prevent another tab silently overwriting newer changes. Existing accounts need no migration/onboarding step before using their trips.
 
 Choose a JPEG, PNG or WebP photo (up to 10 MB and 16 megapixels). The browser shows a square crop preview and prepares a thumbnail; only **Save photo** uploads it. The server independently validates the file signature and raster format, rejects animation/oversized/corrupt images, limits concurrent processing and upload frequency, and re-encodes a 256×256 WebP without original metadata. Stored avatars are capped at 24 KiB. **Remove photo** restores initials. Failed image loading also falls back to initials.
 
-The signed-in itinerary shows the organizer and accepted, active members with current names, handles, photos and organizer/editor/viewer labels. Profiles update on the next roster fetch, itinerary refresh or return to an organizer tab. The owner’s sharing controls list pending invitations separately and use current accepted-member names. Membership describes access, not the trip’s traveler count or participant assignments. No roster entry grants editing rights.
+The signed-in itinerary shows the organizer and accepted, active members with current names, photos and organizer/editor/viewer labels. Profiles update on the next roster fetch, itinerary refresh or return to an organizer tab. The owner’s sharing controls list pending invitations separately and use current accepted-member names. Membership describes access, not the trip’s traveler count or participant assignments. No roster entry grants editing rights.
 
 Account-free shared views omit the entire roster. There is no public avatar URL or profile directory. Profile/roster requests require a verified direct session; a roster additionally requires ownership or active membership. They disclose no member email addresses or immutable account IDs. This slice does not add MCP tools, OAuth permissions, participant assignments or profile editing on someone else’s behalf.
 
 ## Data and deployment
 
-Migration **010_account_profiles.sql** adds one `account_profiles` row per configured account, with unique nullable handle, display name, bounded avatar bytes/version, revision and timestamp. An uploaded photo can precede choosing a handle. Unconfigured members use the existing invitation name, and an unconfigured organizer uses “Trip organizer”. The relation to external Supabase identity is logical; there is no database foreign key to Supabase’s managed auth schema.
+Migration **010_account_profiles.sql** adds one `account_profiles` row per configured account, with unique nullable handle, display name, bounded avatar bytes/version, revision and timestamp. Names and photos can be saved without a handle. The nullable legacy handle column remains for compatibility; no schema migration or stored-data removal is needed. Unconfigured members use the existing invitation name, and an unconfigured organizer uses “Trip organizer”. The relation to external Supabase identity is logical; there is no database foreign key to Supabase’s managed auth schema.
 
 ```mermaid
 erDiagram
@@ -45,3 +45,9 @@ RLS is enabled; public, anon and authenticated database roles have no table priv
 - Deployed `account.js`, `account.css`, `itinerary.js` and `itinerary-views.css` match the tested build after newline normalization. Account/itinerary pages returned 200, and an unauthenticated profile request returned 401. The deployed account page opens sign-in; no real account profile was edited for acceptance.
 - Additional fictional browser checks passed: saving a name preserves a pending photo preview, removal restores initials, returning to the itinerary shows current profiles, and signing out clears both account photos and the other tab's roster.
 - Native photo-picker and real-account save acceptance on the user's phone remain joint checks. No extension permissions, SMTP/auth settings, real itineraries or account identities were changed. No paid plan or additional host was needed. Concurrent PRD/calendar drafts were preserved.
+
+## Display-name simplification - 16 October 2026
+
+The current web app uses display names and photos only. Display names may be shared by multiple accounts; immutable account IDs still control identity and authorization. Profile saves omit handles and preserve any legacy value. No database migration is needed.
+
+Validation: production build passed; local suite passed 105 of 108 tests, with the three external-PostgreSQL tests reserved for CI. Updated tests cover duplicate display names, name-only HTTP saves, revision conflicts and preservation of existing handles. A fictional two-person browser fixture saved the same display name as an existing member, saved a photo without a handle, and showed both names and roles without handles in the roster. Real accounts and trips were unchanged.
