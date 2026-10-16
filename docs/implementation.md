@@ -1,8 +1,17 @@
 # Delivery status and acceptance
 
-Updated 15 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes recorded delivery and acceptance evidence.
+Updated 16 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
-## Current release
+## Additional releases and remaining acceptance — 16 October 2026
+
+The dated 15 October snapshot below is retained to preserve exact release evidence. Subsequent releases have separate checks and limitations:
+
+- **Persistent browser sign-in:** same-account session persistence, cross-tab private-UI clearing and safe account switching passed local browser regressions. The [16 October joint release](account-linking.md#joint-persistent-session-and-map-deployment--16-october-2026) documents deployed assets and fictional hosted checks. Real-account session persistence after a full browser restart still needs confirmation.
+- **Itinerary map:** saved map pins, read-back verification, category grouping, clustering and mobile-width presentation are implemented. The [map guide](itinerary-map.md) records 15–16 October CI/hosted demo acceptance; real Alba pinning, shared-link map use and native gestures remain joint checks.
+- **Profiles and member roster:** migration 010 and authenticated name/photo/roster behavior are recorded in [account profiles](account-profiles.md), including 16 October hosted schema-version 10 startup. Native photo picker and real-account save still need acceptance.
+- **Signed-in discussion:** the [discussion guide](itinerary-comments.md) records the 15 October deployed comments workflow and its permission limits. Hosted comment exchange, moderation and revocation require their own real-account acceptance; proposals/approval remain outside the current feature.
+
+## 15 October combined release — historical snapshot
 
 The calendar export and member-discussion release is deployed as of 15 October 2026. See [hosted release evidence](release-calendar-comments-2026-10-15.md) for the tested build and hosted checks. A fresh public check confirmed health, calendar controls, frontend export code and protected backend routes. Saved-trip HTTP export and final native iPhone/iPad acceptance remain pending. The Render dashboard deployment ID/backend commit was not independently inspected.
 
@@ -14,7 +23,7 @@ Hosted acceptance created a seven-day view link only for a fictional test trip. 
 
 Editor invitations and shared editing are included in the live release. Automated tests and isolated owner/editor browser add/edit/remove/reorder/revocation passed; hosted real-account editor joining/writes remain a separate acceptance gap. The desktop overview, phone agenda and sticky day navigation from `9a69257` remain included. See [display evidence](itinerary-web.md#overview-and-detailed-navigation--14-october-2026).
 
-## Delivered and verified
+## Delivered capabilities and dated verification
 
 | Capability | Delivery | Recorded evidence and limits |
 | --- | --- | --- |
@@ -30,7 +39,7 @@ Editor invitations and shared editing are included in the live release. Automate
 | Overview and detailed navigation | Implemented, deployed and checked on the real itinerary | Desktop day columns, phone agenda, sticky dates, active-day tracking, activity disclosures and overview-to-detail navigation; no new itinerary writes or sharing grants |
 | Saved-research web view | Implemented, deployed and viewed with a real account | Same trip and ten sellers as MCP; review draft cancelled without saving; isolated preview tested saves/duplicates |
 | Account-free view links | Implemented, deployed and verified | Reusable, optionally expiring and revocable; two hosted anonymous visitors, reload, Overview/Details and revoke/refresh denial passed. Private booking notes, research and history stay hidden |
-| Account-bound invitations and editor access | Implemented and deployed | Legacy viewer onboarding/revocation passed. Editors sign in; isolated editor writes/revocation and CI passed, while hosted editor joining/writes remain unverified |
+| Account-bound invitations and editor access | Implemented and deployed | Legacy viewer onboarding/revocation passed. Two hosted accounts verified editor invitation acceptance and item add/edit/reorder/remove on a fictional test trip on 15 October; see [discussion guide](itinerary-comments.md#validation). This does not establish every friend or MCP editing scenario |
 | Standalone flight/accommodation probes | Live diagnostics recorded | 11 October observations/manual checks; no hosted accommodation provider or comprehensive market coverage |
 | Apple Calendar export | Deployed on 15 October; hosted smoke checks passed | User-confirmed deployment; health 200, calendar UI/bundle present, protected routes returned expected 401/400/404 with no-store and no-referrer. Hosted demo selection/download checks and 93-test CI are recorded in [hosted release evidence](release-calendar-comments-2026-10-15.md). Saved-trip/native iPhone/iPad acceptance remains pending. [Feature guide](calendar-export.md) |
 
@@ -49,7 +58,7 @@ Configured ceilings are three requests/run, six reserved requests/owner/day, twe
 1. **Organizer across both surfaces:** broaden hosted edit/remove/reorder acceptance and web↔MCP edit continuity; complete web flight controls/comparison; explicit research links and organizer reconciliation. Hosted creation/save and web-to-MCP read continuity passed with a fictional test trip.
 2. **Accounts and assistants:** hosted second-account isolation, read-only mutation denial, refresh/revocation/reconnection, Claude compatibility and ChatGPT write/search behavior. Automated checks do not replace these real flows.
 3. **Flight completeness:** broader airport/pair coverage, exact party-price basis, booking-specific snowboard evidence, seller repricing/handoff, transfers and provider-specific freshness/retention. No baggage-complete or comprehensive live-product claim yet.
-4. **Collaboration:** pilot email delivery, hosted viewer joining and revocation passed. Account-free viewing and signed-in editor invitations are deployed; hosted editor write acceptance remains open. Complex comments, proposals and organizer approval are conditional on real use. **This acceptance gap does not block manual/sourced accommodation comparisons**; live supplier integrations require their own approved-access, data/privacy and operational checks.
+4. **Collaboration:** pilot email delivery, viewer joining/revocation and a fictional hosted editor write journey passed; anonymous viewing and member comments are implemented. Complete real-friend editor and signed-in discussion/moderation acceptance; proposals and organizer approval remain conditional future work. **These gaps do not block manual/sourced accommodation comparisons**; live supplier integrations require their own approved-access, data/privacy and operational checks.
 5. **Operating hardening:** least-privilege runtime role, throttling, output bounds/versioning, deletion/export/retention, consent recovery, telemetry and backup/restore. Accommodation/dining need separate access/evidence validation later.
 6. **Apple Calendar export:** deployment is complete. Validate saved-trip individual/all/subset HTTP exports and native iPhone/iPad imports, including displayed times, checkout boundaries and repeat-import behavior. Hosted demo/browser selection, public route boundaries and CI passed; subscriptions and Mac-specific acceptance remain deferred.
 
