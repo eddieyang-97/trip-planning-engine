@@ -12,15 +12,9 @@ Validation: build passed and 71 local tests passed with three external PostgreSQ
 
 Implementation `9a69257bc9f7468e2e2188ed116ffd6a07dfc787` passed [CI run 38629184354](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38629184354): all 74 tests passed, none skipped, including all three pooled PostgreSQL checks. That exact commit [deployed to the existing Free service](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db7u207f3r2c739edee0) in 48.5 seconds, reporting Live at 21:08:16 London time on 14 October. The signed-in hosted itinerary rendered three overview columns and all 27 detail cards. At 390px, activity selection, collapse, sticky navigation, date switching, and the active date changing while scrolling passed with no horizontal page overflow or console errors. The organizer's existing Edit form opened correctly and was cancelled without saving. No itinerary data, invitation or booking was changed by these display checks. Physical-phone testing remains separate.
 
-## Apple Calendar export — deployed, 15 October 2026
+## Apple Calendar export — current feature guide
 
-The agreed next export slice supports one item, all items or a selected subset. All and selection share one Export to calendar dialog with all eligible dated items selected by default, a selected count, Select all and Deselect all. The individual item's Add to calendar action uses the same .ics exporter for that item. Initial device acceptance targets iPhone/iPad; no Mac-specific work is required.
-
-Exports are snapshots of saved items. They preserve recorded schedules, separate flight departure/arrival zones, date-only events and hotel checkout boundaries. Unknown dates, zones or durations must not be invented; show excluded items and reasons before exporting. Private booking notes are excluded by default, and existing shared-view privacy applies. Later itinerary edits do not update imported events, and repeat imports may create duplicates. Automatic sync and subscriptions are deferred.
-
-The individual action and combined dialog are deployed for signed-in and account-free readers. Export selected prepares a two-minute, file-specific link; a fresh tap on Open in Apple Calendar follows the inline .ics route. Download calendar file is also available. Source access is rechecked on delivery, and private booking notes are always excluded. Invalid schedules and DST ambiguities are unavailable with reasons. The demo produces a labelled sample download.
-
-The build and full local suite passed (87 passed, three external PostgreSQL checks skipped). Browser checks verified all/selected/individual export, unavailable items, empty selection, actual three-event download and the 390px phone layout without overflow or console errors. The earlier standalone probe's three-event Apple Calendar import was user-confirmed on 14 October. The feature is deployed, with hosted demo and public route checks recorded in [hosted release evidence](release-calendar-comments-2026-10-15.md). Saved-trip HTTP export and final native iPhone/iPad import/displayed-schedule acceptance remain pending. See [feature details](calendar-export.md), [requirements](prd.md#calendar-export), [probe evidence](apple-calendar-probe.md) and [delivery status](implementation.md).
+The itinerary provides one-item, all-item and selected-subset `.ics` snapshots, using existing trip access and private-field filtering. For the authoritative user flow, schedule/DST rules, temporary download tickets, limitations and dated acceptance evidence, see [Apple Calendar export](calendar-export.md) and the preserved [15 October combined release record](release-calendar-comments-2026-10-15.md). Saved-trip/native-device acceptance is tracked in [delivery status](implementation.md).
 
 ## What works
 
@@ -31,6 +25,48 @@ The build and full local suite passed (87 passed, three external PostgreSQL chec
 - Persistent history with before/after values, actor, timestamp and revision. Removing an item hides it from the current plan while retaining the record and history. Latest 50 events are returned; the full history remains in the database.
 - One authoritative trip state for web and MCP. Five tools expose the same implementation: `get_itinerary`, `add_itinerary_item`, `update_itinerary_item`, `remove_itinerary_item`, `move_itinerary_item`.
 
+## Itinerary timezone picker — 15 October 2026
+
+Start and end time zones use separate searchable city/country comboboxes. Users can search city names, country names or IANA identifiers, choose with mouse/touch or arrow keys and Enter, and leave either field empty when unknown. The displayed label is friendly (for example, Rome — Italy); saved itinerary fields remain the existing IANA identifiers. The picker never guesses a zone from the destination and does not change stored dates or local times.
+
+Saved aliases retain their original IDs. Unknown future saved IDs remain intact when another item field is edited. Unselected search text cannot silently replace or reuse the previous zone: users must choose a result or clear the field before saving. Keyboard Escape closes the results before closing the item dialog. On narrow screens each picker spans the editor width.
+
+The bundled country-specific metadata derives from IANA tzdb’s public-domain [zone.tab](https://github.com/eggert/tz/blob/main/zone.tab), including aliases that retain a city/country label. The source URL, retrieval date and SHA-256 are recorded in `web/timezone-data.ts`. Browser Intl supplies country labels and supported timezone names; existing server validation remains authoritative. No provider, geocoder, runtime service or npm dependency is added. The stored identifiers retain daylight-saving rules rather than freezing a UTC offset. A few explicit destination search aliases help find the appropriate representative city; they do not populate the fields automatically.
+
+Validation covers city/country/identifier and destination searches, distinct regional clock rules, legacy and unknown ID preservation, and seasonal Rome offsets. Isolated browser acceptance verified keyboard and pointer selection, separate start/end values surviving save/reopen, invalid-text rejection, optional clearing and the narrow-screen layout. Implementation `93d2289` passed [CI run 38662588755](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38662588755): **83 passed, zero skipped**, including all three pooled PostgreSQL checks. The local isolated run passed 80 with those three checks skipped. A 390px phone viewport reported 375px document width with no overflow and a 274px result panel spanning the editor. 
+
+The exact tested commit was [deployed on 15 October 2026](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db829a0m7kps73cp05fg) at 01:56 London time, completing in 42.9 seconds. Render showed Deploy succeeded/Live and `/health` returned 200 with status ok. The release contains only the timezone change; concurrent calendar work stayed outside this commit.
+
+Hosted browser acceptance opened an existing flight editor and verified its saved start/end IDs display as London — United Kingdom and Rome — Italy. Searching Italy returned the Rome result with Europe/Rome beneath it. The editor was cancelled without saving; no real itinerary values, revisions or booking state were changed. Save/reopen, invalid input, clearing and phone-width checks used only the isolated fictional fixture.
+
+### Touch selection regression — 15 October 2026
+
+A user reported that tapping Rome after searching `alba` on an iPhone left the
+typed query in the field. The previous picker committed only on click while
+closing immediately on blur. The fix commits a stationary primary-pointer
+release and keeps an in-progress option gesture alive across input blur. Touch
+selection finishes keyboard editing before setting the chosen label; scrolling,
+cancelled gestures and secondary buttons do not select. A following compatibility
+click is ignored, while keyboard and assistive click activation remain supported.
+The search inputs also disable keyboard autocorrection and automatic capitals
+for city names and IANA identifiers.
+The relative ordering of focus/blur and pointer events varies between browsers;
+see the [Pointer Events specification](https://w3c.github.io/pointerevents/).
+
+Exact destination aliases now rank before incidental substrings: `alba` shows
+Rome first, ahead of Albania and Svalbard. Stored IANA IDs and local times are
+unchanged by search ranking.
+
+Regression tests replay tap-without-click, duplicate click, drag, cancellation,
+foreign-pointer, mouse and assistive activation sequences. The complete local
+suite passed 93 tests with three external PostgreSQL checks skipped. The browser
+fixture verified `alba` → Rome selection, a closed panel, keyboard selection for
+the other zone, and both zones surviving save/reopen. At 390px viewport width,
+document width and scroll width were both 375px. All writes used an isolated
+fictional itinerary. Actual iPhone Safari confirmation remains required after
+deployment; the desktop browser's phone viewport does not emulate its keyboard
+or native touch event ordering.
+
 ## Preview and sign-in
 
 ```sh
@@ -40,9 +76,9 @@ npm run dev
 
 Open `http://127.0.0.1:3000/itinerary?demo=1` for the deliberately labelled Flaine example. It contains no confirmed bookings, invented fares or invented flight times. Four adults and the Geneva gateway are labelled or noted assumptions. Demo changes live only in page memory and reset on reload; no private trip is loaded or written. This is an interactive design preview, not the user's saved itinerary.
 
-The actual `/itinerary` view uses the existing travel-account session and directs signed-out hosted users to `/account`. Since 16 October, Account and Itinerary share persistent, refreshable browser sign-in across navigation and closed/reopened app tabs. Sign-out/account changes clear private views and invalidate outstanding responses; see [session and map release evidence](persistent-sign-in-and-map-presentation.md). No MCP client or provider API key is needed to use the hosted web app. Real account sign-in passed on 13 October; the Supabase dashboard account is separate.
+The actual `/itinerary` view uses the existing travel-account session and directs signed-out hosted users to `/account`. Since 16 October, Account and Itinerary share persistent, refreshable browser sign-in across navigation and closed/reopened app tabs. Sign-out/account changes clear private views and invalidate outstanding responses; see [persistent session and joint-release evidence](account-linking.md#persistent-browser-session--16-october-2026). No MCP client or provider API key is needed to use the hosted web app. Real account sign-in passed on 13 October; the Supabase dashboard account is separate.
 
-Local development accepts the existing local bearer token through a password field. That token is held only in memory, not embedded in the page or written to browser storage. It remains a developer option; friends use hosted sign-in. In this work session the review server uses port 3084 and the isolated `.data/itinerary-preview` database.
+Local development accepts the existing local bearer token through a password field. That token is held only in memory, not embedded in the page or written to browser storage. It remains a developer option; friends use hosted sign-in. Local preview ports and fixture database paths vary by development session.
 
 ## Persistence and authorization
 
