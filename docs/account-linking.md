@@ -22,9 +22,37 @@ The existing dedicated project uses the following settings. Verify them when set
 
 These are project settings, not the user's account on the Supabase dashboard. Do not alter dashboard credentials, disable email confirmation, use wildcard redirect URLs, or weaken JWT audience checks. Existing signing-key migration, if required, needs a separate reviewed rollout.
 
-The first user creates a travel account at `/account`, confirms the email, and signs in. Since 16 October, Account and Itinerary share a refreshable Supabase session in persistent browser storage. Closing app tabs does not end valid sign-in; sign-out clears private views across tabs. Passwords are not persisted. Pending invitations remain tab-specific, so return to the invitation tab after confirmation. See [session lifecycle and acceptance](persistent-sign-in-and-map-presentation.md). The existing project uses Brevo custom SMTP as described below; a new environment needs its own sender configuration.
+The first user creates a travel account at `/account`, confirms the email, and signs in. Since 16 October, Account and Itinerary share a refreshable Supabase session in persistent browser storage. Closing app tabs does not end valid sign-in; sign-out clears private views across tabs. Passwords are not persisted. Pending invitations remain tab-specific, so return to the invitation tab after confirmation. See [persistent browser session and acceptance](account-linking.md#persistent-browser-session--16-october-2026). The existing project uses Brevo custom SMTP as described below; a new environment needs its own sender configuration.
 
 The assistant connects to `https://trip-planning-engine.onrender.com/mcp`. Discover the authorization server through its protected-resource metadata. Do not claim support for a particular assistant until its real registration, PKCE, consent and refresh flow succeeds.
+
+## Persistent browser session — 16 October 2026
+
+Account and Itinerary use the same Supabase client configuration and `travel-account` local-storage key. Supabase retains the refreshable session; passwords are never persisted by the application. Valid sign-in survives navigation and closing/reopening app tabs. The provider still validates direct-session JWTs; MCP OAuth grants remain separate. Signing out uses Supabase's local scope, ending this browser's session without revoking unrelated assistant grants.
+
+A one-time migration moves the previous tab session and pending PKCE verifiers into persistent storage. An existing persistent account wins. The migration marker remains after sign-out so an old tab cannot restore its stale session. Invitation/view-link credentials stay in tab storage. If browser storage is blocked, the app reports a recoverable error rather than silently promising persistence. Private browsing and clearing site data can end persistence.
+
+Auth events and cross-tab storage changes synchronously clear private UI on sign-out/account changes, then reload outside Supabase's auth callback. Account generations reject responses started under a previous identity; rejected authentication also invalidates outstanding responses. Browser back/forward-cache restoration clears and rechecks private pages that may have missed broadcasts. Token refresh for the same identity does not reload the page. Anonymous shared views continue to work without a session. Two-account testing now requires separate browser profiles or private windows; ordinary tabs share the signed-in account.
+
+“Your account” opens account settings; only sign-in/invitation return links automatically continue into the itinerary.
+
+### Verification and limitations — 16 October
+
+The original sign-in/map joint release also changed map presentation and verified pin saving; those feature semantics are now in [the itinerary map guide](itinerary-map.md#saved-pin-verification-and-presentation--16-october-2026). This subsection retains the original joint test and deployment evidence.
+
+- Production build passes.
+- Local suite: 105 tests, 102 passed, 3 external-PostgreSQL checks skipped. No paid provider calls.
+- New checks cover one-time migration, PKCE migration, persistent account precedence, stale-tab non-resurrection, isolated stores, blocked storage, identity generations, SDK restoration, expired-JWT refresh, sign-out and revoked refresh sessions. Map tests cover mixed-category grouping and save/read-back mismatches; the official MCP integration covers pin write/read, omission preservation and explicit clearing.
+- Fictional loopback browser acceptance: Account and Itinerary share sign-in; closing all app tabs and reopening retains it; sign-out removes the other tab's private title/cards; switching to a second fixture identity shows only its trip. Existing pins survive a browser save with verified read-back. Phone-size map legend, category pins and selection inspected.
+- A full browser-process restart and real-account hosted sign-in remain joint acceptance checks. Local client recreation/tab closure is evidence of persistence, not a claim those manual checks were performed. Real trips were not changed for these tests.
+
+### Joint persistent-session and map deployment — 16 October 2026
+
+Code commit: `dd58879073c49c465b14b03e7baf2da002e8f292` (includes `d934eb0` and `a114dd3`). [CI run 38824100758](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38824100758), job `116727359907`: **105 passed, 0 failed, 0 skipped**, including PostgreSQL 17 checks. The final small correction uses Leaflet's popup-open event so keyboard Enter and pointer activation both highlight selection; keyboard activation passed in the fictional browser fixture.
+
+Existing Free Render service deployment [`dep-db8m5im7bikc73fi10lg`](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db8m5im7bikc73fi10lg) reached **Live**, duration 43.9 seconds. `/health` returned `ok`; account and itinerary pages returned 200 with Trip Planner branding. Public `account.js`, `itinerary.js` and `itinerary-views.css` match the tested local build (SHA-256 after newline normalization). The hosted fictional demo displays category legend, mixed-category markers and phone layout; keyboard Enter also highlighted the marker, selected place card and selection status on the deployed service. Real-account hosted sign-in and a full browser-process restart remain joint acceptance checks above.
+
+No migration, new service, paid plan or new access scope was required. The concurrent PRD/calendar drafts were preserved and excluded from this release.
 
 ## Account email delivery
 
