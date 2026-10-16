@@ -10,12 +10,25 @@ import {Core} from '../src/core.js';
 import {itineraryRoutes} from '../src/itinerary-web.js';
 import {readItineraryViewLink} from '../src/itinerary-view-links.js';
 import {flaineTrip} from '../src/acceptance.js';
-import {mapDayItems,mapEntries,groupMapEntries} from '../web/itinerary-map-data.js';
+import {mapDayItems,mapEntries,groupMapEntries,clusterMapGroups} from '../web/itinerary-map-data.js';
 import {categories,itemCategory} from '../web/itinerary-categories.js';
 import {verifyMapSave} from '../web/itinerary-save-verification.js';
 const key=()=>({idempotencyKey:randomUUID()});
 const pin={label:'Flaine resort centre',latitude:46.005,longitude:6.687};
 const item:ItineraryItem={type:'accommodation',title:'Example stay',location:'Flaine',mapLocations:[pin],startDate:'2026-12-18',endDate:'2026-12-20',startTime:null,endTime:null,timeZone:null,endTimeZone:null,url:null,notes:'Shared',openQuestion:'',status:'user_reported_booked',bookingNote:'PRIVATE booking'};
+
+test('map clusters count distinct locations, cross grid boundaries and split with zoom without losing stops',()=>{
+  const rows=[0.055,0.055,0.057,0.3].map((longitude,index)=>({id:String(index),position:index,payload:{...item,mapLocations:[{...pin,latitude:0,longitude}]}}));
+  const groups=groupMapEntries(mapEntries(rows)),project=(scale:number)=>(latitude:number,longitude:number)=>({x:longitude*scale,y:latitude*scale});
+  assert.equal(groups.length,3);
+  const wide=clusterMapGroups(groups,project(1000));assert.deepEqual(wide.map(cluster=>cluster.length),[2,1]);
+  assert.equal(wide[0]!.flat().length,3,'a repeated activity at one location does not increase the cluster location count');
+  assert.deepEqual(wide.flat(2).map(e=>e.row.id).sort(),['0','1','2','3']);
+  assert.deepEqual(clusterMapGroups(groups,project(100_000)).map(cluster=>cluster.length),[1,1,1]);
+  assert.deepEqual(clusterMapGroups([...groups].reverse(),project(1000)),wide);
+  assert.deepEqual(clusterMapGroups([],project(1000)),[]);
+  assert.equal(clusterMapGroups([groups[0]!],project(1000))[0]!.length,1);
+});
 
 test('co-located map groups retain every category and pin; save confirmation checks counts and read-back coordinates',()=>{
   const rows=['accommodation','restaurant','activity','flight','transfer','note'].map((type,index)=>({id:String(index),position:index,payload:{...item,type:type as ItineraryItem['type']}}));

@@ -12,3 +12,21 @@ export function groupMapEntries(entries:ReturnType<typeof mapEntries>){
   for(const entry of entries){const key=`${entry.place.latitude.toFixed(5)},${entry.place.longitude.toFixed(5)}`;groups.set(key,[...(groups.get(key)??[]),entry]);}
   return [...groups.values()];
 }
+
+// Cluster distinct saved locations in projected pixels, after grouping stops
+// at the same place. Counts represent locations, not activities or sequence.
+export function clusterMapGroups(groups:ReturnType<typeof groupMapEntries>,project:(latitude:number,longitude:number)=>{x:number;y:number},radius=56){
+  const clusters:{groups:typeof groups;point:{x:number;y:number}}[]=[],cells=new Map<string,number[]>();
+  const points=groups.map(group=>({group,point:project(group[0]!.place.latitude,group[0]!.place.longitude)}))
+    .sort((a,b)=>a.point.x-b.point.x||a.point.y-b.point.y);
+  for(const {group,point} of points){
+    const x=Math.floor(point.x/radius),y=Math.floor(point.y/radius);let match=-1,distance=radius*radius;
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const index of cells.get(`${x+dx},${y+dy}`)??[]){
+      const anchor=clusters[index]!.point,d=(anchor.x-point.x)**2+(anchor.y-point.y)**2;
+      if(d<=distance){match=index;distance=d;}
+    }
+    if(match>=0)clusters[match]!.groups.push(group);
+    else{const index=clusters.push({groups:[group],point})-1,key=`${x},${y}`;cells.set(key,[...(cells.get(key)??[]),index]);}
+  }
+  return clusters.map(c=>c.groups);
+}

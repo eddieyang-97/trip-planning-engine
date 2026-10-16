@@ -9,11 +9,22 @@ for a flight or transfer. Map search never changes dates, times, booking status 
 the free-text location. Existing items are unpinned until someone chooses a place.
 
 Whole trip, each day and Ideas filter the items. Multi-day items remain visible
-through their recorded end date, including a stay's checkout. Numbers follow the
-displayed item order. Co-located pins share a marker and list their items in its
-popup. Pin/list actions open the existing detailed item. Missing pins stay visible
-as cards with an Add map location action for editors; viewers have no edit action.
-There are no guessed coordinates, route lines, driving durations or live navigation.
+through their recorded end date, including a stay's checkout. Compact category
+filters refine both map and list. Single-category locations use one coloured icon;
+a shared location with mixed categories uses one neutral place pin. Itinerary
+numbers are omitted from map pins and place cards.
+
+Nearby distinct locations cluster in screen pixels as the map zooms out. Circle
+counts represent locations, not itinerary order or number of activities. Activate
+a cluster to zoom in; at maximum zoom it opens the complete place list instead.
+Co-located activities share one pin and remain individually accessible in a
+selected-location card below the map. Enter/Space support marker activation.
+The selected marker gains an outline and its corresponding list card highlights.
+
+Missing pins remain in the list. An actionable missing-location count filters the
+list to those items; the existing map stays visible for context. Owners/editors
+have Add map location; viewers have no edit action. There are no guessed
+coordinates, route lines, driving durations or live navigation.
 
 ## Data and access
 
@@ -137,3 +148,25 @@ refresh in their connection settings, then a new conversation. See
 Refreshing does not backfill coordinates: the requested places still need to be
 resolved, saved as mapLocations, and read back. This chat's connected tool schema
 must also refresh before it can submit that new field.
+
+## Compact map presentation - 16 October 2026
+
+This refinement replaces the earlier numbered/multi-icon marker presentation.
+No new provider, dependency, API credential, infrastructure or database migration
+is introduced. Browser checks use fictional trips only.
+
+Validation: production build passed. Local suite: 109 tests, 106 passed and three
+external-PostgreSQL checks skipped for CI. The cluster regression checks distinct
+location counts versus repeated activities, cell-boundary proximity, zoom splitting,
+stable grouping and preservation of every stop. Browser acceptance checked category
+and missing-location filters, Enter/Space selection and cluster expansion, every
+activity at a shared location, the maximum-zoom fallback for adjacent entrances,
+selected-place detail handoff, day filtering including a stay's checkout and the
+existing public demo. At requested 390x844 phone width the document and scroll
+width were both 375px; only the category chip strip scrolls horizontally. Native
+phone gesture acceptance remains a joint check.
+
+Automatic approval review blocked creating an anonymous link for the isolated
+fictional test trip, so no link was created. Existing automated anonymous/access
+checks passed; browser checks used the existing public demo instead. No real
+itinerary, coordinates, memberships or sharing settings were changed.
