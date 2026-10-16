@@ -1,12 +1,12 @@
 # Itinerary sharing
 
-The organizer creates a trip and adds manual itinerary items. In **Share trip**, **Can view** creates a reusable link that opens without an account; **Can edit itinerary** creates a one-person invitation that requires sign-in. The organizer can revoke either. Comments and proposals remain later work. Account-free viewing is deployed and verified as recorded in the recovered hosted rollout below.
+The organizer creates a trip and adds manual itinerary items. In **Share trip**, **Can view** creates a reusable link that opens without an account; **Can edit itinerary** creates a one-person invitation that requires sign-in. The organizer can revoke either. Signed-in member discussion is implemented separately; proposals and organizer approval remain future work. Account-free viewing is deployed and verified as recorded in the recovered hosted rollout below. See [itinerary discussion](itinerary-comments.md) for current comment permissions and evidence.
 
 ## Real-friend phone acceptance — 15 October 2026
 
 The user reported that a friend tested the shared itinerary on their phone and confirmed there were no issues. This supplies user-reported acceptance for the real-friend mobile viewing experience, in addition to the hosted fictional-trip and isolated browser checks below. The sharing MVP has now been exercised by a real friend on a physical phone.
 
-Signed-in editor actions were not explicitly confirmed in the report, so hosted friend add/edit/remove/reorder acceptance remains open. Comments, proposals and organizer approval are separate, unimplemented collaboration scope; this phone test does not mark the full collaboration milestone complete. No friend identity, private itinerary content or sharing credential is recorded here.
+Signed-in editor actions were not explicitly confirmed in the report, so hosted friend add/edit/remove/reorder acceptance remains open. Comments were subsequently implemented and have their own acceptance record; proposals and organizer approval remain future scope. This phone test does not establish any comment, editing or proposal acceptance. No friend identity, private itinerary content or sharing credential is recorded here.
 
 ## Account-free view links — 14 October 2026
 
