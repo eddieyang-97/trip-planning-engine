@@ -26,6 +26,18 @@ list to those items; the existing map stays visible for context. Owners/editors
 have Add map location; viewers have no edit action. There are no guessed
 coordinates, route lines, driving durations or live navigation.
 
+## Saved-pin verification and presentation — 16 October 2026
+
+The previously deployed backend preserves pins when an older MCP client omits `mapLocations`; explicit `[]` clears them. Mutations return `mapLocationCount`, and MCP tool instructions require read-back verification. The web editor now checks the response count and the refreshed saved item's labels/coordinates before showing success. A mismatch leaves a reviewable error rather than claiming the pins saved. A plain location string or maps link still does not create coordinates. This release does not backfill existing real-trip pins.
+
+Public website branding is **Trip Planner**, with the headline **Plan, organize and share your trips.** Repository, package and deployment identifiers remain unchanged.
+
+Overview, Details and Map share category meanings: accommodation indigo `#6366F1`, restaurants/bars amber `#F59E0B`, activities green `#16A34A`, and flights/transfers blue `#0284C7`. Notes are neutral slate. Icons, labels and category filter chips provide non-colour cues. The 16 October map simplification removes itinerary numbers and multi-icon pills: a single category icon represents a location, and a neutral place icon represents mixed categories at the same location. Nearby locations cluster into count circles as the map zooms out. Selected pins gain an outline; the corresponding list card highlights. Every activity remains individually accessible through the selected-location card and place list. See the [map guide](itinerary-map.md) for the current interaction.
+
+Booking remains a separate labelled checkmark: **Booked · reported by you/owner**. Neither colour nor a checkmark implies supplier verification or a new reservation.
+
+This material was consolidated from the joint 16 October browser-session/map release. The original CI counts and joint deployment evidence remain under [persistent browser session acceptance](account-linking.md#verification-and-limitations--16-october) and [the joint hosted release](account-linking.md#joint-persistent-session-and-map-deployment--16-october-2026). Later compact-map evidence below supersedes older presentation details where explicitly stated.
+
 ## Data and access
 
 Optional `ItineraryItem.mapLocations` is an array of at most two
