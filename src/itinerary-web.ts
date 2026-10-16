@@ -8,6 +8,8 @@ import {readItineraryViewLink} from './itinerary-view-links.js';
 import {calendarExportRoutes} from './calendar-export-web.js';
 import {itineraryAccess} from './itinerary.js';
 import {MapPlaces,placeSearchSchema} from './map-places.js';
+import {readTripRoster} from './account-profiles.js';
+import {uuid} from './domain.js';
 
 export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(header?:string)=>Promise<{userId:string}>;
   supabaseUrl?:string;publishableKey?:string;local?:boolean;mapPlaces?:MapPlaces}) {
@@ -18,7 +20,7 @@ export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(
   if(!tileOrigin.startsWith('https://'))throw Error('Map tiles require HTTPS');
   router.use(calendarExportRoutes(options));
   router.use(['/itinerary','/itinerary-api','/itinerary-share','/assets/itinerary.js','/assets/itinerary.css','/assets/itinerary-views.css'],(_req,res,next)=>{
-    res.setHeader('Content-Security-Policy',`default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${options.supabaseUrl??''}; img-src 'self' ${tileOrigin}; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`);
+    res.setHeader('Content-Security-Policy',`default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${options.supabaseUrl??''}; img-src 'self' data: ${tileOrigin}; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`);
     res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','no-store');res.setHeader('X-Robots-Tag','noindex, nofollow, noarchive');next();
   });
   router.get('/itinerary',async(_req,res)=>res.type('html').send(await readFile(new URL('../web/itinerary.html',import.meta.url),'utf8')));
@@ -55,6 +57,11 @@ export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(
     }catch(error){const code=error instanceof DomainError?error.code:error instanceof z.ZodError?'VALIDATION_ERROR':'PROVIDER_UNAVAILABLE';
       if(code==='RATE_LIMITED')res.setHeader('Retry-After','2');
       res.status(code==='FORBIDDEN_OR_NOT_FOUND'?404:code==='VALIDATION_ERROR'?400:code==='RATE_LIMITED'?429:503).json({code,error:error instanceof DomainError?error.message:code==='VALIDATION_ERROR'?'Enter a place name between 3 and 200 characters.':'Place search is unavailable. Try again later.'});}
+  });
+  router.post('/itinerary-api/trip-members',async(req,res)=>{
+    try{const {tripId}=z.strictObject({tripId:uuid}).parse(req.body);
+      res.json(await options.core.db.transaction(tx=>readTripRoster(tx,tripId,res.locals.userId),{readOnly:true}));
+    }catch(error){res.status(error instanceof z.ZodError?400:error instanceof DomainError?404:500).json({error:error instanceof DomainError?error.message:'Unable to load trip members.'});}
   });
   router.post('/itinerary-api/:operation',async(req,res)=>{
     const name=req.params.operation as ToolName;

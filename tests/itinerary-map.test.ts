@@ -85,7 +85,7 @@ test('saved pins work across owner, editor and anonymous reads; search enforces 
     assert.equal((await post(editor)).status,200);assert.equal(calls,1);
     await core.callFromWeb('revoke_itinerary_access',{...key(),tripId:trip,inviteId:invite.inviteId},owner);
     assert.equal((await post(editor)).status,404);assert.equal(calls,1,'revoked editor cannot reuse cached lookup');
-    const html=await fetch(origin+'/itinerary');assert.match(html.headers.get('content-security-policy')!,/img-src 'self' https:\/\/tile.openstreetmap.org/);
+    const html=await fetch(origin+'/itinerary');assert.match(html.headers.get('content-security-policy')!,/img-src 'self' data: https:\/\/tile.openstreetmap.org/);
     assert.equal(html.headers.get('referrer-policy'),'no-referrer');
     assert.equal((await fetch(origin+'/assets/leaflet.css')).status,200);
   }finally{await new Promise<void>(r=>http.close(()=>r()));await db.close();}

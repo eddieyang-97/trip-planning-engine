@@ -1,5 +1,6 @@
 import {AccountBoundary,createAccountClient,watchAccount} from './account-session.js';
 import { accountAuthError, signupReceivedMessage } from './account-errors.js';
+import {configureProfile} from './account-profile.js';
 const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getElementById(id) as T;
 const status = (text:string) => { el('status').textContent=text; };
 async function initialize() {
@@ -24,21 +25,23 @@ el<HTMLInputElement>('allow-write').onchange=()=>{
 };
 const supabase=createAccountClient(config),boundary=new AccountBoundary();
 let requestId:string|undefined;
+const profileEditor=configureProfile(api);
 function clearPrivate(){
+  profileEditor.reset();
   requestId=undefined;
   for(const id of ['account','connections','consent'])el(id).hidden=true;
   for(const id of ['identity','account-id','connection-list','client-name','client-id','client-redirect','client-scopes'])el(id).replaceChildren();
   el<HTMLInputElement>('password').value='';el('signin').hidden=false;
 }
-async function api(path:string, body?:unknown) {
+async function api(path:string, body?:unknown,photo?:{blob:Blob;revision:number}) {
   const generation=boundary.generation;
   const { data:{session},error } = await supabase.auth.getSession();
   boundary.check(generation);
   if(error)throw new Error(accountAuthError(error,'signin'));
   if (!session){boundary.update(null);clearPrivate();throw new Error('Sign in to your travel account.');}
-  let response:Response;try{response = await fetch(`/account/api/${path}`, { method:body===undefined?'GET':'POST',signal:AbortSignal.timeout(20_000),
-    headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},
-    ...(body===undefined?{}:{body:JSON.stringify(body)}) });}catch{throw new Error('Unable to reach the travel app. Check your connection and try again later.');}
+  let response:Response;try{response = await fetch(`/account/api/${path}`, { method:body===undefined&&!photo?'GET':'POST',signal:AbortSignal.timeout(20_000),
+    headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':photo?photo.blob.type:'application/json',...(photo?{'X-Profile-Revision':String(photo.revision)}:{})},
+    ...(photo?{body:photo.blob}:body===undefined?{}:{body:JSON.stringify(body)}) });}catch{throw new Error('Unable to reach the travel app. Check your connection and try again later.');}
   let result;try{result=await response.json();}catch{throw new Error('The travel app returned an unexpected response. Try again later.');}
   boundary.check(generation);
   if(response.status===401){boundary.update(null);clearPrivate();}
@@ -76,6 +79,7 @@ async function render() {
   if(returnToItinerary&&!authorization){location.replace('/itinerary');return;}
   el('identity').textContent=me.email;el('account-id').textContent=`Account ID: ${me.userId}`;el('mcp-url').textContent=config.mcpUrl;
   for(const id of ['account','connections'])el(id).hidden=false;el('signin').hidden=true;
+  await profileEditor.load();
   await connections();
   if(authorization){const details=await api('authorization',{authorization_id:authorization});
     if(details.redirectUrl){redirect(details.redirectUrl);return;}

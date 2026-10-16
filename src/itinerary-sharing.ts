@@ -48,7 +48,8 @@ export async function dispatchSharing(tx:Queryable,name:keyof typeof sharingSche
   }
   await owned(tx,a.tripId,userId,name!=='list_itinerary_access');
   if(name==='list_itinerary_access')return {invites:(await tx.query(`select i.id,i.label,i.role,i.access_mode,i.created_at,i.expires_at,i.accepted_at,i.revoked_at,
-    m.display_name from itinerary_invites i left join itinerary_members m on m.invite_id=i.id
+    coalesce(nullif(p.display_name,''),m.display_name) as display_name,p.handle from itinerary_invites i left join itinerary_members m on m.invite_id=i.id
+    left join account_profiles p on p.user_id=m.user_id
     where i.trip_id=$1 order by i.created_at desc,i.id limit 100`,[a.tripId])).rows};
   if(name==='revoke_itinerary_access'){
     if(!(await tx.query('select id from itinerary_invites where id=$1 and trip_id=$2',[a.inviteId,a.tripId])).rows.length)denied();

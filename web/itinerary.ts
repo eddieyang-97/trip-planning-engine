@@ -13,6 +13,7 @@ import {configureTimezonePickers} from './timezone-picker.js';
 import {configureDiscussion} from './itinerary-comments.js';
 import {configureMap} from './itinerary-map.js';
 import {configureMapEditor} from './itinerary-map-editor.js';
+import {configureMembers} from './itinerary-members.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
@@ -147,6 +148,7 @@ function allDates(){
   return [...dates].sort();
 }
 const discussion=configureDiscussion({context:()=>plan?{tripId:plan.trip.id,allowed:!anonymousView&&!demo}:null,api});
+const members=configureMembers($('trip-members'),api);
 function openDetail(row:Row){
   collapsed.delete(`${plan!.trip.id}:${row.id}`);const detail=$<HTMLDetailsElement>(`item-${row.id}`);detail.open=true;
   activeDay=row.payload.startDate??'unscheduled';setView('details',false);markDay(activeDay);detail.scrollIntoView({block:'start'});detail.querySelector('summary')?.focus({preventScroll:true});
@@ -159,6 +161,7 @@ const mapEditor=configureMapEditor($('map-place-editor'),async query=>{
 $('item-dialog').addEventListener('close',()=>mapEditor.cancel());
 $('trip-discussion').onclick=()=>void discussion.open();
 function render(){
+  members.reset();
   discussion.reset();
   calendarExport.reset();
   $('trip-list').replaceChildren(...trips.map(t=>{
@@ -168,6 +171,7 @@ function render(){
   $('empty-trips').hidden=anonymousView||!!plan||trips.length>0;$('trip-view').hidden=!plan;
   if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();itineraryMap.reset();return;}
   const p=plan.trip.payload,booked=plan.items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=plan.items.filter(i=>!i.payload.startDate).length;
+  if(!anonymousView&&!demo)void members.load(plan.trip.id);
   const viewer=plan.role==='viewer',editor=plan.role==='editor',shared=viewer||editor;
   $('add-item').hidden=viewer;$('share-trip').hidden=shared||demo;$('history-section').hidden=shared;
   $('people-detail').textContent=anonymousView?'Anyone with this view link can read the shared itinerary. The owner can revoke the link. Editing requires an editor invitation and sign-in.':editor?'Shared with you. You can add, edit, remove and reorder itinerary items. The owner manages booking status, private notes and invitations.':viewer?'Shared with you. You can view this itinerary; the trip owner controls edits and access.':'Share an account-free view link, or invite a friend to edit with their own account.';
@@ -338,7 +342,10 @@ window.addEventListener('hashchange',()=>{
   const fragment=new URLSearchParams(location.hash.slice(1));
   if(['view','invite','leave-view'].some(key=>fragment.has(key)))location.reload();
 });
-window.addEventListener('focus',()=>{if((plan?.role==='viewer'||plan?.role==='editor')&&!loading&&!document.querySelector('dialog[open]'))showPlan(plan.trip.id);});
+window.addEventListener('focus',()=>{if(!plan||loading||document.querySelector('dialog[open]'))return;
+  if(plan.role==='viewer'||plan.role==='editor')showPlan(plan.trip.id);
+  else if(!demo&&!anonymousView)void members.load(plan.trip.id);
+});
 const calendarExport=configureCalendarExport({getPlan:()=>plan,demo,prepare:async(p,itemIds)=>{
   const body={itemIds,expectedRevision:p.revision};
   if(!anonymousView)return api('calendar-export',{...body,tripId:p.trip.id});
