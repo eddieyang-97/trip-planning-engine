@@ -113,6 +113,8 @@ Real-user acceptance requires a friend to understand the trip from a phone witho
 
 ## 6. Domain model
 
+The [Data Semantics Review](data-semantics-review.md) is the dedicated, evolving review of identity, ownership, membership versus participation, booking/payment distinctions, history/retention and domain invariants. It separates implemented SQL from proposed semantics and gates future decisions; it does not authorize speculative schema work. This section remains the product-level model.
+
 Use Trip → Decision → Candidate as the ownership structure for accommodation, restaurant and flight choices. A Decision also owns SearchRuns. Each SearchRun produces observations of candidates; a candidate may be encountered in many runs. Putting SearchRun only beneath Candidate would make run history and partial failures harder to represent correctly.
 
 | Object | Meaning and essential information |
