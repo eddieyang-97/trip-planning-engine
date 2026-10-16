@@ -54,6 +54,10 @@ Existing Free Render service deployment [`dep-db8m5im7bikc73fi10lg`](https://das
 
 No migration, new service, paid plan or new access scope was required. The concurrent PRD/calendar drafts were preserved and excluded from this release.
 
+### User-confirmed real-account browser restart — 16 October 2026
+
+After the joint release, the user confirmed validating persistent sign-in after a full browser-process restart with a real hosted account. This closes the **user-acceptance check for that specific behavior** that was listed as pending in the original release evidence above. This confirmation is user-reported; no browser session, account credentials or independent reproduction was inspected in this documentation update. It does not prove every token-revocation, cross-browser or assistant OAuth scenario.
+
 ## Account email delivery
 
 On 14 October 2026, Brevo onboarding, sender verification and Supabase custom SMTP configuration completed. Initial second-account sign-ups failed with SMTP `535 Authentication failed`. With explicit user approval, SMTP IP blocking was disabled because it had no authorized addresses; the user then saved a replacement SMTP key/login directly. At 01:38:10 London time the Auth log recorded a successful confirmation request, and Brevo reported one email sent and delivered. The user confirmed the email, signed in, and joined a fictional itinerary as a viewer. Owner revocation then removed its access on refresh. Email confirmation stayed enabled. See [the dated sharing evidence](itinerary-sharing.md#validation-and-launch-dependency).
