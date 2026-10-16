@@ -2,7 +2,7 @@
 
 Research and proposals recorded 3–11 October 2026. Index clarified 13 October. This folder preserves the investigation that informed the product; it is not the current architecture or delivery-status source.
 
-Start with the [documentation index](../README.md), [accepted architecture decisions](../architecture.md), [PRD v0.4](../prd.md) and [current delivery status](../implementation.md).
+Start with the [documentation index](../README.md), [accepted architecture decisions](../architecture.md), [current PRD](../prd.md) and [current delivery status](../implementation.md).
 
 ## Decisions that supersede the original spike
 
