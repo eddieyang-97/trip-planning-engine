@@ -170,3 +170,22 @@ Automatic approval review blocked creating an anonymous link for the isolated
 fictional test trip, so no link was created. Existing automated anonymous/access
 checks passed; browser checks used the existing public demo instead. No real
 itinerary, coordinates, memberships or sharing settings were changed.
+
+### Compact-map hosted release
+
+Code commit `7b48098b9fbb079c63ad67f3f1c1f8b7ce8060a8` passed [CI run
+38877974839](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38877974839)
+with **109 passed, zero failed and zero skipped**, including PostgreSQL 17.
+The existing Free Render [deployment dep-db8ui6ff3r2c73ffr11g](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db8ui6ff3r2c73ffr11g)
+reached Live in 38.5 seconds on 16 October 2026 (started at 10:06:33 London time).
+Public health returned ok; account/itinerary pages returned 200; an unauthenticated
+profile request returned 401. The four account/itinerary JS/CSS bundles matched
+the tested local build after newline normalization.
+
+The hosted public demo passed phone-width category filtering and Enter selection:
+one selected marker, no itinerary-number badges, six loaded tiles, no browser
+warnings/errors and no horizontal page overflow (375px document/scroll width at
+requested 390x844). Selected-place details appeared below the map. The saved proof
+is `clean-map-live-2026-10-16.png`; the temporary viewport override was reset.
+Real Alba data and sharing were unchanged. Native phone gestures and real-trip
+visual acceptance remain joint checks.
