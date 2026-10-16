@@ -1,16 +1,17 @@
 # Documentation
 
-Updated 15 October 2026. Start with the architecture and database diagrams, then user flows. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
+Updated 16 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
 
 ## Current guidance
 
 | Document | Purpose |
 | --- | --- |
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
-| [Database ER diagrams](database.md) | Deployed relationships and keys, including migration 006 viewer sharing |
+| [Database ER diagrams](database.md) | Initial ER baseline and a concise index of migrations 007–010 |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
-| [Product requirements](prd.md) | Target behavior, scope and milestone order; PRD v0.5 retains equal web/MCP standing and adds Apple Calendar export |
-| [Delivery status and acceptance](implementation.md) | Deployed capabilities, recorded acceptance and remaining gaps |
+| [Product requirements](prd.md) | Current PRD v0.6: target behavior, priorities, scope and incremental milestones |
+| [Delivery status and acceptance](implementation.md) | Dated deployed capabilities, acceptance evidence and remaining gaps |
+| [Data Semantics Review](data-semantics-review.md) | Domain invariants, proposed decisions and migration gates; not a substitute for applied SQL |
 
 Requirements define what should exist; delivery status says what has been implemented, deployed and verified. Deployment alone does not complete acceptance. Use the most recent dated evidence section when an older record describes an earlier state.
 
@@ -18,14 +19,16 @@ Requirements define what should exist; delivery status says what has been implem
 
 | Document | Scope |
 | --- | --- |
-| [Account linking](account-linking.md) | Supabase/Brevo email configuration, consent, grants, revocation and dated OAuth/assistant acceptance |
+| [Account linking and persistent sign-in](account-linking.md) | Supabase/Brevo, browser session lifecycle, grants, revocation and dated OAuth/session acceptance |
 | [Account profiles and trip members](account-profiles.md) | Editable names, private avatar uploads, accepted-member roster and profile privacy |
-| [Persistent sign-in and map presentation](persistent-sign-in-and-map-presentation.md) | Trip Planner branding, session lifecycle, verified pin saves, category styling and 16 October release evidence |
+| [Itinerary map](itinerary-map.md) | Current map behavior, pin saving/read-back, presentation, source access and dated map acceptance |
+| [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
+| [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker--15-october-2026) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
 | [Hosted flight pilot](hosted-live-search.md) | SerpApi scope, configured allowances, durable attempts, recovery and actual hosted search |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
-| [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | User-confirmed 15 October deployment, hosted smoke checks and remaining acceptance |
+| [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | Historical 15 October deployment, hosted smoke checks and acceptance limits |
 | [Apple Calendar export](calendar-export.md) | Deployed individual/all/subset .ics export; saved-trip/native device acceptance pending |
-| [View-only itinerary sharing](itinerary-sharing.md) | Deployed private invitations, viewer privacy, revocation and hosted second-account acceptance |
+| [Itinerary sharing](itinerary-sharing.md) | Anonymous links, signed-in viewer/editor invitations, access privacy, revocation and acceptance |
 | [Private policy notes](policy-notes.md) | Versioned account-private manual references, separate from quote evidence |
 | [Correctness fixes](correctness-fixes.md) | Budget, airport-zone identity and read consistency corrections with regression evidence |
 
@@ -46,6 +49,6 @@ Diagnostic success is evidence for the observed request, not permission to expan
 - [Architecture review](architecture-review.md): findings against baseline `6b352e1`, with subsequent progress linked at the top.
 - [Earlier implementation record](history/implementation-2026-10-11.md): preserved 8–11 October delivery and deployment history.
 
-Files in `spike/design/` are proposals, not runtime contracts or applied schema. Runtime behavior is defined by `src/`; applied schema by `migrations/`. External prices, repository activity and supplier terms in dated research have not been refreshed by this organization change.
+Files in `spike/design/` are proposals, not runtime contracts or applied schema. Dated release reports preserve their original evidence even when feature status advances; avoid copying the same release report into several feature guides. Runtime behavior is defined by `src/`; applied schema by `migrations/`. External prices, repository activity and supplier terms in dated research have not been refreshed by this organization change.
 
 Keep architecture, ER and flow diagrams alongside the decisions and schema they describe. Update ER relationships when migrations change, and label local/proposed extensions until deployment is recorded. Keep new delivery evidence in the relevant feature guide and summarize it in `implementation.md`. Record accepted decisions in `architecture.md`; update product scope in the PRD. Preserve dated observations/reviews rather than rewriting them as current results.
