@@ -1,6 +1,6 @@
 # Architecture and accepted decisions
 
-Updated 15 October 2026. This is the current architecture for **Trip Planning Workspace**, based on accepted product direction and the recorded deployed implementation `f6f1670`. Repository/package/service identifiers remain `trip-planning-engine`. See the [PRD](prd.md) for target behavior and [delivery status](implementation.md) for acceptance evidence.
+Updated 16 October 2026. This records accepted architecture for **Trip Planning Workspace**, not the latest deployment snapshot. The initial design was validated in release `f6f1670`, and later account, map, sharing, comments and calendar changes are documented in their dated feature guides. Repository/package/service identifiers remain `trip-planning-engine`. See the [PRD](prd.md) for target behavior and [delivery status](implementation.md) for acceptance evidence.
 
 ## High-level architecture
 
@@ -49,7 +49,7 @@ Supabase Auth generates the confirmation email and verification link; Brevo rela
 
 ## Core data overview
 
-This is the deployed relationship overview; [database ER diagrams](database.md) expand keys, policy references, access tables and itinerary history. Deployed migration 006 viewer sharing has its own diagram there.
+This is the durable core relationship overview, not an exhaustive representation of the latest schema. [Database diagrams and the migration-extension index](database.md) cover the initial 001–006 baseline and subsequent 007–010 changes. [Data semantics](data-semantics-review.md) records the underlying invariants and unresolved concepts.
 
 ```mermaid
 erDiagram
@@ -76,15 +76,15 @@ A candidate survives repeat searches; prices belong to dated observations. A sel
 | --- | --- | --- |
 | Product surfaces | Web and hosted MCP are first-class interfaces to one account and trip workspace | Web has manual itinerary and saved research; the full web flight workflow remains to be delivered |
 | Deployment | One Node service on the existing Free Render plan, plus Supabase for Postgres and account identity | No additional host, Redis, separate worker, paid upgrade or backend LLM is part of the current deployment |
-| Account email | Supabase Auth uses Brevo Free custom SMTP with a verified sender; email confirmation remains enabled | Settings were saved and reloaded on 14 October; a subsequent external sign-up failed SMTP authentication. Invitation URLs are shared manually |
+| Account email | Supabase Auth uses Brevo Free custom SMTP with a verified sender; email confirmation remains enabled | The initial SMTP failure was repaired and a second-account confirmation and sign-in passed on 14 October; wider deliverability remains unverified. Invitation URLs are shared manually |
 | Shared authority | The service owns permissions, durable state, evidence, constraints and deterministic ranking | Browsers and assistants present facts and request changes; conversation memory is not authoritative |
 | First live source | SerpApi powers an explicitly enabled, bounded flight-discovery pilot | One direct easyJet LGW–GVA pair for the fixed Flaine case; broader coverage and baggage-complete quotes remain unresolved |
 | Evidence | Candidate identity is separate from dated offer observations; criteria versions are immutable | Synthetic, user-reported and provider-reported facts stay distinct; unknown costs are never zero |
 | Outcomes | Selection and user-reported external booking are separate records | No purchase, payment, passenger submission, cancellation or ticket servicing capability |
 | Itinerary | Manual items organize the full trip before further provider integrations | Saved research prepares a tentative manual draft; durable research links/reconciliation remain future work |
 | Apple Calendar export | One-off .ics snapshots of individual, all or selected saved itinerary items; one combined all/selection dialog | Deployed on 15 October; hosted demo and public boundary checks passed. Saved-trip/native iPhone/iPad acceptance remains pending. Two-minute file tickets recheck source access; no Apple account integration or subscription feed |
-| Collaboration | Organizer controls the agreed plan; collaborators discuss/propose and viewers read | View-only memberships/invitations are deployed; discussion and approval follow before accommodation integrations. Invitation management currently requires a direct web session |
-| Expansion | Accommodation follows collaboration; restaurants/places follow their own evidence and access gates | Standalone diagnostics do not constitute hosted integrations; voting, co-editing and scheduled alerts remain deferred |
+| Collaboration | Organizer owns shared itinerary decisions; signed-in editors can edit permitted fields, signed-in members can use discussion according to role, and anonymous links are read-only | Viewer/editor invitations, revocable anonymous links and comments are implemented; proposals, approval and full hosted real-friend editor/comment acceptance remain separate goals. Invitation management uses direct web sessions |
+| Expansion | Manual/sourced accommodation and dining comparison can proceed independently of advanced collaboration | Live supplier integrations require their own evidence, data-rights and provider-access gates; standalone diagnostics do not constitute hosted integrations. Voting and proposals remain deferred |
 
 These are chosen directions, not a declaration that every capability is complete. The original paid-host and MCP-first recommendations in the [October spike](spike/README.md) are historical.
 
@@ -110,7 +110,7 @@ Money uses exact integer minor units and an explicit passenger/currency basis. C
 
 Mutations carry idempotency keys; mutable decision, itinerary and policy updates also require the current revision/version. Locks and transactions serialize writes. Core reads use read-only repeatable-read snapshots, keeping revisions and related contents consistent. Airport-local evaluation and flight identity derive from reviewed airport zones; unknown zones remain unresolved. See [correctness fixes](correctness-fixes.md).
 
-The applied schema is migrations 001–006. JSONB stores validated snapshots alongside normalized ownership/version relationships. The larger schema/interfaces in `spike/design/` remain proposals. General typed output contracts, full history pagination, structured actual booking amounts, broader passenger/baggage modeling and evidence deletion/retention still need implementation.
+The repository now contains numbered migrations 001–010: editor roles (007), anonymous view links (008), item/trip comments (009) and account profiles (010) extend the initial 001–006 baseline. The [database reference](database.md) distinguishes the original ER snapshots from these extensions. Dated [delivery evidence](implementation.md) and [feature guides](README.md) determine what was verified in a particular hosted release; source presence alone is not deployment proof. JSONB stores validated snapshots alongside normalized ownership/version relationships. The larger schema/interfaces in `spike/design/` remain proposals. General typed output contracts, full history pagination, structured actual booking amounts, broader passenger/baggage modeling and evidence deletion/retention still need implementation.
 
 ## Live execution and pilot limits
 
@@ -126,7 +126,7 @@ The adapter retains up to ten seller observations for one sampled pair with part
 
 The organizer maintains manual flight, accommodation, transfer, activity, restaurant and note items, with tentative/reported-booked labels and change history. The saved-research projection uses the same read snapshot and bounds decisions, recent observations and pinned outcomes. Reviewing a flight opens a draft; saving creates/updates a manual item. The draft is a snapshot, not a durable research link or automatic update.
 
-Complete the organizer foundation across web and MCP: direct web flight controls, honest comparisons, explicit research links/reconciliation and actual edit continuity. View-only invitations and revocable memberships are deployed; hosted second-account onboarding and revocation passed, and later work adds discussion, revision-checked proposals and organizer approval. Preserve history and private-booking visibility rules. These capabilities do not themselves require a new provider or additional infrastructure.
+Complete the organizer foundation across web and MCP: direct web flight controls, honest comparisons, explicit research links/reconciliation and actual edit continuity. Viewer/editor invitations, anonymous view links and member discussion now have implementation and dated acceptance evidence; hosted acceptance varies by user journey. Later proposals and organizer approval remain conditional. Preserve history and private-booking visibility rules. These capabilities do not themselves require a new provider or additional infrastructure.
 
 Calendar export serializes the saved itinerary into iCalendar (.ics) files using one exporter for the individual action and combined all/selection flow. It reuses existing trip read permissions and privacy projections without mutating trip state. A bounded in-memory ticket grants access to one frozen file for two minutes; delivery rechecks the original authenticated session or view-link access. Native Calendar can follow that file URL without receiving the web bearer header. Text/calendar delivery preserves known instants and exclusive all-day ends. No database schema or additional service is needed. Apple account integration, subscriptions and synchronization are outside this slice. See [calendar requirements](prd.md#calendar-export), [implementation and access details](calendar-export.md) and [earlier device evidence](apple-calendar-probe.md); the deployed release is documented in [hosted release evidence](release-calendar-comments-2026-10-15.md), with saved-trip/native acceptance still pending.
 
