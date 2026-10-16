@@ -1,6 +1,6 @@
 # Delivery status and acceptance
 
-Updated 15 October 2026. Current decisions are in the [architecture](architecture.md) and [PRD v0.5](prd.md). This summarizes recorded delivery and acceptance evidence.
+Updated 15 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes recorded delivery and acceptance evidence.
 
 ## Current release
 
@@ -49,7 +49,7 @@ Configured ceilings are three requests/run, six reserved requests/owner/day, twe
 1. **Organizer across both surfaces:** broaden hosted edit/remove/reorder acceptance and web↔MCP edit continuity; complete web flight controls/comparison; explicit research links and organizer reconciliation. Hosted creation/save and web-to-MCP read continuity passed with a fictional test trip.
 2. **Accounts and assistants:** hosted second-account isolation, read-only mutation denial, refresh/revocation/reconnection, Claude compatibility and ChatGPT write/search behavior. Automated checks do not replace these real flows.
 3. **Flight completeness:** broader airport/pair coverage, exact party-price basis, booking-specific snowboard evidence, seller repricing/handoff, transfers and provider-specific freshness/retention. No baggage-complete or comprehensive live-product claim yet.
-4. **Collaboration:** pilot email delivery, hosted viewer joining and revocation passed; add comments, proposals and organizer approval afterward. Account-free viewing and signed-in editor invitations are deployed; hosted editor write acceptance and broader collaboration remain before accommodation integration.
+4. **Collaboration:** pilot email delivery, hosted viewer joining and revocation passed. Account-free viewing and signed-in editor invitations are deployed; hosted editor write acceptance remains open. Complex comments, proposals and organizer approval are conditional on real use. **This acceptance gap does not block manual/sourced accommodation comparisons**; live supplier integrations require their own approved-access, data/privacy and operational checks.
 5. **Operating hardening:** least-privilege runtime role, throttling, output bounds/versioning, deletion/export/retention, consent recovery, telemetry and backup/restore. Accommodation/dining need separate access/evidence validation later.
 6. **Apple Calendar export:** deployment is complete. Validate saved-trip individual/all/subset HTTP exports and native iPhone/iPad imports, including displayed times, checkout boundaries and repeat-import behavior. Hosted demo/browser selection, public route boundaries and CI passed; subscriptions and Mac-specific acceptance remain deferred.
 
