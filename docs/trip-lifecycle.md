@@ -109,7 +109,7 @@ in-flight stubbed provider with quota preservation. A controlled pooled PostgreS
 test races deletion with an already-started editor save. All provider sends are
 stubbed and all trips/accounts are fictional.
 
-Browser acceptance and hosted deployment evidence are recorded below when complete.
+Browser acceptance and hosted deployment evidence are recorded below.
 Real trips are never deleted to verify the feature.
 
 
@@ -126,3 +126,48 @@ and lost that shared trip while keeping its own trip. No browser warnings/errors
 were recorded. The SDK transport exercised archive/restore/confirmed deletion,
 idempotent delete retries, post-delete denial and preservation of account policy
 notes. No real trip/account was modified and no live provider request was issued.
+
+### Release CI — 16 October 2026
+
+Code commit `ea1c7c582932067f313512248bd66e23448559f4` passed
+[GitHub Actions run 38965043166](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38965043166):
+117 tests passed, zero failed and zero skipped, including the controlled pooled
+PostgreSQL editor/deletion race and the existing admission, sharing and snapshot
+checks. `npm run check`, `npm run build` and the local full suite passed in the
+isolated release worktree (113 passed; four external PostgreSQL checks skipped
+locally). This CI run used synthetic accounts and stub providers.
+
+The rollout first redeployed the previous `7b48098` application with
+`LIVE_SEARCH_ENABLED=false` and checked the public health response before migration.
+The disabled deployment is `dep-db98v22fngtc739bc8rg`. The default old-instance
+shutdown window is 60 seconds before SIGTERM plus 30 seconds to force termination,
+per [Render's deployment sequence](https://render.com/docs/deploys); the Blueprint
+does not override that default. The migration deployment waits beyond that window.
+This avoids overlapping the old quota accounting and child-first worker locks
+with the new lifecycle code. Live search is restored only on the new application.
+
+### Hosted release — 16 October 2026
+
+The exact tested code commit `ea1c7c582932067f313512248bd66e23448559f4`
+was deployed paused as `dep-db9908opd3as73bd1vp0` (53.9 seconds), then redeployed
+with its original live-search flag restored in
+[Render deployment dep-db99167f3r2c73aj805g](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db99167f3r2c73aj805g)
+(54.6 seconds). The final dashboard shows Live at commit `ea1c7c5`; startup logs
+show the hosted live pilot enabled. Successful hosted startup requires migration
+011 to be present. Health returned 200 with `status: ok` and `liveSearch: true`
+at 21:02 UTC. Account and itinerary pages returned 200, and deployed account JS/CSS
+and itinerary JS/view CSS match the locally tested production build after newline
+normalization.
+
+Unauthenticated same-origin requests to prepare, archive, restore, delete and leave
+all returned 401 with `Cache-Control: no-store`. The hosted synthetic demo rendered
+Overview, Details and Map controls, with lifecycle actions/discovery filters hidden
+and no browser warning/error recorded. This verifies deployment, protected-route
+boundaries and public presentation; signed-in hosted lifecycle writes, friend-device
+use and real-account destructive acceptance remain separate joint checks. No real
+trip was archived/deleted, no actual invite was sent, and no provider request was
+initiated for this release. Free hosting and existing auth permissions remain.
+
+After migration, prefer a forward fix. If older code is needed, leave live search
+disabled and drain newer workers before replacement; never restart old live workers
+against the migrated ledger. Database/code rollback cannot undo a confirmed deletion.
