@@ -52,6 +52,18 @@ Compare real organizer effort with booking websites + an assistant + a shared do
 
 A deployed API or smoke test does not establish that a complete user journey works. Prioritize demonstrated effort saved, better decisions or avoided logistical mistakes; reduce scope where complexity outstrips value.
 
+### Product learning signals (private pilot)
+
+Keep product-market-fit evidence separate from technical feature acceptance. Establish a lightweight baseline during a few real trips; do **not** set unsupported conversion or retention targets before observing usage. Prefer small, consented pilot feedback and privacy-minimal aggregate counters over broad tracking.
+
+- **First value:** can another organizer create/import a trip and obtain a useful itinerary or stay/dining comparison without coaching? Record whether they abandon or require manual intervention.
+- **Return and reuse:** do organizers return to the same trip to revisit research, update a plan, or make another decision instead of rebuilding it elsewhere? Note which repeat tasks actually save effort.
+- **Group usefulness:** do invited friends open the shared plan and find their own attendance, accommodation and departure information on a phone without contacting the organizer?
+- **Displacement and trust:** does the organizer stop maintaining a parallel planning document, and can members identify unverified prices and booking status correctly? Record confusion or consequential omissions.
+- **Qualitative evidence:** capture why people do or do not repeat the workflow; treat a handful of self-selected trips as learning, not proven market demand.
+
+Review these signals after actual Alba, Zermatt, Center Parcs and second-organizer pilot sessions. Promote a feature only if repeat use or meaningful time/decision improvement outweighs ongoing complexity.
+
 ## 4. Scope and delivery boundaries
 
 Ship independently useful increments rather than making accommodation and dining dependent on complex collaboration or full flight-search coverage. Current delivery and verification live in [implementation.md](implementation.md).
@@ -363,6 +375,18 @@ The organizer foundation must pass itinerary assembly, explicit booking labels a
 - Apply membership, anonymous-link and field-level authorization to every web and MCP read/write, history and linked evidence. Invitations, memberships and share links must be separately revocable; display useful booking status without exposing private references or traveler identities.
 - Make the itinerary and collaboration controls usable on phones, keyboards and screen readers. Show local date/time context for overnight transfers and stays, including travel across time zones. Protect itinerary writes and proposal resolutions with expected revisions and idempotency where retrying could duplicate actions.
 
+### Reversible iteration and AI-assisted development baseline
+
+Optimize for **learning speed and safe change**, not speculative capacity. AI assistance can lower coding effort but does not eliminate live-data migration, authorization, third-party integration or customer cutover risk. Keep the initial web/MCP/application service as a **modular monolith** with explicit domain, authorization, persistence and supplier-adapter boundaries; do not introduce microservices merely for hypothetical scale.
+
+- **Version-controlled schema changes:** maintain reviewable, ordered migrations for all persisted changes. Prefer additive/expand-and-contract rollouts for consequential schema, identity and API changes: introduce new fields, migrate/backfill and validate, then remove old fields only after compatible readers and historical data are accounted for. Document how to recover if a migration cannot be reversed safely; a code rollback does not automatically restore changed data.
+- **Compatibility and safe cutover:** preserve stable IDs, ownership/role meaning, booking/expense provenance and versioned contracts across web, MCP and previously saved trips. For high-risk changes, define compatibility window, backfill/validation, limited rollout, failure signals and rollback or forward-recovery path before release. Avoid rewriting all existing users' state in a single untested deployment.
+- **Proportionate automated quality gate:** require TypeScript/type checks and the existing automated test suite for each material code change. Add targeted regression/integration tests for the behavior changed, especially multi-account isolation, invitation/revocation, conflicting writes, booking status, expense/FX/rounding once implemented, imports and shared web↔MCP state. Generated code must meet the same test/verification bar as manually written code; a passing build alone is not end-to-end user acceptance.
+- **Incremental rollout:** use small cohorts or a kill switch for risky provider-powered features and maintain traceable release evidence. Monitor errors, permission failures, costs and data anomalies after rollout; disable or revert a feature without losing established itinerary/booking records. Prefer measurable improvements and controlled migration over an all-at-once architectural rewrite.
+- **Scope discipline:** automated safeguards should be lightweight at private-pilot scale. Do not mandate elaborate release committees, full enterprise SLOs, distributed infrastructure or a permanent test environment until demonstrated risk or traffic warrants them.
+
+This is a **now** engineering baseline for correctness, maintainability and change safety—not a request to redesign current infrastructure. Formal scale targets remain the separate public-beta gate below.
+
 ### Staged non-functional requirements and scale readiness
 
 Treat non-functional requirements (NFRs) as **stage-specific, testable obligations**, not an invitation to prematurely rebuild the current Render + Supabase deployment. Minimum safety and correctness apply immediately; a formal **Scale Readiness / NFR Review** is an explicit **gate before opening a public beta or materially increasing traffic**. Review findings become measured targets, owners, remediation priorities and test evidence in a separate living operational checklist or NFR specification. This PRD sets the required dimensions and gates, not arbitrary performance targets before real traffic characteristics are known.
@@ -420,6 +444,8 @@ The technical/product spike and remaining validation must:
 
 The earlier flight-first development order is historical, not the current product priority. There is no single product-wide v1 completion gate; each increment needs real-user acceptance.
 
+**Interpret roadmap labels as decisions, not promised delivery dates:** numbered items are **ordered candidate increments** that require user validation before full build-out; **Gate** items are risk-based prerequisites to a specified launch/operation, not blockers for private pilots; **Conditional/Far future** items are hypotheses requiring demonstrated demand, partner rights and operating capacity. Any unimplemented detailed scenario elsewhere in this PRD remains a **design target**, not a commitment to ship every field. Revisit scope after each real-trip pilot; the next small working feature takes precedence over implementing the entire future backlog.
+
 | Priority | Increment | Next proof |
 |---|---|---|
 | 1 | Reliability and validation of the existing web/MCP itinerary, sharing and calendar export | Real-account edit/permission/revocation tests, cross-client consistency and iPhone/iPad import |
@@ -459,6 +485,8 @@ Stay comparison covers Airbnb-style whole homes as well as hotel-room combinatio
 | How should Apple Calendar work? | One-off .ics individual/all/selected export, no automatic sync; hosted device acceptance still needed | iPhone/iPad validation; see [calendar-export.md](calendar-export.md) |
 | Which account/hosting model? | Verified account identity across web and authorized MCP; existing Render/Supabase direction, no assumed paid upgrade | Continue operational and security validation |
 | When should formal NFRs and scaling investment happen? | Immediate security/data integrity safeguards; formal measured Scale Readiness gate before public beta or material growth; stricter controls before native bookings/payments | Specify targets and prove load, backup restore, monitoring, privacy/accessibility and unit economics against expected usage |
+| How do we keep AI-assisted iteration safe and reversible? | Modular-monolith boundaries, versioned additive migrations, routine type/regression checks, cross-client compatibility and risk-based rollback/forward-recovery plans now; expand process only when justified | CI and changed-behavior tests, migration/restore exercises for significant changes, limited releases with observable failure signals |
+| Which adoption signals indicate product value? | Time to first useful itinerary/comparison, repeat trip use, independent friend comprehension and replacement of parallel documents, gathered through privacy-minimal pilot observation | Second-organizer and real group-trip feedback; define thresholds only after a baseline |
 | Which flight test assumptions remain? | Flaine 18–20 Dec 2026, four travelers, a snowboard and London airports confirmed; adult ages, number of boards, exact time windows and budget remain unresolved | Require clarification only for booking-ready comparison |
 
 **Delivery order:** validate the existing shared itinerary and role/device workflows; prioritize import, group logistics, accommodation and restaurants; deepen provider integrations only where rights, cost and use justify them. The detailed flight-specific criteria, SearchRun and quote safeguards in earlier sections remain applicable to the bounded flight-feasibility feature. Consult [implementation.md](implementation.md) for actual shipped/pending status rather than interpreting this roadmap as delivery evidence.
