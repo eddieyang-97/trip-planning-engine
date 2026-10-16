@@ -106,7 +106,7 @@ Provide an overview, readable day-by-day items, unscheduled ideas, and separate 
 - Signed-in viewers may read permitted details; signed-in editors may directly edit permitted shared itinerary fields, subject to client write consent, authorization and revision checks. No assistant account is required to use web.
 - Share useful booking status and selected-option rationale while restricting codes, personal details, private notes, sensitive research history and access controls using server-side field filtering.
 - Track edits with actor, time and revisions. Research changes must not silently change confirmed plans; conflict or revocation must not silently fail.
-- Discussion, item proposals and owner approval are **conditional enhancements**, not prerequisites for accommodation research or basic trip editing.
+- Basic member discussion is implemented, but broader real-account acceptance remains ongoing. Item proposals and owner approval are **conditional enhancements**, not prerequisites for accommodation research or basic trip editing.
 - Export individual, all or selected dated items as a one-off .ics snapshot; automatic sync is out of scope.
 
 Real-user acceptance requires a friend to understand the trip from a phone without a parallel Google Doc. Verify anonymous viewing, editor behavior, private fields and calendar acceptance separately.
@@ -133,7 +133,7 @@ The organizer foundation adds ItineraryItem to the same trip without requiring a
 | Object | Meaning and essential information |
 |---|---|
 | ItineraryItem | Trip, item type, title, optional local dates/times and time zones, location, links, freeform notes, plan status and revision; optional links to a decision, selected candidate and booking record |
-| AccountProfile | Immutable account ID, validated editable display handle, optional avatar reference; profile changes do not change authorization or historical attribution |
+| AccountProfile | Immutable account ID, editable non-unique display name and optional avatar; legacy handle storage may remain for compatibility, but presentation fields never authorize access or change historical attribution |
 | TripMembership | Authenticated account, trip and role: organizer, editor or viewer; invitation and revocation state |\n| ShareLink | Explicit owner-enabled anonymous read-only access, optionally expiring and revocable; private fields excluded |\n| ParticipantPlan | Arrival, return, room and activity assignments for traveler subsets without requiring each traveler to be a member |\n| ImportBatch | Source content, suggested mapped items, ambiguities and explicit organizer review before commit |
 | Comment | Author, trip or itinerary-item target, text and timestamps; discussion does not itself change the agreed plan |
 | ChangeProposal | Author, proposed addition or target item for edit/removal, proposed values, expected revision for an existing item, pending/accepted/declined status and organizer resolution |
@@ -200,13 +200,13 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 - Store user-reported bookings separately and never let new search observations overwrite them. Flag incompatible research changes for reconciliation instead.
 - Make anonymous share links explicitly opt-in, revocable and read-only with server-side field filtering. Signed-in editors can modify permitted shared fields; viewers read only.
 - Enforce same identity, permission and revision semantics through web and authorized MCP; unsupported client actions return explicit errors. Record attribution, reject stale writes and enforce revocations.
-- Rich comments, proposals and approvals are optional usage-driven increments, not dependencies for accommodation or dining comparisons.
+- Existing basic discussion remains distinct from optional richer collaboration (proposals, owner approvals, voting or notifications); none blocks accommodation or dining comparisons.
 
 ### Account profile and trip member roster
 
-- Provide an **Account** page where a signed-in user can choose, edit and see their public **display ID/handle** and avatar. Support a selected/default avatar and an optional image upload, with accessible fallback initials when no avatar is set.
-- Keep the user-facing display ID separate from the **immutable internal account ID** used for authentication, permissions and ownership. Validate handle format and uniqueness. Changing a display ID or avatar must not change access rights, trip IDs or historical attribution.
-- Each trip has a **Members** section showing accepted signed-in members with avatar, display ID and role (**organizer, editor, viewer**). It is mobile-readable and distinguishes pending invitations from accepted members. Participants represented in travel plans are not automatically members.
+- Provide an **Account** page where a signed-in user can edit a **display name** (1–60 characters, not required to be unique) and add/change/remove an optional profile photo, with accessible initials when no avatar is set. Do not require a public handle or separate user-chosen display ID.
+- Keep presentation names/photos separate from the **immutable internal account ID** used for authentication, permissions and ownership. Names are non-unique; any existing nullable legacy handle is retained only for compatibility and is not required in the UI. Profile updates use revision checks and must not change access rights, trip IDs or historical attribution.
+- Each trip has a **Members** section showing accepted signed-in members with current display name, avatar/initials and role (**organizer, editor, viewer**). It is mobile-readable and distinguishes pending invitations from accepted members. Participants represented in travel plans are not automatically members.
 - Member displays reflect current account profiles after changes rather than permanently copied names/avatars. Use a safe fallback label for an incomplete profile.
 - Limit member-profile visibility to authorized signed-in members by default. Anonymous read-only shares must not reveal profile/account IDs, emails or the member roster unless an explicit separate sharing setting allows it; profile changes never elevate permissions or undo revocation.
 
@@ -328,9 +328,9 @@ The organizer uses the same Flaine trip to assemble flights, accommodation, Frid
 | Assemble the complete weekend | A readable day-by-day itinerary shows the trip overview, local times, locations, links and notes; missing times and unresolved transfer/check-in conditions remain explicit |
 | Add a selected flight and manually entered accommodation | The flight remains tentative until a booking is recorded; manually reported bookings are labelled; research evidence is accessible from the linked item |
 | Invite a friend who has no assistant account | The friend signs in through a normal web link and can open the private itinerary on a phone with the assigned role |
-| Set account display ID and avatar | Account page saves and displays the chosen handle/avatar, with a fallback; underlying account identity remains unchanged |
-| View trip members | The trip shows accepted members with avatar, handle and organizer/editor/viewer role; invitations are separate; anonymous read shares do not expose member profiles |
-| Change a member's profile | Display ID/avatar changes appear in trip member lists across authorized clients without changing permissions or losing edit history |
+| Set account display name and photo | Account page saves a non-unique display name and an optional photo, with initials fallback; underlying authenticated account identity remains unchanged |
+| View trip members | The trip shows accepted members with avatar/initials, current display name and organizer/editor/viewer role; invitations are separate; anonymous read shares do not expose member profiles |
+| Change a member's profile | Display name/photo changes appear on the next authorized roster refresh without changing permissions or losing edit history |
 | Comment on the late Friday transfer | The discussion appears on that transfer and retains author and time; the agreed transfer is unchanged |
 | Propose an earlier flight or a new activity | The proposal is pending and visible in context; it does not replace the plan until the organizer accepts it |
 | Accept or decline a proposal | The decision and actors are recorded; acceptance updates the relevant plan item, while decline leaves the agreed plan unchanged |
@@ -476,7 +476,7 @@ Stay comparison covers Airbnb-style whole homes as well as hotel-room combinatio
 | What replaces the Google Doc? | One mobile itinerary, import/paste of existing plans, bookings/open decisions and participant-specific logistics | Alba and Center Parcs migration tests |
 | Can research work before supplier APIs? | Yes: sourced links, manual entry, preserved evidence and comparisons are first-class | Test Zermatt stay options and dining links |
 | What does flight search promise? | Initial bounded feasibility, not comprehensive fare coverage or guaranteed group/baggage quotes | Flaine pilot; prove source scope and disclose unknown fees |
-| When do comments, proposals and approvals ship? | Only after basic viewing/editing works and real groups demonstrate a need; never a blocker for accommodation research | Observe real collaboration |
+| When should collaboration expand beyond basic comments? | Member discussion is implemented, with broader hosted acceptance pending; proposals, approvals and voting remain usage-driven, never blockers for accommodation research | Observe real collaboration |
 | Who can see booking information? | Shared status and selected rationale may be visible, but codes, identities, private notes and internal research need field-level control | Anonymous and editor privacy/security acceptance |
 | How do trips handle multiple travel groups? | Store participant-specific arrivals, departures, lodging and activities without requiring every traveler to create an account | Center Parcs, Alba, Zermatt acceptance |
 | Can live stay or table inventory be used? | Conditional on approved provider access, accurate group/party basis, permitted storage/redisplay and viable operating cost | Provider-specific spike and test |
