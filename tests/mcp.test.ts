@@ -38,7 +38,10 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     assert.equal(reboundStatus, 403);
     assert.equal((await fetch(`${origin}/mcp`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{' })).status, 400);
     await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
-    const tools = await client.listTools(); assert.equal(tools.tools.length, 26);
+    const tools = await client.listTools(); assert.equal(tools.tools.length, 31);
+    assert.equal(tools.tools.find(t=>t.name==='delete_trip')!.annotations!.destructiveHint,true);
+    assert.equal(tools.tools.find(t=>t.name==='leave_trip')!.annotations!.destructiveHint,true);
+    assert.ok(tools.tools.find(t=>t.name==='prepare_trip_action'));
     assert.ok(tools.tools.every(t => t.inputSchema.type === 'object'));
     for(const name of ['add_itinerary_item','update_itinerary_item']){
       const itemSchema=tools.tools.find(t=>t.name===name)!.inputSchema.properties!.item as {properties:Record<string,unknown>};
@@ -89,6 +92,16 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     assert.equal(denied.isError, true); assert.equal((denied.structuredContent as any).code, 'FORBIDDEN_OR_NOT_FOUND');
     const invalid = await client.callTool({ name: 'create_trip', arguments: { ...flaineTrip, idempotencyKey: randomUUID(), owner_id: randomUUID() } });
     assert.equal(invalid.isError, true);
+    const currentTrip=await call('get_trip',{tripId:t.tripId});
+    await call('archive_trip',{tripId:t.tripId,expectedRevision:currentTrip.trip.lifecycle_revision,idempotencyKey:randomUUID()});
+    assert.equal((await call('list_trips',{status:'archived'})).trips[0].id,t.tripId);
+    const archivedTrip=await call('get_itinerary',{tripId:t.tripId});
+    await call('restore_trip',{tripId:t.tripId,expectedRevision:archivedTrip.trip.lifecycle_revision,idempotencyKey:randomUUID()});
+    const review=await call('prepare_trip_action',{tripId:t.tripId,action:'delete',idempotencyKey:randomUUID()});
+    const deletion={tripId:t.tripId,expectedRevision:review.expectedRevision,confirmationToken:review.confirmationToken,confirmationName:review.trip.name,confirmed:true,idempotencyKey:randomUUID()};
+    assert.equal((await call('delete_trip',deletion)).deleted,true);assert.equal((await call('delete_trip',deletion)).deleted,true);
+    const gone=await client.callTool({name:'get_trip',arguments:{tripId:t.tripId}});assert.equal(gone.isError,true);
+    assert.equal((await call('get_policy_note',{noteId:policy.noteId})).noteId,policy.noteId,'trip deletion retains reusable account policy notes');
     // Authorization is rechecked on every call even on an already connected MCP client.
     await db.query('update client_grants set revoked_at=now() where owner_id=$1', [localActor.userId]);
     const revoked = await client.callTool({ name: 'list_trips', arguments: {} }); assert.equal(revoked.isError, true);

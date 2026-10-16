@@ -86,3 +86,8 @@ For every feature that introduces a durable domain concept:
 
 **Pointers:** [Full PRD](prd.md) · [Database diagrams](database.md) · [Architecture](architecture.md) · [Implementation status](implementation.md) · [Migrations](../migrations/)  
 **Maintenance rule:** update this review when a new durable concept is introduced or an invariant changes. Record implementation status and tested deployment evidence in the delivery docs, not here.
+
+
+## Implemented lifecycle decision - 16 October 2026
+
+The user-approved archive plus permanent-delete flow is implemented by [migration 011](../migrations/011_trip_lifecycle.sql) and described in the [lifecycle guide](trip-lifecycle.md). Trip UUID/owner remain authoritative; archive actor/time and the lifecycle review clock are distinct from itinerary edit revisions. Leaving revokes one membership and preserves shared contributions/authorship. Confirmed deletion erases the trip graph and cached content; retained UUID/hash retry guards prevent resurrection, and a metadata-only search reservation ledger preserves metered limits. Account profiles, reusable policy notes and other trips are outside the trip's ownership boundary. Backup expiry is not guaranteed and is disclosed; provider cancellation/account erasure are separate concepts. Source presence does not establish hosted deployment or real-device acceptance; use the dated feature evidence.

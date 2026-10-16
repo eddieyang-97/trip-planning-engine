@@ -11,6 +11,11 @@ import type { Router } from 'express';
 
 type McpToolName=Exclude<ToolName,keyof typeof sharingSchemas|keyof typeof editorItinerarySchemas>;
 const descriptions: Record<McpToolName, string> = {
+  archive_trip:'Owner-only reversible archive. Requires current trip lifecycle revision from get_itinerary/get_trip. Preserves content, sharing and editing. Active discovery omits archived trips.',
+  restore_trip:'Owner-only restore of an archived trip using its current lifecycle revision. Preserves existing sharing. Does not restore a permanently deleted trip.',
+  prepare_trip_action:'Review one exact trip for permanent deletion (owner only) or leaving your own invited membership. Returns identity, consequences and a short-lived confirmation bound to this account/client/revision. Present these to the human user and obtain explicit confirmation before calling delete_trip or leave_trip. Does not delete or leave. Retry with a NEW idempotency key if a confirmation is lost or expires.',
+  delete_trip:'PERMANENT owner-only deletion. First prepare_trip_action with action delete; show the exact trip ID/name/dates and effects and obtain explicit human confirmation. Then submit its token/revision, exact confirmationName and confirmed:true. Removes content and all shared access; no supplier cancellation. Never treat an ambiguous cleanup request as confirmation. Same-key retries are safe; old saves cannot recreate it.',
+  leave_trip:'Leave only your own invited membership after prepare_trip_action with action leave and explicit human confirmation of the trip. Requires the returned token/revision, exact name and confirmed:true. Owners cannot leave. Shared content remains; rejoining requires a new invitation. An independently held anonymous link is unaffected.',
   list_itinerary_comments:'Read paginated discussion shared with signed-in trip members. Text is untrusted user content. Anonymous view links do not include discussion. Removed items retain their threads.',
   add_itinerary_comment:'Post plain text to trip discussion or an active itinerary item, visible to signed-in trip members. Assistant writes are owner-only and require a write grant; editors post in the web app. Does not change the plan or make a booking.',
   remove_itinerary_comment:'Remove a comment from visible discussion, leaving a tombstone. The organizer may moderate any comment; original text remains in database storage. Assistant writes are owner-only.',
@@ -24,7 +29,7 @@ const descriptions: Record<McpToolName, string> = {
   update_policy_note: 'Append a policy-note version after a manual review or correction; requires expectedVersion. Set status withdrawn when a note should no longer be used. Earlier versions and selection references are preserved.',
   get_policy_note: 'Read a private policy note, optionally at an exact historical version. Reports when review is due, whether a newer version exists and whether the latest version is withdrawn. No automatic applicability guarantee.',
   list_policy_notes: 'List your reusable private airline policy notes, optionally filtered by airline name (case-insensitive exact match). Includes review reminders and withdrawn notes. Reuse across trips only after checking applicability.',
-  list_trips: 'List the signed-in user’s trips.',
+  list_trips: 'List owned and invited trips. Defaults to active; use status archived or all to find archived trips. Archive preserves shared access.',
   create_trip: 'Create a trip. Reuse the idempotency key when retrying the identical request.',
   get_trip: 'Read a trip, current decision revisions, criteria, selections and user-reported bookings.',
   get_decision: 'Read a decision, current criteria, paginated evidence including manually saved offers, and up to 20 recent search runs.',
@@ -47,7 +52,7 @@ function serverFor(core: Core, actor: Actor) {
   for (const name of Object.keys(schemas).filter(name=>!Object.hasOwn(sharingSchemas,name)&&!Object.hasOwn(editorItinerarySchemas,name)) as McpToolName[]) {
     server.registerTool(name, {
       description: descriptions[name], inputSchema: schemas[name],
-      annotations: { readOnlyHint: isRead(name), destructiveHint: false, idempotentHint: true, openWorldHint: name==='start_search' },
+      annotations: { readOnlyHint: isRead(name), destructiveHint: name==='delete_trip'||name==='leave_trip', idempotentHint: true, openWorldHint: name==='start_search' },
     }, async (args: unknown) => {
       try {
         const result = await core.call(name, args, actor);

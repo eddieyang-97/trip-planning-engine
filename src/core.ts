@@ -9,15 +9,18 @@ import { dispatchItinerary, itinerarySchemas,editorItinerarySchemas,itineraryAcc
 import {queueLiveSearch} from './live-search.js';
 import {dispatchSharing,sharingSchemas} from './itinerary-sharing.js';
 import {dispatchComments,commentSchemas} from './itinerary-comments.js';
+import {dispatchLifecycle,lifecycleSchemas,lockDecisionTrip} from './trip-lifecycle.js';
+import {activeMember} from './itinerary-sharing.js';
 
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
+  ...lifecycleSchemas,
   ...itinerarySchemas,
   ...editorItinerarySchemas,
   ...sharingSchemas,
   ...commentSchemas,
   ...policySchemas,
-  list_trips: z.strictObject({ limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).default(0) }),
+  list_trips: z.strictObject({ status:z.enum(['active','archived','all']).default('active'),limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).default(0) }),
   create_trip: tripInput,
   get_trip: z.strictObject({ tripId: uuid }),
   get_decision: z.strictObject({ decisionId: uuid, limit: z.number().int().min(1).max(50).default(20), offset: z.number().int().min(0).default(0) }),
@@ -60,6 +63,8 @@ async function criteria(tx: Queryable, decisionId: string, version?: number): Pr
   return result.rows[0] as { version: number; payload: Criteria } ?? fail('FORBIDDEN_OR_NOT_FOUND', 'Criteria not found');
 }
 export async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, provenance: Provenance, runId: string | null) {
+  const trip=await lockDecisionTrip(tx,decisionId);if(!trip)fail('FORBIDDEN_OR_NOT_FOUND','This trip is unavailable.');
+  await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
   // Serialize candidate identity reconciliation, including worker writes, within this decision.
   await tx.query('select id from decisions where id=$1 for update',[decisionId]);
   const normalizedIdentity=identity(offer);
@@ -92,7 +97,7 @@ export class Core {
   }
   // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
   async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
-    if(!['list_trips','create_trip',...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    if(!['list_trips','create_trip',...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
     return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
   }
   private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
@@ -102,21 +107,46 @@ export class Core {
       if (name === 'start_search') await grant(tx, actor, 'search');
       const work = () => this.dispatch(tx, name, args, actor,!checkGrant);
       if (isRead(name)) return work();
+      // Live admission and worker claim use this order: admission lock, trip, child.
+      if(name==='start_search')await tx.query('select pg_advisory_xact_lock(781349, 2)');
+      let scopedTrip:any;
+      let tripId=args.tripId as string|undefined;
+      if(name==='accept_itinerary_invite')tripId=(await tx.query('select trip_id from itinerary_invites where token_hash=$1',[createHash('sha256').update(args.token).digest('hex')])).rows[0]?.trip_id;
+      if(args.decisionId){scopedTrip=await lockDecisionTrip(tx,args.decisionId);if(!scopedTrip)fail('FORBIDDEN_OR_NOT_FOUND','This trip is unavailable.');tripId=scopedTrip.id;}
+      else if(tripId)scopedTrip=(await tx.query('select * from trips where id=$1 for update',[tripId])).rows[0];
       const hash = createHash('sha256').update(canonical(args)).digest('hex');
       const inserted = await tx.query(`insert into mutation_requests(owner_id,operation,key,request_hash)
         values($1,$2,$3,$4) on conflict do nothing returning key`, [actor.userId, name, args.idempotencyKey, hash]);
       if (!inserted.rows.length) {
         const old = (await tx.query('select * from mutation_requests where owner_id=$1 and operation=$2 and key=$3', [actor.userId, name, args.idempotencyKey])).rows[0]!;
         if (old.request_hash !== hash) fail('IDEMPOTENCY_CONFLICT', 'Key was already used with different inputs');
+        const oldTrip=old.trip_id??old.response?.tripId;
+        if(oldTrip&&(await tx.query('select trip_id from trip_deletions where trip_id=$1',[oldTrip])).rows.length){
+          if(name==='delete_trip'&&old.response?.deleted)return old.response;
+          fail('FORBIDDEN_OR_NOT_FOUND','This trip was permanently deleted.');
+        }
+        if(tripId&&!scopedTrip)fail('FORBIDDEN_OR_NOT_FOUND','This trip is unavailable.');
+        if(name==='leave_trip'){
+          if(await activeMember(tx,tripId!,actor.userId))fail('REVISION_CONFLICT','You have joined this trip again. Review it before leaving.');
+          return old.response;
+        }
+        if(Object.hasOwn(lifecycleSchemas,name)){
+          if(scopedTrip?.owner_id!==actor.userId&&!(name==='prepare_trip_action'&&args.action==='leave'&&await activeMember(tx,tripId!,actor.userId)))fail('FORBIDDEN_OR_NOT_FOUND','This trip action is unavailable.');
+          if((name==='archive_trip'||name==='restore_trip')&&!!scopedTrip.archived_at!==(name==='archive_trip'))fail('REVISION_CONFLICT','The trip status changed after this request. Refresh it.');
+        }
         // Recheck invitation state on retries: a cached acceptance never overrides revocation.
         if(name==='accept_itinerary_invite')return work();
         if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name)||Object.hasOwn(commentSchemas,name))await itineraryAccess(tx,args.tripId,actor.userId,true,!checkGrant);
         return old.response;
       }
       const result = await work();
+      if(tripId&&scopedTrip&&name!=='prepare_trip_action'&&name!=='delete_trip'){
+        result.lifecycleRevision=(await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1 returning lifecycle_revision',[tripId])).rows[0]!.lifecycle_revision;
+      }
+      await tx.query('update mutation_requests set trip_id=$4 where owner_id=$1 and operation=$2 and key=$3',[actor.userId,name,args.idempotencyKey,tripId??(name==='create_trip'?result.tripId:null)]);
       // Invitation credentials are shown once and only their hash is stored. Lost responses
       // require revoking/recreating the invite, rather than retaining a reusable raw secret.
-      const cached=name==='create_itinerary_invite'||name==='create_itinerary_view_link'?{...result,token:undefined,linkAvailable:false}:result;
+      const cached=name==='prepare_trip_action'?{confirmationAvailable:false,tripId:args.tripId}:name==='create_itinerary_invite'||name==='create_itinerary_view_link'?{...result,token:undefined,linkAvailable:false}:result;
       await tx.query('update mutation_requests set response=$4 where owner_id=$1 and operation=$2 and key=$3', [actor.userId, name, args.idempotencyKey, JSON.stringify(cached)]);
       return result;
     },{readOnly:isRead(name)});
@@ -130,14 +160,16 @@ export class Core {
     return { ...row, observations, attempts };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor,fromWeb:boolean): Promise<Record<string, any>> {
+    if(Object.hasOwn(lifecycleSchemas,name))return dispatchLifecycle(tx,name as keyof typeof lifecycleSchemas,a,actor);
     if(Object.hasOwn(commentSchemas,name))return dispatchComments(tx,name as keyof typeof commentSchemas,a,actor.userId,fromWeb);
     if(Object.hasOwn(sharingSchemas,name))return dispatchSharing(tx,name as keyof typeof sharingSchemas,a,actor.userId);
     if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name))return dispatchItinerary(tx,name as keyof typeof itinerarySchemas|keyof typeof editorItinerarySchemas,a,actor.userId,fromWeb);
     if (Object.hasOwn(policySchemas,name)) return dispatchPolicy(tx,name as keyof typeof policySchemas,a,actor.userId);
-    if (name === 'list_trips') return { trips: (await tx.query(`select t.id,t.payload,t.created_at,t.itinerary_revision,
+    if (name === 'list_trips') return { trips: (await tx.query(`select t.id,t.payload,t.created_at,t.itinerary_revision,t.archived_at,t.lifecycle_revision,
       case when t.owner_id=$1 then 'owner' else (select m.role from itinerary_members m where m.trip_id=t.id and m.user_id=$1 and m.revoked_at is null) end as role from trips t
-      where t.owner_id=$1 or exists(select 1 from itinerary_members m where m.trip_id=t.id and m.user_id=$1 and m.revoked_at is null)
-      order by t.created_at,t.id limit $2 offset $3`, [actor.userId, a.limit, a.offset])).rows };
+      where (t.owner_id=$1 or exists(select 1 from itinerary_members m where m.trip_id=t.id and m.user_id=$1 and m.revoked_at is null))
+      and ($4='all' or ($4='archived' and t.archived_at is not null) or ($4='active' and t.archived_at is null))
+      order by t.created_at,t.id limit $2 offset $3`, [actor.userId, a.limit, a.offset,a.status])).rows };
     if (name === 'create_trip') {
       const { idempotencyKey: _, ...payload } = a;
       const id = randomUUID();
@@ -270,22 +302,32 @@ export async function runOneJob(db: Database, provider: FlightProvider) {
     // A fixture is safe to re-run after a crash. This MUST NOT be reused for paid providers.
     const row = (await tx.query(`select * from search_runs where provider='fixture' and
       (status='queued' or (status='running' and lease_until < now())) order by created_at
-      limit 1 for update skip locked`)).rows[0];
+      limit 1`)).rows[0];
     if (!row) return null;
+    if(!await lockDecisionTrip(tx,row.decision_id))return null;
+    if(!(await tx.query(`select id from search_runs where id=$1 and provider='fixture' and
+      (status='queued' or (status='running' and lease_until<now())) for update`,[row.id])).rows.length)return null;
     await tx.query("update search_runs set status='running',generation=generation+1,lease_until=now()+interval '30 seconds' where id=$1", [row.id]);
+    await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[row.decision_id]);
     return { id: row.id, decision_id: row.decision_id, generation: row.generation + 1, criteria: (await criteria(tx, row.decision_id, row.criteria_version)).payload };
   });
   if (!job) return false;
   try {
     const result = await provider.search(job.criteria);
     await db.transaction(async tx => {
+      if(!await lockDecisionTrip(tx,job.decision_id))return;
       const valid = (await tx.query("select id from search_runs where id=$1 and generation=$2 and status='running' for update", [job.id, job.generation])).rows[0];
       if (!valid) return;
       for (const offer of result.offers.slice(0, 20)) await saveOffer(tx, job.decision_id, offerSchema.parse(offer), 'synthetic', job.id);
       await tx.query("update search_runs set status='complete',finished_at=now(),lease_until=null,coverage=$2 where id=$1", [job.id, JSON.stringify(result.coverage)]);
+      await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[job.decision_id]);
     });
   } catch {
-    await db.query("update search_runs set status='failed',error_code='PROVIDER_UNAVAILABLE',finished_at=now(),lease_until=null where id=$1 and generation=$2 and status='running'", [job.id, job.generation]);
+    await db.transaction(async tx=>{
+      const trip=await lockDecisionTrip(tx,job.decision_id);if(!trip)return;
+      const updated=await tx.query("update search_runs set status='failed',error_code='PROVIDER_UNAVAILABLE',finished_at=now(),lease_until=null where id=$1 and generation=$2 and status='running' returning id",[job.id,job.generation]);
+      if(updated.rows.length)await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
+    });
   }
   return true;
 }

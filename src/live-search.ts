@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import type {Database,Queryable} from './database.js';
 import {DomainError,type Actor,type Criteria,type Offer} from './domain.js';
 import {validateLiveCriteria,type LiveFlightProvider} from './live-provider.js';
+import {lockDecisionTrip} from './trip-lifecycle.js';
 
 export const liveLimits=Object.freeze({perRun:3,perOwnerDay:6,perDay:12,per30Days:60});
 interface LiveJob {id:string;decision_id:string;criteria_version:number;requested_by:string;client_id:string;grant_version:string|null;criteria:Criteria}
@@ -9,13 +10,15 @@ export async function queueLiveSearch(tx:Queryable,actor:Actor,decisionId:string
   validateLiveCriteria(c);
   await tx.query('select pg_advisory_xact_lock(781349, 2)');
   const usage=(await tx.query(`select
-    coalesce(sum(reserved_requests) filter(where created_at>now()-interval '1 day'),0)::int as daily,
-    coalesce(sum(reserved_requests) filter(where created_at>now()-interval '1 day' and requested_by=$1),0)::int as owner_daily,
-    coalesce(sum(reserved_requests),0)::int as monthly
-    from search_runs where provider='serpapi' and created_at>now()-interval '30 days'`,[actor.userId])).rows[0]!;
+    coalesce(sum(requests) filter(where created_at>now()-interval '1 day'),0)::int as daily,
+    coalesce(sum(requests) filter(where created_at>now()-interval '1 day' and requested_by=$1),0)::int as owner_daily,
+    coalesce(sum(requests),0)::int as monthly
+    from live_search_usage where created_at>now()-interval '30 days'`,[actor.userId])).rows[0]!;
   if(usage.daily+3>liveLimits.perDay||usage.owner_daily+3>liveLimits.perOwnerDay||usage.monthly+3>liveLimits.per30Days)
     throw new DomainError('BUDGET_EXCEEDED','Live pilot search allowance reached. Limits: two runs per owner per rolling day; four globally per day and twenty per 30 days.');
   const id=randomUUID();
+  await tx.query("delete from live_search_usage where created_at<=now()-interval '30 days'");
+  await tx.query('insert into live_search_usage(reservation_id,requested_by,requests) values($1,$2,3)',[id,actor.userId]);
   await tx.query(`insert into search_runs(id,decision_id,criteria_version,provider,status,requested_by,client_id,grant_version,reserved_requests)
     values($1,$2,$3,'serpapi','queued',$4,$5,$6,3)`,[id,decisionId,version,actor.userId,actor.clientId,actor.grantVersion??null]);
   return {runId:id,status:'queued',provenance:'provider_reported',maximumProviderRequests:3,
@@ -30,30 +33,42 @@ async function stillAuthorized(tx:Queryable,job:Pick<LiveJob,'requested_by'|'cli
 }
 type SaveOffer=(tx:Queryable,decisionId:string,offer:Offer,provenance:'provider_reported',runId:string)=>Promise<unknown>;
 export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,saveOffer:SaveOffer) {
+  await db.transaction(async tx=>{
+    await tx.query('select pg_advisory_xact_lock(781349, 2)');
+    // Root-before-child order also applies to recovery and deletion.
+    const expired=(await tx.query(`select id,decision_id from search_runs where provider='serpapi' and
+      ((status='running' and lease_until<now()) or (status='queued' and created_at<now()-interval '1 hour')) order by decision_id,id`)).rows;
+    for(const candidate of expired){
+      const trip=await lockDecisionTrip(tx,candidate.decision_id);if(!trip)continue;
+      const row=(await tx.query(`select status from search_runs where id=$1 and
+        ((status='running' and lease_until<now()) or (status='queued' and created_at<now()-interval '1 hour')) for update`,[candidate.id])).rows[0];if(!row)continue;
+      if(row.status==='running')await tx.query("update provider_attempts set status='outcome_unknown',finished_at=now() where run_id=$1 and status='reserved'",[candidate.id]);
+      await tx.query('update search_runs set status=$2,error_code=$3,finished_at=now(),lease_until=null where id=$1',[candidate.id,row.status==='running'?'outcome_unknown':'failed',row.status==='running'?'WORKER_INTERRUPTED':'QUEUE_EXPIRED']);
+      await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
+    }
+  });
   const job=await db.transaction<LiveJob|null>(async tx=>{
     await tx.query('select pg_advisory_xact_lock(781349, 2)');
-    // Recover by marking ambiguity, never by repeating a potentially charged request.
-    await tx.query(`update provider_attempts set status='outcome_unknown',finished_at=now()
-      where status='reserved' and run_id in(select id from search_runs where provider='serpapi' and status='running' and lease_until<now())`);
-    await tx.query(`update search_runs set status='outcome_unknown',error_code='WORKER_INTERRUPTED',finished_at=now(),lease_until=null
-      where provider='serpapi' and status='running' and lease_until<now()`);
-    await tx.query(`update search_runs set status='failed',error_code='QUEUE_EXPIRED',finished_at=now()
-      where provider='serpapi' and status='queued' and created_at<now()-interval '1 hour'`);
     if((await tx.query("select id from search_runs where provider='serpapi' and status='running' limit 1")).rows.length)return null;
     const row=(await tx.query<LiveJob>(`select * from search_runs where provider='serpapi' and status='queued'
-      order by created_at,id limit 1 for update skip locked`)).rows[0];
+      order by created_at,id limit 1`)).rows[0];
     if(!row)return null;
+    if(!await lockDecisionTrip(tx,row.decision_id))return null;
+    if(!(await tx.query("select id from search_runs where id=$1 and status='queued' for update",[row.id])).rows.length)return null;
     if(!await stillAuthorized(tx,row)) {
       await tx.query("update search_runs set status='failed',error_code='AUTHORIZATION_REVOKED',finished_at=now() where id=$1",[row.id]);
+      await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[row.decision_id]);
       return null;
     }
     await tx.query("update search_runs set status='running',lease_until=now()+interval '3 minutes',generation=generation+1 where id=$1",[row.id]);
+    await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[row.decision_id]);
     return {...row,criteria:(await tx.query('select payload from criteria_versions where decision_id=$1 and version=$2',[row.decision_id,row.criteria_version])).rows[0]!.payload as Criteria};
   });
   if(!job)return false;
   try {
     const result=await provider.search(job.criteria,async event=>{
       await db.transaction(async tx=>{
+        if(!await lockDecisionTrip(tx,job.decision_id))throw new Error('Trip deleted');
         const running=(await tx.query("select id from search_runs where id=$1 and status='running' and lease_until>now() for update",[job.id])).rows.length;
         if(!running)throw new Error('Run inactive');
         if(event.status==='reserved') {
@@ -66,9 +81,11 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
             [job.id,event.attempt,event.status,event.diagnostic?JSON.stringify(event.diagnostic):null,event.stage]);
           if(!updated.rows.length)throw new Error('Attempt inactive');
         }
+        await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[job.decision_id]);
       });
     });
     await db.transaction(async tx=>{
+      if(!await lockDecisionTrip(tx,job.decision_id))return;
       const active=(await tx.query("select id from search_runs where id=$1 and status='running' and lease_until>now() for update",[job.id])).rows.length;
       if(!active)return;
       if(!await stillAuthorized(tx,job))throw new Error('Authorization revoked');
@@ -81,13 +98,16 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
         priceBasisVerified:false,snowboardVerified:false,criteriaVersion:job.criteria_version};
       await tx.query(`update search_runs set status=$2,finished_at=now(),lease_until=null,error_code=$3,coverage=$4 where id=$1`,
         [job.id,state,state==='complete'?null:result.report.reason,JSON.stringify(coverage)]);
+      await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[job.decision_id]);
     });
   }catch {
     // No raw exception text: upstream exceptions can contain secret-bearing URLs.
     await db.transaction(async tx=>{
+      const trip=await lockDecisionTrip(tx,job.decision_id);if(!trip)return;
       await tx.query("update provider_attempts set status='outcome_unknown',finished_at=now() where run_id=$1 and status='reserved'",[job.id]);
       await tx.query(`update search_runs set status='outcome_unknown',error_code='LIVE_WORKER_FAILED',finished_at=now(),lease_until=null
         where id=$1 and status='running'`,[job.id]);
+      await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
     });
   }
   return true;

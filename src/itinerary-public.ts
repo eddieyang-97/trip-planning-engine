@@ -3,7 +3,7 @@
 const fields=['type','title','startDate','startTime','endDate','endTime','timeZone','endTimeZone','location','mapLocations','url','notes','openQuestion','status'] as const;
 export function sharedItinerary(trip:Record<string,any>,items:Record<string,any>[],role:'viewer'|'editor'='viewer'){
   const {name,destination,startDate,endDate,adults}=trip.payload;
-  return {trip:{id:trip.id,payload:{name,destination,startDate,endDate,adults}},role,revision:trip.itinerary_revision,
+  return {trip:{id:trip.id,archived_at:trip.archived_at??null,lifecycle_revision:trip.lifecycle_revision,payload:{name,destination,startDate,endDate,adults}},role,revision:trip.itinerary_revision,
     items:items.map(row=>({id:row.id,position:row.position,payload:{...Object.fromEntries(fields.map(key=>[key,row.payload[key]])) as Record<typeof fields[number],any>,
       mapLocations:row.payload.mapLocations?.map(({label,latitude,longitude}:{label:string;latitude:number;longitude:number})=>({label,latitude,longitude})),bookingNote:''}})),
     history:[],research:{decisions:[],truncatedDecisions:false}};

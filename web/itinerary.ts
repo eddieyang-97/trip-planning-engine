@@ -14,21 +14,25 @@ import {configureDiscussion} from './itinerary-comments.js';
 import {configureMap} from './itinerary-map.js';
 import {configureMapEditor} from './itinerary-map-editor.js';
 import {configureMembers} from './itinerary-members.js';
+import {configureTripLifecycle} from './trip-lifecycle.js';
 
 type Row={id:string;payload:ItineraryItem;position:number};
-type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
+type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';archived_at?:string|null;lifecycle_revision?:number;payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
 type Plan={trip:Trip;role?:'owner'|'viewer'|'editor';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const timezonePickers=configureTimezonePickers($<HTMLFormElement>('item-form'));
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
 let pending:{signature:string;key:string}|null=null;
-let loading=false;
+let loading=false,listing=false;
 let anonymousToken:string|null=null,anonymousView=false;
+let tripStatus:'active'|'archived'|'all'='active';
 const accountBoundary=new AccountBoundary();
 function clearPrivate(){
   if(anonymousView)return;
   trips=[];plan=null;editing=null;removing=null;pending=null;collapsed.clear();
+  tripLifecycle.reset();
+  tripStatus='active';$<HTMLSelectElement>('trip-filter').value='active';
   for(const dialog of document.querySelectorAll<HTMLDialogElement>('dialog'))if(dialog.open)dialog.close();
   for(const form of document.querySelectorAll<HTMLFormElement>('dialog form'))form.reset();
   mapEditor.set([]);timezonePickers.setValues(blank);
@@ -108,24 +112,32 @@ async function mutate(operation:string,args:Record<string,unknown>){
   const result=await api(operation,{...args,idempotencyKey:pending.key});pending=null;return result;
 }
 async function loadTrips(selectId?:string){
+  listing=true;$<HTMLSelectElement>('trip-filter').disabled=true;
+  try{
   const generation=accountBoundary.generation;
   if(!demo){
     const collected:Trip[]=[];
     // Retrieve all pages rather than silently hiding older trips.
-    for(let offset=0;;offset+=50){const page=await api('list_trips',{limit:50,offset});accountBoundary.check(generation);collected.push(...page.trips);if(page.trips.length<50)break;}
+    for(let offset=0;;offset+=50){const page=await api('list_trips',{status:tripStatus,limit:50,offset});accountBoundary.check(generation);collected.push(...page.trips);if(page.trips.length<50)break;}
     trips=collected;
   }
   $('workspace').hidden=false;$('access').hidden=true;
   const requested=selectId??new URL(location.href).searchParams.get('trip');
   const available=requested&&trips.some(trip=>trip.id===requested);
+  if(requested&&!available&&!demo){
+    try{const opened=await api('get_itinerary',{tripId:requested});accountBoundary.check(generation);const status=opened.trip.archived_at?'archived':'active';
+      if(tripStatus!=='all'&&tripStatus!==status){tripStatus=status;$<HTMLSelectElement>('trip-filter').value=tripStatus;return await loadTrips(requested);}}
+    catch(error){accountBoundary.check(generation);}
+  }
   if(selectId&&!available){plan=null;render();throw Error('This itinerary is unavailable. Its access may have been revoked.');}
   const id=available?requested:trips[0]?.id;
   render();
   if(id){await loadPlan(id);}else{plan=null;render();message('');}
   if(requested&&!available)message('The requested trip is not available in this account. Choose one of your trips, or create a new one.');
+  }finally{listing=false;$<HTMLSelectElement>('trip-filter').disabled=loading;}
 }
 async function loadPlan(id:string){
-  if(loading)return;loading=true;message('Loading your itinerary…');
+  if(loading)return;loading=true;$<HTMLSelectElement>('trip-filter').disabled=true;message('Loading your itinerary…');
   try{
     if(!demo){
       if(anonymousView&&!anonymousToken)throw Error('This view link is incomplete. Ask the owner for a new link.');
@@ -137,7 +149,7 @@ async function loadPlan(id:string){
   }catch(error){plan=null;
     if(anonymousView){trips=[];$('shared-unavailable').hidden=false;}
     if(error&&typeof error==='object'&&'code' in error&&error.code==='FORBIDDEN_OR_NOT_FOUND')trips=trips.filter(t=>t.id!==id);
-    render();message(errorText(error));throw error;}finally{loading=false;}
+    render();message(errorText(error));throw error;}finally{loading=false;$<HTMLSelectElement>('trip-filter').disabled=listing;}
 }
 function allDates(){
   if(!plan)return [];
@@ -149,6 +161,15 @@ function allDates(){
 }
 const discussion=configureDiscussion({context:()=>plan?{tripId:plan.trip.id,allowed:!anonymousView&&!demo}:null,api});
 const members=configureMembers($('trip-members'),api);
+const tripLifecycle=configureTripLifecycle(mutate,async(action,id)=>{
+  plan=null;const url=new URL(location.href);url.searchParams.delete('trip');history.replaceState(null,'',url);render();
+  if(action==='archive'||action==='restore')tripStatus='active';$<HTMLSelectElement>('trip-filter').value=tripStatus;
+  await loadTrips(action==='restore'?id:undefined);
+},message);
+$<HTMLSelectElement>('trip-filter').onchange=()=>{
+  tripStatus=$<HTMLSelectElement>('trip-filter').value as typeof tripStatus;plan=null;
+  const url=new URL(location.href);url.searchParams.delete('trip');history.replaceState(null,'',url);render();void loadTrips().catch(error=>message(errorText(error)));
+};
 function openDetail(row:Row){
   collapsed.delete(`${plan!.trip.id}:${row.id}`);const detail=$<HTMLDetailsElement>(`item-${row.id}`);detail.open=true;
   activeDay=row.payload.startDate??'unscheduled';setView('details',false);markDay(activeDay);detail.scrollIntoView({block:'start'});detail.querySelector('summary')?.focus({preventScroll:true});
@@ -164,11 +185,16 @@ function render(){
   members.reset();
   discussion.reset();
   calendarExport.reset();
+  $('trip-filter').parentElement!.hidden=demo||anonymousView;
+  tripLifecycle.update(plan&&!demo&&!anonymousView?{id:plan.trip.id,name:plan.trip.payload.name,archived:!!plan.trip.archived_at,revision:plan.trip.lifecycle_revision??1,role:plan.role??'owner'}:null,!!plan?.trip.archived_at);
   $('trip-list').replaceChildren(...trips.map(t=>{
     const b=button(t.payload.name,()=>showPlan(t.id),`trip-choice ${plan?.trip.id===t.id?'active':''}`);
-    b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.role==='viewer'?' · Shared, view only':t.role==='editor'?' · Shared, can edit':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
+    b.append(node('span',`${t.payload.destination} · ${date(t.payload.startDate)}${t.archived_at?' · Archived':''}${t.role==='viewer'?' · Shared, view only':t.role==='editor'?' · Shared, can edit':''}`));if(plan?.trip.id===t.id)b.setAttribute('aria-current','page');return b;
   }));
   $('empty-trips').hidden=anonymousView||!!plan||trips.length>0;$('trip-view').hidden=!plan;
+  $('empty-trip-title').textContent=tripStatus==='archived'?'No archived trips':'Where are you heading?';
+  $('empty-trip-copy').textContent=tripStatus==='archived'?'Choose Active to return to your current plans. Archived trips keep their content and shared access.':'Create a trip, then add the pieces as you decide. Unknown details can wait.';
+  $('first-trip').hidden=tripStatus==='archived';
   if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();itineraryMap.reset();return;}
   const p=plan.trip.payload,booked=plan.items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=plan.items.filter(i=>!i.payload.startDate).length;
   if(!anonymousView&&!demo)void members.load(plan.trip.id);
