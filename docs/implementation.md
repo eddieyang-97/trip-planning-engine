@@ -2,6 +2,12 @@
 
 Updated 16 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## Prepared bounded multi-airport coverage — 21 October 2026
+
+F2 is stacked on PR #11 while F1 is reviewed. One-way searches query up to three origins individually in saved order; further airports are explicitly omitted for budget. Return runs retain the combined base query and at most two selected-departure expansions. Persisted admission plans, query scopes and per-pair coverage distinguish attempted, failed, uncertain, unexpanded and omitted scope. The three-request reservation, rolling quotas and authorization/recovery guarantees remain unchanged. No migration or deployment is performed. PR #11 review fixes are carried forward, including separate supplier success/result rejection in durable per-pair coverage; 36 focused tests pass and latest-head CI remains the full-suite gate.
+
+Original F2 commit `bc3a631`: type checks/build and `npm test` passed 141/141 with zero skips, including four isolated pooled PostgreSQL checks and multi-airport official MCP SDK retrieval with deterministic suppliers. See [scope, compatibility, validation and acceptance limits](hosted-live-search.md#bounded-multi-airport-increment--21-october-2026). Live multi-airport and connected-assistant acceptance remain separately approved work; neither F1 nor F2 is closed by fixture tests.
+
 ## Prepared general-purpose MCP flight discovery — 21 October 2026
 
 The fixed Flaine validator/probe dependency is replaced locally by generalized SerpApi query/normalization. Supports future airport/date combinations, 1–6 origins, 1–9 adults, one-way/return economy/GBP and several airline/itinerary observations. A combined origin query plus at most two return expansions fits the existing three-request reservation and unchanged owner/global ceilings. No new provider, service, configuration or SQL migration is introduced. Generalized code is **not deployed or live-supplier accepted**; earlier hosted evidence remains scoped to the fixed Flaine pilot.

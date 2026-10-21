@@ -25,13 +25,19 @@ test('pooled PostgreSQL serializes live admission across different owners and co
       await db.query('insert into client_grants values($1,$2,$3,null)',[actor.userId,actor.clientId,['read','write','search']]);
       const trip=await core.call('create_trip',{...flaineTrip,idempotencyKey:randomUUID()},actor);
       const decision=await core.call('create_decision',{tripId:trip.tripId,title:'Flights',criteria:{...flaineCriteria,
-        origins:n%2?['CDG']:['JFK','EWR'],destination:n%2?'FCO':'LAX',outbound:'2027-01-14',inbound:n%2?null:'2027-01-18',adults:n+1},idempotencyKey:randomUUID()},actor);
+        origins:n%2?['CDG','ORY','BVA','LYS']:['JFK','EWR'],destination:n%2?'FCO':'LAX',outbound:'2027-01-14',inbound:n%2?null:'2027-01-18',adults:n+1},idempotencyKey:randomUUID()},actor);
       requests.push({actor,args:{decisionId:decision.decisionId,expectedRevision:1,criteriaVersion:1,provider:'live',idempotencyKey:randomUUID()}});
     }
     const results=await Promise.allSettled(requests.map(r=>core.call('start_search',r.args,r.actor)));
     assert.equal(results.filter(r=>r.status==='fulfilled').length,4);
     for(const r of results)if(r.status==='rejected')assert.equal(r.reason.code,'BUDGET_EXCEEDED');
     assert.equal((await db.query('select sum(reserved_requests)::int as n from search_runs')).rows[0]!.n,12);
+    for(const result of results)if(result.status==='fulfilled'){
+      const plan=result.value.searchPlan;assert.equal(plan.maximumProviderRequests,3);
+      assert.equal(plan.mode==='combined_return'?plan.baseQueries.length+plan.maximumReturnExpansions:plan.baseQueries.length,3);
+      const persisted:Record<string,unknown>=(await db.query('select coverage from search_runs where id=$1',[result.value.runId])).rows[0]!.coverage;
+      assert.deepEqual(persisted.plan,plan);assert.deepEqual(persisted.queries,[]);
+    }
     const i=results.findIndex(r=>r.status==='fulfilled'),first=results[i];
     const retried=await core.call('start_search',requests[i]!.args,requests[i]!.actor);
     assert.equal(retried.runId,first?.status==='fulfilled'?first.value.runId:null);
