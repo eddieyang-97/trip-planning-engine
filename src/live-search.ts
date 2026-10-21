@@ -3,9 +3,10 @@ import type {Database,Queryable} from './database.js';
 import {DomainError,type Actor,type Criteria,type Offer} from './domain.js';
 import {validateLiveCriteria,liveRequestLimit,liveObservationLimit,type LiveFlightProvider} from './live-provider.js';
 import {lockDecisionTrip} from './trip-lifecycle.js';
+import {liveSearchPlan,type LiveSearchPlan,type LiveQueryRecord} from './live-coverage.js';
 
 export const liveLimits=Object.freeze({perRun:liveRequestLimit,perOwnerDay:6,perDay:12,per30Days:60});
-interface LiveJob {id:string;decision_id:string;criteria_version:number;requested_by:string;client_id:string;grant_version:string|null;criteria:Criteria;reserved_requests:number}
+interface LiveJob {id:string;decision_id:string;criteria_version:number;requested_by:string;client_id:string;grant_version:string|null;criteria:Criteria;reserved_requests:number;coverage:{plan?:LiveSearchPlan;queries?:LiveQueryRecord[]}}
 export async function queueLiveSearch(tx:Queryable,actor:Actor,decisionId:string,version:number,c:Criteria) {
   validateLiveCriteria(c);
   await tx.query('select pg_advisory_xact_lock(781349, 2)');
@@ -17,12 +18,13 @@ export async function queueLiveSearch(tx:Queryable,actor:Actor,decisionId:string
   if(usage.daily+3>liveLimits.perDay||usage.owner_daily+3>liveLimits.perOwnerDay||usage.monthly+3>liveLimits.per30Days)
     throw new DomainError('BUDGET_EXCEEDED','Live pilot search allowance reached. Limits: two runs per owner per rolling day; four globally per day and twenty per 30 days.');
   const id=randomUUID();
+  const plan=liveSearchPlan(c);
   await tx.query("delete from live_search_usage where created_at<=now()-interval '30 days'");
   await tx.query('insert into live_search_usage(reservation_id,requested_by,requests) values($1,$2,3)',[id,actor.userId]);
-  await tx.query(`insert into search_runs(id,decision_id,criteria_version,provider,status,requested_by,client_id,grant_version,reserved_requests)
-    values($1,$2,$3,'serpapi','queued',$4,$5,$6,3)`,[id,decisionId,version,actor.userId,actor.clientId,actor.grantVersion??null]);
+  await tx.query(`insert into search_runs(id,decision_id,criteria_version,provider,status,requested_by,client_id,grant_version,reserved_requests,coverage)
+    values($1,$2,$3,'serpapi','queued',$4,$5,$6,3,$7)`,[id,decisionId,version,actor.userId,actor.clientId,actor.grantVersion??null,JSON.stringify({plan,queries:[],complete:false})]);
   return {runId:id,status:'queued',provenance:'provider_reported',maximumProviderRequests:3,
-    coverage:'Economy discovery: one combined query for the exact saved airports/dates/adults; up to two outbound return expansions. Incomplete market, seller and baggage coverage.'};
+    searchPlan:plan,coverage:'Economy discovery: one-way queries up to three origins individually in saved order; returns use a combined query and up to two return expansions. Inspect per-pair coverage; market, seller and baggage coverage remain incomplete.'};
 }
 async function stillAuthorized(tx:Queryable,job:Pick<LiveJob,'requested_by'|'client_id'|'grant_version'>) {
   const grant=(await tx.query(`select g.permissions,c.grant_version from client_grants g
@@ -69,7 +71,7 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
     const result=await provider.search(job.criteria,async event=>{
       await db.transaction(async tx=>{
         if(!await lockDecisionTrip(tx,job.decision_id))throw new Error('Trip deleted');
-        const running=(await tx.query("select id from search_runs where id=$1 and status='running' and lease_until>now() for update",[job.id])).rows.length;
+        const running=(await tx.query("select id,coverage from search_runs where id=$1 and status='running' and lease_until>now() for update",[job.id])).rows[0];
         if(!running)throw new Error('Run inactive');
         if(event.status==='reserved') {
           if(!await stillAuthorized(tx,job))throw new Error('Authorization revoked');
@@ -82,9 +84,13 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
             [job.id,event.attempt,event.status,event.diagnostic||event.resultValidation?JSON.stringify({...event.diagnostic,...(event.resultValidation?{resultValidation:{status:'rejected',reason:event.resultValidation}}:{})}):null,event.stage]);
           if(!updated.rows.length)throw new Error('Attempt inactive');
         }
+        const queries:LiveQueryRecord[]=running.coverage?.queries??[];
+        if(event.status==='reserved'&&event.query)queries.push({...event.query,attempt:event.attempt,stage:event.stage,status:event.status});
+        else for(const query of queries)if(query.attempt===event.attempt){query.status=event.status;if(event.resultValidation)query.resultValidation=event.resultValidation;}
+        await tx.query('update search_runs set coverage=$2 where id=$1',[job.id,JSON.stringify({...running.coverage,queries})]);
         await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[job.decision_id]);
       });
-    });
+    },job.coverage?.plan??liveSearchPlan(job.criteria,true));
     await db.transaction(async tx=>{
       if(!await lockDecisionTrip(tx,job.decision_id))return;
       const active=(await tx.query("select id from search_runs where id=$1 and status='running' and lease_until>now() for update",[job.id])).rows.length;

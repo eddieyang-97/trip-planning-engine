@@ -7,6 +7,7 @@ import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
 import { dispatchItinerary, itinerarySchemas,editorItinerarySchemas,itineraryAccess } from './itinerary.js';
 import {queueLiveSearch} from './live-search.js';
+import {projectLiveCoverage} from './live-coverage.js';
 import {dispatchSharing,sharingSchemas} from './itinerary-sharing.js';
 import {dispatchComments,commentSchemas} from './itinerary-comments.js';
 import {dispatchLifecycle,lifecycleSchemas,lockDecisionTrip} from './trip-lifecycle.js';
@@ -159,7 +160,9 @@ export class Core {
     if (!row) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');
     const observations = (await tx.query('select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id where o.run_id=$1 order by o.id', [id])).rows;
     const attempts=(await tx.query('select attempt,stage,status,reserved_at,finished_at,diagnostic from provider_attempts where run_id=$1 order by attempt',[id])).rows;
-    return { ...row, observations, attempts };
+    const coverage=projectLiveCoverage(row.coverage,attempts as {attempt:number;status:'reserved'|'success'|'failed'|'outcome_unknown'}[]);
+    return { ...row, coverage, observations, attempts:attempts.map(a=>({...a,
+      ...(coverage?.queries?.find((q:any)=>q.attempt===a.attempt)?{query:coverage.queries.find((q:any)=>q.attempt===a.attempt)}:{})})) };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor,fromWeb:boolean): Promise<Record<string, any>> {
     if(Object.hasOwn(lifecycleSchemas,name))return dispatchLifecycle(tx,name as keyof typeof lifecycleSchemas,a,actor);

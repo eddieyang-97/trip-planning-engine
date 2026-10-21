@@ -173,7 +173,7 @@ test('general search persists multiple itineraries, compares uncertainties, surv
 });
 
 test('official MCP SDK discovers generalized schema and retrieves a real adapter path using isolated HTTP fixtures',async()=>{
-  const {db,core,actor,args}=await setup(criteria({origins:['CDG'],destination:'FCO',outbound:'2027-03-10',inbound:null,adults:2}));
+  const {db,core,actor,args}=await setup(criteria({origins:['CDG','ORY'],destination:'FCO',outbound:'2027-03-10',inbound:null,adults:2}));
   const http=createServer(),client=new Client({name:'general-search-test',version:'1'}),token=randomUUID();
   try{
     await new Promise<void>(resolve=>http.listen(0,'127.0.0.1',resolve));
@@ -186,9 +186,10 @@ test('official MCP SDK discovers generalized schema and retrieves a real adapter
     };
     const run=await call('start_search',args),{send,calls}=transport();
     await runOneLiveJob(db,new SerpApiFlightProvider('test-secret',send),saveOffer);
-    const ready=await call('get_search_run',{runId:run.runId});assert.equal(ready.status,'complete');assert.equal(ready.observations.length,3);
+    const ready=await call('get_search_run',{runId:run.runId});assert.equal(ready.status,'complete');assert.equal(ready.observations.length,6);
+    assert.deepEqual(ready.coverage.pairs.map((p:any)=>[p.origin,p.outbound.scope,p.outbound.status]),[['CDG','single_airport','queried'],['ORY','single_airport','queried']]);
     assert.equal(ready.observations[0].payload.adults,2);assert.deepEqual(ready.observations[0].payload.inbound,[]);
-    assert.equal((await call('start_search',args)).runId,run.runId);assert.equal(calls.length,2);
+    assert.equal((await call('start_search',args)).runId,run.runId);assert.equal(calls.length,3);
     await db.query('update client_grants set revoked_at=now() where owner_id=$1',[actor.userId]);
     assert.equal((await client.callTool({name:'get_search_run',arguments:{runId:run.runId}})).isError,true);
   }finally{await client.close();await new Promise<void>((resolve,reject)=>http.close(e=>e?reject(e):resolve()));await db.close();}
