@@ -1,0 +1,16 @@
+{
+  "search_metadata": {"status": "Success"},
+  "search_parameters": {
+    "engine": "google_flights", "departure_id": "CDG", "arrival_id": "FCO",
+    "outbound_date": "2027-03-10", "return_date": "2027-03-15", "currency": "GBP",
+    "adults": 4, "type": 1, "travel_class": 1, "departure_token": "fixture-departure"
+  },
+  "other_flights": [{
+    "price": 230,
+    "flights": [{
+      "flight_number": "FIXTURE 101", "airline": "Fixture Air", "travel_class": "Economy",
+      "departure_airport": {"id": "FCO", "time": "2027-03-15 15:00"},
+      "arrival_airport": {"id": "CDG", "time": "2027-03-15 17:00"}
+    }]
+  }]
+}

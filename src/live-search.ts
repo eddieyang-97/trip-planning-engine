@@ -79,7 +79,7 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
         } else {
           const updated=await tx.query(`update provider_attempts set status=$3,finished_at=now(),diagnostic=$4
             where run_id=$1 and attempt=$2 and stage=$5 and status='reserved' returning attempt`,
-            [job.id,event.attempt,event.status,event.diagnostic?JSON.stringify(event.diagnostic):null,event.stage]);
+            [job.id,event.attempt,event.status,event.diagnostic||event.resultValidation?JSON.stringify({...event.diagnostic,...(event.resultValidation?{resultValidation:{status:'rejected',reason:event.resultValidation}}:{})}):null,event.stage]);
           if(!updated.rows.length)throw new Error('Attempt inactive');
         }
         await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[job.decision_id]);

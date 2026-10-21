@@ -1,6 +1,8 @@
 import {airportLocal,airportTimeZone} from './airport-time.js';
 import {DomainError,offerSchema,criteriaSchema,canonical,evaluate,type Criteria,type Offer} from './domain.js';
-import {reportedMinor,type ProbeEvent} from './serpapi-probe.js';
+import {reportedMinor} from './serpapi-probe.js';
+import {setImmediate as yieldToEventLoop} from 'node:timers/promises';
+import {validateFlightEcho,type LiveProviderEvent,type FlightValidationReason} from './flight-result-validation.js';
 import {serpApiDiagnostic,type SerpApiDiagnostic} from './serpapi-diagnostics.js';
 
 export const liveRequestLimit=3,liveObservationLimit=20;
@@ -19,9 +21,15 @@ export function liveQuery(c:Criteria):Record<string,string> {
 export function airportInstant(local:string,airport:string):string|null {
   if(!airportTimeZone(airport)||!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(local))return null;
   const nominal=Date.parse(local.replace(' ','T')+':00Z');if(!Number.isFinite(nominal))return null;
-  const matches:string[]=[];
-  for(let offset=-14*60;offset<=14*60;offset+=15) {
-    const instant=new Date(nominal-offset*60000).toISOString(),value=airportLocal(instant,airport);
+  // Probe both sides of future IANA transitions (including half-hour changes
+  // and date-line jumps), then round-trip only the distinct observed offsets.
+  const offsets=new Set<number>(),matches:string[]=[];
+  for(const hours of [-36,0,36]){
+    const sample=nominal+hours*3600000,value=airportLocal(new Date(sample).toISOString(),airport)!;
+    offsets.add(Date.parse(`${value.date}T${value.time}:00Z`)-sample);
+  }
+  for(const offset of offsets) {
+    const instant=new Date(nominal-offset).toISOString(),value=airportLocal(instant,airport);
     if(value&&`${value.date} ${value.time}`===local)matches.push(instant);
   }
   return matches.length===1?matches[0]!:null;
@@ -33,6 +41,7 @@ const texts=(v:unknown):string[]=>Array.isArray(v)?v.filter((s):s is string=>typ
 class SearchStop extends Error {
   constructor(readonly reason:string,readonly uncertain=false,readonly diagnostic?:SerpApiDiagnostic){super(reason);}
 }
+class ResultRejected extends SearchStop {constructor(){super('result_validation_failed');}}
 function sourceTime(body:Json):string|null {
   const value=body.search_metadata?.created_at;
   if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}(?:T| )\d{2}:\d{2}:\d{2}(?:\.\d+)?(?: UTC|Z|[+-]\d{2}:\d{2})$/.test(value))return null;
@@ -74,11 +83,12 @@ function normalized(c:Criteria,out:Json,back:Json|null,body:Json):Offer|null {
 
 export class SerpApiFlightProvider {
   constructor(private readonly apiKey:string,private readonly send:typeof fetch=fetch){}
-  async search(c:Criteria,record:(event:ProbeEvent)=>Promise<void>) {
+  async search(c:Criteria,record:(event:LiveProviderEvent)=>Promise<void>) {
     validateLiveCriteria(c);
     const query=liveQuery(c),offers:Offer[]=[],expanded:string[]=[],seen=new Set<string>();
     let attempts=0,outboundCount=0,rejected=0,expandableCount=0,scanTruncated=false,status='completed',reason='discovery_complete';
     let initialSucceeded=false,expansionFailures=0;
+    const resultValidationFailures:{attempt:number;stage:string;reason:FlightValidationReason}[]=[],echoOmissions:{attempt:number;fields:string[]}[]=[];
     const returnedAirports=new Set<string>();
     const clean=(value:unknown)=>!JSON.stringify(value).includes(this.apiKey)&&!JSON.stringify(value).includes(encodeURIComponent(this.apiKey));
     const get=async(path:string,params:Record<string,string>):Promise<Json>=>{
@@ -89,7 +99,7 @@ export class SerpApiFlightProvider {
       if(!response.ok||body.error)throw new SearchStop(`provider_${response.status}`,response.status>=500,serpApiDiagnostic(body,response.status,this.apiKey));
       return body;
     };
-    const search=async(stage:'outbound'|'return',token?:string)=>{
+    const search=async(stage:'outbound'|'return',token?:string,selected?:Json)=>{
       if(attempts>=liveRequestLimit)throw new SearchStop('request_limit_reached');
       const event={cycle:1,stage,attempt:attempts+1};
       await record({...event,status:'reserved'});attempts++;
@@ -97,11 +107,17 @@ export class SerpApiFlightProvider {
         const params:Record<string,string>={...query,...(token?{departure_token:token}:{})};
         const body=await get('/search.json',params);
         if(body.search_metadata?.status!=='Success')throw new SearchStop('search_not_complete',true);
-        for(const name of ['engine','departure_id','arrival_id','outbound_date','adults','currency','type','travel_class','stops',...(c.inbound?['return_date']:[]),...(token?['departure_token']:[])]){
-          if(String(body.search_parameters?.[name])!==params[name])throw new SearchStop('request_echo_missing_or_mismatched');
-        }
-        await record({...event,status:'success'});return body;
+        const selectedFlights=rows(body.selected_flights),selectedMatches=!!selected&&selectedFlights.length===1&&canonical(segments(selectedFlights[0]!))===canonical(segments(selected));
+        const validation=validateFlightEcho(params,object(body.search_parameters),selectedMatches);
+        const issue=selected&&selectedFlights.length&&!selectedMatches?'selected_departure_mismatch':validation.reason;
+        // Supplier completion and usability are distinct. Commit success even
+        // when the response cannot safely provide a usable observation.
+        await record({...event,status:'success',...(issue?{resultValidation:issue}:{})});
+        if(validation.omitted.length)echoOmissions.push({attempt:event.attempt,fields:validation.omitted});
+        if(issue){resultValidationFailures.push({attempt:event.attempt,stage,reason:issue});throw new ResultRejected();}
+        return body;
       }catch(error){
+        if(error instanceof ResultRejected)throw error;
         await record({...event,status:error instanceof SearchStop&&!error.uncertain?'failed':'outcome_unknown',
           ...(error instanceof SearchStop&&error.diagnostic?{diagnostic:error.diagnostic}:{})});
         throw error;
@@ -121,13 +137,16 @@ export class SerpApiFlightProvider {
       if(!Number.isInteger(account.account_rate_limit_per_hour)||!Number.isInteger(account.this_hour_searches)||account.account_rate_limit_per_hour-account.this_hour_searches<liveRequestLimit)throw new SearchStop('insufficient_hourly_capacity');
       const first=await search('outbound');initialSucceeded=true;
       const candidates=[...rows(first.best_flights),...rows(first.other_flights)];outboundCount=candidates.length;
-      const valid=candidates.slice(0,200).filter(out=>{
+      const valid:Json[]=[],outboundKeys=new Map<Json,string>();
+      for(const [index,out] of candidates.slice(0,200).entries()){
+        if(index%8===0)await yieldToEventLoop();
         const offer=normalized({...c,inbound:null},out,null,first);
-        if(!offer||!clean(offer)){rejected++;return false;}return true;
-      }).sort((a,b)=>(reportedMinor(a.price)??Infinity)-(reportedMinor(b.price)??Infinity)||canonical(a.flights).localeCompare(canonical(b.flights)));
+        if(!offer||!clean(offer)){rejected++;continue;}valid.push(out);outboundKeys.set(out,canonical(offer.outbound));
+      }
+      valid.sort((a,b)=>(reportedMinor(a.price)??Infinity)-(reportedMinor(b.price)??Infinity)||outboundKeys.get(a)!.localeCompare(outboundKeys.get(b)!));
       if(!c.inbound){for(const out of valid)collect(out,null,first);}
       else{
-        const distinct=valid.filter((out,i,all)=>all.findIndex(other=>canonical(other.flights)===canonical(out.flights))===i);
+        const departures=new Set<string>(),distinct=valid.filter(out=>{const key=outboundKeys.get(out)!;if(departures.has(key))return false;departures.add(key);return true;});
         const chosen:Json[]=[];
         const hasToken=(out:Json)=>typeof out.departure_token==='string'&&out.departure_token.length>0&&out.departure_token.length<=30000;
         expandableCount=distinct.filter(hasToken).length;
@@ -136,18 +155,17 @@ export class SerpApiFlightProvider {
         for(const out of distinct){if(chosen.length===2)break;if(!chosen.includes(out)&&hasToken(out))chosen.push(out);}
         for(const out of chosen){
           try{
-            const response=await search('return',out.departure_token);
-            const selected=rows(response.selected_flights);
-            if(selected.length&&canonical(segments(selected[0]!))!==canonical(segments(out)))throw new SearchStop('selected_departure_mismatch');
+            const response=await search('return',out.departure_token,out);
             expanded.push(canonical(segments(out)));
             const returning=[...rows(response.best_flights),...rows(response.other_flights)];scanTruncated||=returning.length>200;
             const before=offers.length;
-            for(const back of returning.slice(0,200)){collect(out,back,response);if(offers.length-before>=10)break;}
+            for(const [index,back] of returning.slice(0,200).entries()){if(index%8===0)await yieldToEventLoop();collect(out,back,response);if(offers.length-before>=10)break;}
           }catch(error){expansionFailures++;if(!(error instanceof SearchStop)||error.uncertain)throw error;}
         }
       }
       if(expansionFailures)reason='partial_return_expansion_failure';
       else if(c.inbound&&!expanded.length&&outboundCount)reason='no_expandable_departures';
+      if(resultValidationFailures.length){reason=offers.length?'partial_result_validation_failure':'result_validation_failed';if(!offers.length)status='stopped';}
     }catch(error){status=error instanceof SearchStop&&!error.uncertain?'stopped':'outcome_unknown';reason=error instanceof SearchStop?error.reason:'ledger_or_worker_failure';}
     return {offers,report:{status,reason,requestsAttempted:attempts,coverage:{complete:false,
       requestedAirports:c.origins,queriedAirports:initialSucceeded?c.origins:[],returnedAirports:[...returnedAirports],
@@ -155,7 +173,7 @@ export class SerpApiFlightProvider {
       query,initialQuerySucceeded:initialSucceeded,outboundResults:outboundCount,expandedOutboundCount:expanded.length,
       expandedDepartures:expanded.map(value=>JSON.parse(value)),unexpandedOutboundCount:Math.max(0,expandableCount-expanded.length),
       scanTruncated:scanTruncated||outboundCount>200,
-      expansionFailures,rejectedResults:rejected,expansionLimit:2,observationLimit:liveObservationLimit,
+      expansionFailures,resultValidationFailures,echoOmissions,rejectedResults:rejected,expansionLimit:2,observationLimit:liveObservationLimit,
       resultLimitReached:offers.length===liveObservationLimit,
       sample:'One combined airport query; up to two outbound return expansions. No per-airport sweep, seller quotes or baggage inventory.',
       priceBasisVerified:false,snowboardVerified:false}}};
