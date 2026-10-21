@@ -31,7 +31,7 @@ Account-confirmation emails use Supabase Auth with [Brevo custom SMTP](docs/acco
 | **Now — P1 primary product feature** | [#4 Flight F1 generalized single-route MCP flight search](https://github.com/eddieyang-97/trip-planning-engine/issues/4). |
 | **Next — P1/P2** | [#5 F2 multi-airport](https://github.com/eddieyang-97/trip-planning-engine/issues/5), [#6 F3 assistant journey](https://github.com/eddieyang-97/trip-planning-engine/issues/6), [#2 browser E2E](https://github.com/eddieyang-97/trip-planning-engine/issues/2), then [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues) itinerary import, group logistics, lodging and dining. |
 
-Keep one primary feature implementation in flight; gates may proceed independently. Labels `Now`/`Next` denote planning order, **not** shipping or acceptance. Avoid maintaining a duplicate backlog file.
+Keep one primary feature implementation in flight; gates may proceed independently. Queue tags in issue titles (`Now`/`Next`) denote planning order, **not** shipping or acceptance. Avoid maintaining a duplicate backlog file.
 
 ## Run locally
 
