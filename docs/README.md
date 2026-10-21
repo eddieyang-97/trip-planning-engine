@@ -22,6 +22,7 @@ Updated 21 October 2026. Use this index to find the authoritative guide for each
 | [ChatGPT and Claude user setup](connect-chatgpt-claude.md) | Friend-friendly connection, account, permissions and troubleshooting guide |
 | [Account linking and persistent sign-in](account-linking.md) | Supabase/Brevo, browser session lifecycle, grants, revocation and dated OAuth/session acceptance |
 | [Trip lifecycle](trip-lifecycle.md) | Owner archive/restore, confirmed permanent deletion, leave-trip, retention and retry protections |
+| [Database security investigation](database-security-2026-10-21.md) | Migration bootstrap hardening, read-only audit and October 30 grant compatibility; approved live repair; bootstrap release evidence |
 | [Account profiles and trip members](account-profiles.md) | Editable names, private avatar uploads, accepted-member roster and profile privacy |
 | [Itinerary map](itinerary-map.md) | Current map behavior, pin saving/read-back, presentation, source access and dated map acceptance |
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |

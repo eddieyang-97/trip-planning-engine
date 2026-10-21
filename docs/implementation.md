@@ -10,6 +10,16 @@ One-way snapshots use null criteria return / empty offer return; old saved retur
 
 Type check/build pass; final `npm test` passes 129/129 with zero skips, including four isolated pooled PostgreSQL checks and the official MCP client flow with deterministic supplier responses. The [flight guide](hosted-live-search.md#generalized-local-validation--21-october-2026) records commands and remaining live acceptance. No live supplier calls, real-trip mutations, deployments, paid plans or quota increases were performed. The parallel P0 security gate in issue #3 remains outside this PR.
 
+## Database access hardening — 21 October 2026
+
+The live metadata security repair was explicitly approved, applied and privately
+verified; Security Advisor subsequently reported zero errors. The isolated
+bootstrap patch protects fresh and current-version installs without replaying
+migrations or adding Data API access. Type check/build and 115 local tests pass;
+all 119 CI tests passed with zero skips, including four pooled PostgreSQL checks. Authenticated MCP read and
+public health/page checks pass after the live repair. PR #12 is merged; exact source commit `51fdde9` is deployed and startup/asset/auth-boundary checks passed. See the [sanitized security guide](database-security-2026-10-21.md);
+raw project findings and screenshots stay private. Flight-search edits are excluded.
+
 ## Additional releases and remaining acceptance — 16 October 2026
 
 The dated 15 October snapshot below is retained to preserve exact release evidence. Subsequent releases have separate checks and limitations:
