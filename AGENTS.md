@@ -5,10 +5,11 @@ These instructions apply across the repository. Keep this file operational and c
 ## Scope and source of truth
 
 - The active product is a Node.js/TypeScript trip-planning service with two interfaces: web and hosted MCP. Both use the **same account, permissions and durable trip state**. Local development uses PGlite/synthetic fixtures; hosted deployment uses Render and Supabase Postgres/Auth with explicitly enabled provider adapters.
-- [Product requirements](docs/prd.md) define **intended behavior and priorities**: shared itinerary, import/group logistics, accommodation and restaurant comparisons; bounded flights for feasibility. Manual/sourced research must not depend on complex collaboration or live supplier APIs.
+- [Product requirements](docs/prd.md) define **intended behavior and priorities**. Long-term value is the shared itinerary, import/group logistics, and sourced accommodation/restaurant decisions. **Current, explicit priority override (21 October 2026):** generalize cost-bounded MCP flight discovery, beginning with [F1 #4](https://github.com/eddieyang-97/trip-planning-engine/issues/4); [F2 #5](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6) are subsequent slices. This does **not** promote native flight booking or imply broad fare coverage.
 - [Architecture](docs/architecture.md) records accepted technical direction. `src/`, `web/` and `migrations/` show what exists in source. [Data Semantics Review](docs/data-semantics-review.md) records durable concepts, invariants and unresolved decisions; review recommendations are **not approved migrations**.
 - [Implementation status](docs/implementation.md) and dated feature evidence separate **coded**, **locally tested**, **deployed** and **hosted/user-verified**. Historical READMEs, spikes, diagrams and test counts may be stale. If records conflict, inspect the code, schema, dates and evidence; disclose discrepancies rather than treating plans as shipped features.
 - Inspect affected modules, callers, schema, tests and [feature guidance](docs/README.md) before modifying behavior. Preserve dated evidence as historical evidence.
+- The [GitHub Issues queue](https://github.com/eddieyang-97/trip-planning-engine/issues), indexed from [PRD §12](docs/prd.md#12-incremental-roadmap-and-execution-backlog), is the **only actionable backlog**: issue-specific Outcome, Scope, Dependencies, Acceptance, Non-goals and Evidence; no duplicate backlog document. Tags in issue titles mark **Now / Next / P0–P2**. Do not infer shipped status from an issue's existence or historical roadmap ranking. [Security #3](https://github.com/eddieyang-97/trip-planning-engine/issues/3) is a parallel P0 gate before widening users, not permission to probe or mutate the live database.
 
 ## Non-negotiable domain and security invariants
 
@@ -30,11 +31,11 @@ These instructions apply across the repository. Keep this file operational and c
 
 ## Implementation workflow
 
-1. Start with the smallest independently useful increment. Keep the existing modular monolith, shared domain rules and supplier adapters. Do not add microservices, queues, elaborate abstractions, enterprise RBAC or infrastructure for hypothetical scale.
+1. Start with the smallest independently useful increment and **one primary feature issue at a time**. Before coding, confirm its queue position, bounded deliverable, dependencies and evidence conditions in the current Issue; do not implement every PRD target at once. Keep the existing modular monolith, shared domain rules and supplier adapters. Do not add microservices, queues, elaborate abstractions, enterprise RBAC or infrastructure for hypothetical scale.
 2. Prefer small, replaceable code changes over speculative extensibility. Accept local recoverable implementation debt; avoid ambiguous data semantics, distributed authorization checks and changes that make live migrations expensive.
 3. Before changing persisted fields, permissions or external side effects, inspect existing records and consumers. Plan compatibility, additive migration/backfill when needed and safe rollback or forward recovery. Rolling back code does not restore mutated data.
 4. For significant bugs, capture sanitized observed evidence and create a deterministic failing regression scenario where practical. Distinguish verified causes from hypotheses. Assert **persisted state and mutation counts**, not only returned status.
-5. Use bounded isolated fake providers for integration tests; do not widen live source access, booking scope or supplier budget based on fixture success. Real provider use needs its own access, data-rights, cost and acceptance evidence.
+5. Use bounded isolated fake providers for integration tests; do not widen live source access, booking scope or supplier budget based on fixture success. **For flight F1–F3, preserve admission/journaling, consent, quota limits, partial coverage, uncertainty and stable evidence.** Real provider use needs its own access, data-rights, cost and acceptance evidence.
 
 ## Tests, documentation and completion
 
@@ -46,6 +47,6 @@ These instructions apply across the repository. Keep this file operational and c
   npm run build
   ```
 - [GitHub Actions](.github/workflows/check.yml) includes PostgreSQL checks. A local/CI pass is not hosted deployment, real-account, device or supplier acceptance. Keep CI independent of live credentials, bookings, payments and third-party availability; do not claim browser tests exist before they are built.
-- Update only the relevant documentation: requirements in `docs/prd.md`, accepted decisions in `docs/architecture.md`, semantic review in `docs/data-semantics-review.md`, feature details and dated deployment evidence in their guides, verified status in `docs/implementation.md`.
+- Update only relevant documentation: requirement/prioritization changes in `docs/prd.md`, accepted decisions in `docs/architecture.md`, domain invariants in `docs/data-semantics-review.md`, feature guidance and verified deployment evidence in its dated guide and `docs/implementation.md`. Keep **Issue status, acceptance evidence and dependency notes** current after verified delivery; do not substitute a green CI badge for a real-account or live-provider test.
 - Report **what actually changed**, commands/tests run and their results, deployment/real-user evidence if any, and remaining uncertainty. Never claim completed writes or verified behavior based solely on an API success response, a code diff or a passing unit test.
 - Before declaring completion, check invariants, privacy, authorization, side effects, migration compatibility and relevant regression evidence. If a test or verification cannot be run, report that limitation explicitly.
