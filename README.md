@@ -23,6 +23,8 @@ Account-confirmation emails use Supabase Auth with [Brevo custom SMTP](docs/acco
 
 ## Run locally
 
+**Using ChatGPT or Claude?** See the [friend-friendly connection guide](docs/connect-chatgpt-claude.md) for account setup, supported plans and permissions.
+
 The [itinerary web app](docs/itinerary-web.md) provides the organizer and saved research at `/itinerary`, using the same persistent trip state as MCP. Open `/itinerary?demo=1` for a labelled, editable Flaine preview; example data resets on reload. Hosted users sign in through `/account`; no MCP client or assistant account is required. Real sign-in and research viewing passed. Account-free view links and signed-in editor invitations are deployed. Hosted anonymous read/revocation passed; discussion and broader hosted edit continuity remain later work.
 
 Requires Node.js 24 and npm. No provider account or database installation is needed.
