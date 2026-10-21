@@ -2,6 +2,16 @@
 
 Updated 16 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## Database access hardening — 21 October 2026
+
+The live metadata security repair was explicitly approved, applied and privately
+verified; Security Advisor subsequently reported zero errors. The isolated
+bootstrap patch protects fresh and current-version installs without replaying
+migrations or adding Data API access. Type check/build and 115 local tests pass;
+four optional PostgreSQL checks are reserved for CI. Authenticated MCP read and
+public health/page checks pass after the live repair. Bootstrap source deployment
+remains a separate release step. See the [sanitized security guide](database-security-2026-10-21.md);
+raw project findings and screenshots stay private. Flight-search edits are excluded.
 ## Additional releases and remaining acceptance — 16 October 2026
 
 The dated 15 October snapshot below is retained to preserve exact release evidence. Subsequent releases have separate checks and limitations:

@@ -189,6 +189,12 @@ These supporting tables have no application-table foreign keys, so they are list
 | `mutation_requests` | `(owner_id, operation, key)` | Request hash and original response for idempotent retries |
 | `app_schema_migrations` | `version` | Migration metadata created by [database.ts](../src/database.ts) |
 
+The 21 October bootstrap fix protects `app_schema_migrations` with RLS and
+revocations from PUBLIC/browser roles, including databases already at the current
+version. This is prepared source behavior; see the [security investigation and
+live verification boundary](database-security-2026-10-21.md). It adds no Data API
+grants or numbered migration.
+
 The ER diagrams and this table document the original 001–006 schema baseline. Later migrations add comment and profile tables, summarized below; do not treat the original table count as current. JSONB fields hold validated snapshots; this is not the larger [historical schema proposal](spike/design/schema.sql).
 
 ## Viewer sharing extension — 14 October 2026 baseline

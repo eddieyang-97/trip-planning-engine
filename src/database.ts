@@ -63,6 +63,24 @@ export async function migrate(db: Database) {
     await tx.query('select pg_advisory_xact_lock(781349, 1)');
     await tx.query('create table if not exists app_schema_migrations (version integer primary key)');
     await tx.query('lock table app_schema_migrations in exclusive mode');
+    // Bootstrap metadata is outside the numbered migrations. Protect existing
+    // installations too, even when every numbered migration already ran.
+    // The owning migration/server connection retains access; Data API roles do not.
+    await tx.execute(`
+      alter table app_schema_migrations enable row level security;
+      revoke all on table app_schema_migrations from public;
+      revoke all (version) on table app_schema_migrations from public;
+      do $$ begin
+        if exists(select 1 from pg_roles where rolname='anon') then
+          revoke all on table app_schema_migrations from anon;
+          revoke all (version) on table app_schema_migrations from anon;
+        end if;
+        if exists(select 1 from pg_roles where rolname='authenticated') then
+          revoke all on table app_schema_migrations from authenticated;
+          revoke all (version) on table app_schema_migrations from authenticated;
+        end if;
+      end $$;
+    `);
     for (const [index, file] of migrations.entries()) {
       const version = index + 1;
       const done = await tx.query('select version from app_schema_migrations where version=$1', [version]);
