@@ -10,16 +10,28 @@ The product helps people compare travel choices, retain their reasoning and turn
 
 | Surface | Product role | Current slice |
 | --- | --- | --- |
-| Web app | Use the trip directly: research and compare options, manage the itinerary, and collaborate with friends without an assistant account | Deployed manual organizer and saved flight research, including tentative review drafts; full web flight controls and collaboration remain further increments |
+| Web app | Use the trip directly: review saved research, organize an itinerary and collaborate without an assistant account | Deployed manual organizer, shared viewing/editor access, signed-in comments, map pins, profiles, calendar export and saved-flight drafts; fuller research controls and remaining real-device/account acceptance are separate increments |
 | MCP | Let a connected assistant retrieve and update the same trip, research options, explain trade-offs and manage the plan | Deployed persistent decisions, bounded live pilot, comparisons, selections, itinerary and private policy tools; official-SDK OAuth/search and connected retrieval verified |
 
-Both surfaces are core to the product. Their interfaces can suit different tasks, while shared operations retain the same permissions, facts and revision rules. Delivery proceeds in small slices across both surfaces; invitations, comments and proposed changes follow the organizer foundation, before accommodation integrations. The [PRD](docs/prd.md) defines the target behavior; [implementation notes](docs/implementation.md) track delivered behavior and acceptance gaps.
+Both surfaces are core to the product. Their interfaces can suit different tasks, while shared operations retain the same permissions, facts and revision rules. Delivery proceeds in independently verified increments. Existing invitations and comments are implemented; advanced proposals remain conditional. The [PRD](docs/prd.md) defines target behavior and current priorities; [implementation notes](docs/implementation.md) track delivered behavior and acceptance gaps.
 
 **Recorded 14 October pilot release:** the [web app](https://trip-planning-engine.onrender.com/itinerary), accounts, MCP, saved flight research and [itinerary sharing](docs/itinerary-sharing.md) are deployed on Free Render + Supabase. Release `1444ac8` passed all **81 CI tests** and deployed successfully after Render's outage. View links open without an account, support optional expiry and can be revoked; two hosted visitors and revocation passed on a fictional test trip. Editors still sign in. Overview and sticky detailed day navigation are included. Later comment, map, calendar and profile releases are documented in the [current delivery record](docs/implementation.md) and dated feature guides; this paragraph is the **14 October snapshot**, not a claim of current release status.
 
 Start with the [high-level architecture](docs/architecture.md#high-level-architecture), [database ER diagrams](docs/database.md) and [user flows](docs/user-flows.md). The [documentation index](docs/README.md) also links product requirements, delivery evidence and historical research.
 
 Account-confirmation emails use Supabase Auth with [Brevo custom SMTP](docs/account-linking.md#account-email-delivery). A second account received and confirmed its email, signed in and joined a view-only itinerary; organizer revocation then removed access. Organizers share trip invitation links manually. This is pilot acceptance, not a guarantee of delivery to every mailbox.
+
+## Execution priorities and tracking
+
+**Product roadmap and sequencing:** [PRD §12](docs/prd.md#12-incremental-roadmap-and-execution-backlog) · **Actionable work / acceptance criteria:** [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) · **Verified delivery evidence:** [Implementation status](docs/implementation.md).
+
+| Queue | Current focus |
+| --- | --- |
+| **Now — P0 safety gate** | [#3 Audit database exposure and migration permissions](https://github.com/eddieyang-97/trip-planning-engine/issues/3); confidential production findings belong outside public issues. |
+| **Now — P1 primary product feature** | [#4 Flight F1 generalized single-route MCP flight search](https://github.com/eddieyang-97/trip-planning-engine/issues/4). |
+| **Next — P1/P2** | [#5 F2 multi-airport](https://github.com/eddieyang-97/trip-planning-engine/issues/5), [#6 F3 assistant journey](https://github.com/eddieyang-97/trip-planning-engine/issues/6), [#2 browser E2E](https://github.com/eddieyang-97/trip-planning-engine/issues/2), then [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues) itinerary import, group logistics, lodging and dining. |
+
+Keep one primary feature implementation in flight; gates may proceed independently. Labels `Now`/`Next` denote planning order, **not** shipping or acceptance. Avoid maintaining a duplicate backlog file.
 
 ## Run locally
 
@@ -127,7 +139,9 @@ The executable schema normalizes relationships and versions while storing valida
 
 ## Next milestone
 
-Complete the organizer foundation across both surfaces: real hosted manual writes and web↔MCP continuity, web flight controls/comparison, and explicit research links/reconciliation. Then add authenticated invitations, discussion and organizer-approved proposals before accommodation integrations. Broader flight coverage, exact party totals, snowboard evidence and assistant/security acceptance remain separate gates.
+**Current primary development milestone (21 October 2026):** [Flight F1 — general-purpose, bounded single-route MCP flight search](https://github.com/eddieyang-97/trip-planning-engine/issues/4). [F2 multi-airport coverage](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and [F3 assistant end-to-end acceptance](https://github.com/eddieyang-97/trip-planning-engine/issues/6) follow as distinct deliverables. An [independent P0 database access/security review](https://github.com/eddieyang-97/trip-planning-engine/issues/3) is required before widening real-user access. Current code still supports only the explicitly bounded pilot; issue creation does not imply a deployment.
+
+The long-term product direction remains the shared itinerary and sourced accommodation/restaurant research. Follow-on tasks cover [import](https://github.com/eddieyang-97/trip-planning-engine/issues/7), [participant logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8), [stay comparison](https://github.com/eddieyang-97/trip-planning-engine/issues/9) and [restaurant shortlists](https://github.com/eddieyang-97/trip-planning-engine/issues/10). The focused [browser E2E](https://github.com/eddieyang-97/trip-planning-engine/issues/2) remains separate. Consult the [priority rationale](docs/prd.md#12-incremental-roadmap-and-execution-backlog) and [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) for the executable queue. No live supplier calls or production changes are authorized by these priorities.
 
 The standalone [flight](docs/flight-probe.md) and [accommodation](docs/accommodation-probe.md) diagnostics ran live on 11 October; their [dated results](docs/spike/live-probe-results-2026-10-11.md) preserve source checks and unresolved costs. They remain separate from hosted search and do not enable accommodation tools. `npm run probe:places` prints a zero-network plan; recorded public Overpass trials failed. Connected Booking.com access does not grant reusable backend API access.
 
