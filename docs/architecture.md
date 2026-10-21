@@ -104,7 +104,7 @@ RLS denies direct browser/Data API access. The current privileged runtime connec
 
 The numbered application migrations enforce that private-table boundary. A
 [21 October investigation](database-security-2026-10-21.md) found that bootstrap
-metadata `app_schema_migrations` lacked equivalent protection. The prepared
+metadata `app_schema_migrations` lacked equivalent protection. The deployed
 bootstrap fix enables RLS and revokes PUBLIC/browser grants on every migration
 run, including current-version databases. Its local tests pass; the approved live metadata repair and private follow-up audit passed. Supabase's October 30 Data
 API grant default does not require exposing tables used through direct Postgres.

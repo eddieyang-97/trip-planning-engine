@@ -191,7 +191,7 @@ These supporting tables have no application-table foreign keys, so they are list
 
 The 21 October bootstrap fix protects `app_schema_migrations` with RLS and
 revocations from PUBLIC/browser roles, including databases already at the current
-version. This is prepared source behavior; see the [security investigation and
+version. This is deployed behavior; see the [security investigation and
 live verification boundary](database-security-2026-10-21.md). It adds no Data API
 grants or numbered migration.
 

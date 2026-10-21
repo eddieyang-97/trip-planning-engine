@@ -9,8 +9,7 @@ zero errors. Raw findings, project identifiers, grants and screenshots remain in
 private operational evidence, outside Git. This public guide does not establish
 whether any historical access or tampering occurred; access logs were not audited.
 
-The live repair is complete. Repository bootstrap protection is tested locally;
-its CI and exact-commit deployment evidence will be recorded separately below.
+The live repair is complete. Bootstrap protection is merged and deployed; CI and exact-commit evidence are recorded below.
 No trip records, supplier calls, invitations, OAuth scopes or paid plans were changed.
 
 ## Bootstrap behavior
@@ -71,3 +70,31 @@ feature needs its own reviewed access contract.
 Remaining Advisor exceptions are recorded privately. No paid feature or unrelated
 Auth setting was enabled. Existing PRD/calendar and flight-search drafts are outside
 this release.
+
+## Release verification
+
+PR [#12](https://github.com/eddieyang-97/trip-planning-engine/pull/12) merged as
+`51fdde97387253171a392473a3ce0c319307ed61`. Its application source matches the
+tested PR head `251df9706de62128ed68a2df511882a611c6d842` exactly. CI
+[39686697169, attempt 2](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/39686697169/attempts/2)
+passed all 119 tests with zero failures/skips, including all four pooled PostgreSQL
+checks. The first attempt passed the new regressions and PostgreSQL checks but
+crashed in native Node/V8 Wasm code while executing a lifecycle test. Re-running
+the failed job on the same source passed; no tests were disabled or assertions
+weakened. Local full-suite, type check and production build also pass as above.
+
+The exact merged commit above is deployed. Hosted startup completed successfully
+with migration-on-start and schema version 11; no numbered migration was added.
+Public health returned 200 with status ok and the existing live-search flag true.
+Account and itinerary pages returned 200; account JS/CSS and itinerary JS/view CSS
+match the tested build after newline normalization. Private profile/lifecycle routes
+still reject unauthenticated requests with 401/no-store. An authenticated MCP
+trip-list read succeeded after deployment, without writes or provider searches.
+The privately refreshed Advisor still reports zero errors; its separate remaining
+exception is recorded privately. Deployment identifiers and raw operational evidence
+are intentionally excluded from this public guide.
+
+These checks establish startup, owner-connection compatibility, browser/API auth
+boundaries and an actual MCP read. Full friend-device/signed-in-browser workflows
+were not repeated for this metadata-only change. No new runtime source from the
+parallel flight-search work was included in the deployment.
