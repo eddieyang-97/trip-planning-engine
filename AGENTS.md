@@ -40,13 +40,9 @@ These instructions apply across the repository. Keep this file operational and c
 ## Tests, documentation and completion
 
 - Add focused tests for affected user journeys and invariants: multi-account isolation, share/revoke, private projections, stale revisions, concurrency, retries, web/MCP consistency and provider failures. For consequential external dispatch, inject failures around persistence/dispatch/acknowledgement and verify no unsafe replay.
-- Run relevant focused tests and, for material code changes, the maintained commands from repository root:
-  ```sh
-  npm run check
-  npm test
-  npm run build
-  ```
-- [GitHub Actions](.github/workflows/check.yml) includes PostgreSQL checks. A local/CI pass is not hosted deployment, real-account, device or supplier acceptance. Keep CI independent of live credentials, bookings, payments and third-party availability; do not claim browser tests exist before they are built.
+- **GitHub Actions CI is the authoritative automated build/test gate.** For material code changes, agents may skip local full-suite runs when the same checks run in [CI](.github/workflows/check.yml). CI runs `npm run build` (including TypeScript compilation) and `npm test` with a disposable PostgreSQL service; `npm run check` is an optional separate local type check. Focused local tests are optional for faster debugging or evidence CI does not cover. Do not duplicate CI runs solely to claim completion.
+- Before calling a PR validated or recommending merge, verify **all required CI checks passed on its latest head commit**, inspect failed/cancelled and unexpectedly skipped tests, and confirm the changed behavior is exercised by the appropriate test environment (e.g. real PostgreSQL when permissions/transactions matter). If checks have not run, cannot be inspected, or cover only a fixture rather than the relevant integration, report that gap; never infer success from older commits or a passing badge alone.
+- A local/CI pass is not hosted deployment, real-account, device or supplier acceptance. Keep CI independent of live credentials, bookings, payments and third-party availability; do not claim browser tests exist before they are built.
 - Update only relevant documentation: requirement/prioritization changes in `docs/prd.md`, accepted decisions in `docs/architecture.md`, domain invariants in `docs/data-semantics-review.md`, feature guidance and verified deployment evidence in its dated guide and `docs/implementation.md`. Keep **Issue status, acceptance evidence and dependency notes** current after verified delivery; do not substitute a green CI badge for a real-account or live-provider test.
 - Report **what actually changed**, commands/tests run and their results, deployment/real-user evidence if any, and remaining uncertainty. Never claim completed writes or verified behavior based solely on an API success response, a code diff or a passing unit test.
 - Before declaring completion, check invariants, privacy, authorization, side effects, migration compatibility and relevant regression evidence. If a test or verification cannot be run, report that limitation explicitly.
