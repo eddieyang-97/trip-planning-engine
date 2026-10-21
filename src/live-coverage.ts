@@ -41,7 +41,7 @@ export function projectLiveCoverage(coverage:any,attempts:{attempt:number;status
     const counts=coverage.pairCounts?.[pair.origin];
     return {...pair,outbound:{status:status(outbound),scope:outbound.length?(outbound[0]!.origins.length===1?'single_airport':'combined_airports'):null,
       attempts:outbound.map(q=>q.attempt),validItineraries:outbound.some(q=>q.status==='success'&&!q.resultValidation)?(counts?.outbound??null):null},
-      return:{status:pair.returnDate?status(returning):'not_required',attempts:returning.map(q=>q.attempt),returnedDestinations:counts?.returnDestinations??[]},
+      return:{status:pair.returnDate?status(returning):'not_required',attempts:returning.map(q=>q.attempt),acceptedReturnDestinations:counts?.returnDestinations??[]},
       observationCount:counts?.observations??null,observationLimitReached:counts?.observationLimitReached??false,
       omissionReason:coverage.plan.omittedOrigins.includes(pair.origin)?'request_budget':!outbound.length?'not_attempted':pair.returnDate&&!returning.length?'return_not_expanded':null,
       fareSources:[...new Set([...outbound,...returning].map(q=>q.fareSource))],complete:false};

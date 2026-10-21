@@ -80,11 +80,54 @@ test('return coverage distinguishes combined base scope, individual expansions, 
   const c=criteria({inbound:'2027-01-18'}),events:LiveAttemptEvent[]=[],result=await new SerpApiFlightProvider('test-secret',send).search(c,async e=>{events.push(e);});
   assert.equal(calls.length,3);assert.equal(result.offers.length,1);assert.equal(result.offers[0]!.outbound[0]!.origin,'LGW');
   const pairs=result.report.coverage.pairs;assert.ok(pairs.every((p:any)=>p.outbound.scope==='combined_airports'));
-  assert.equal(pairs[0].return.status,'failed');assert.equal(pairs[1].return.status,'queried');assert.deepEqual(pairs[1].return.returnedDestinations,['LGW']);
+  assert.equal(pairs[0].return.status,'failed');assert.equal(pairs[1].return.status,'queried');assert.deepEqual(pairs[1].return.acceptedReturnDestinations,['LGW']);
   assert.equal(pairs[2].return.status,'not_attempted');assert.equal(pairs[2].omissionReason,'return_not_expanded');
   assert.deepEqual(events.filter(e=>e.status==='reserved'&&e.stage==='return').map(e=>[e.query!.selectedOrigin,e.query!.parentAttempt]),[['LHR',1],['LGW',1]]);
   assert.ok(events.filter(e=>e.stage==='return').every(e=>e.query!.selectedDeparture?.includes('TEST')));
   assert.equal(JSON.stringify(result).includes('private-token'),false);
+});
+
+function mixedReturnTransport(prioritizeGatwick=false){
+  return transport((body,url)=>{
+    if(!url.searchParams.has('departure_token')){body.best_flights=[leg('LHR','GVA','2027-01-14')];return;}
+    const heathrow=Array.from({length:10},(_,index)=>leg('GVA','LHR','2027-01-18',index));
+    const gatwick=[leg('GVA','LGW','2027-01-18',10),leg('GVA','LGW','2027-01-18',11)];
+    body.best_flights=prioritizeGatwick?[...gatwick,...heathrow]:[...heathrow,...gatwick];
+  });
+}
+
+test('accepted return destinations describe capped observations rather than every destination in the source response',async()=>{
+  for(const prioritizeGatwick of [false,true]){
+    const {send,calls}=mixedReturnTransport(prioritizeGatwick);
+    const result=await new SerpApiFlightProvider('test-secret',send).search(criteria({origins:['LHR','LGW'],inbound:'2027-01-18'}),async()=>{});
+    assert.equal(calls.length,2);assert.equal(result.offers.length,10);
+    const pair=result.report.coverage.pairs[0],saved=[...new Set(result.offers.map(offer=>offer.inbound.at(-1)!.destination))];
+    assert.deepEqual(pair.return.acceptedReturnDestinations,saved);
+    assert.deepEqual(saved,prioritizeGatwick?['LGW','LHR']:['LHR']);
+    assert.equal(Object.hasOwn(pair.return,'returnedDestinations'),false);
+    assert.equal(pair.observationLimitReached,true);assert.equal(pair.complete,false);assert.equal(result.report.coverage.complete,false);
+    assert.equal(result.report.coverage.observationTruncated,true);
+  }
+});
+
+test('persistent and legacy coverage expose accepted destinations without rewriting stored counts or observations',async()=>{
+  const {db,core,actor,args}=await setup(criteria({origins:['LHR','LGW'],inbound:'2027-01-18'}));
+  try{
+    const run=await core.call('start_search',args,actor),{send}=mixedReturnTransport();
+    await runOneLiveJob(db,new SerpApiFlightProvider('test-secret',send),saveOffer);
+    const before=(await db.query('select coverage from search_runs where id=$1',[run.runId])).rows[0]!.coverage;
+    assert.deepEqual(before.pairs[0].return.acceptedReturnDestinations,['LHR']);
+    const original=(await db.query('select id,payload from observations where run_id=$1 order by id',[run.runId])).rows;
+    assert.equal(original.length,10);
+    const legacy=structuredClone(before);legacy.pairs[0].return.returnedDestinations=legacy.pairs[0].return.acceptedReturnDestinations;
+    delete legacy.pairs[0].return.acceptedReturnDestinations;
+    await db.query('update search_runs set coverage=$2 where id=$1',[run.runId,JSON.stringify(legacy)]);
+    const ready=await new Core(db,false,true).call('get_search_run',{runId:run.runId},actor);
+    assert.deepEqual(ready.coverage.pairs[0].return.acceptedReturnDestinations,['LHR']);assert.equal(Object.hasOwn(ready.coverage.pairs[0].return,'returnedDestinations'),false);
+    assert.equal(ready.observations.length,10);assert.equal(ready.coverage.complete,false);
+    assert.deepEqual((await db.query('select coverage from search_runs where id=$1',[run.runId])).rows[0]!.coverage,legacy,'polling must not rewrite older coverage');
+    assert.deepEqual((await db.query('select id,payload from observations where run_id=$1 order by id',[run.runId])).rows,original);
+  }finally{await db.close();}
 });
 
 test('mismatched selected departure preserves supplier success and separately rejects return coverage',async()=>{

@@ -136,6 +136,7 @@ export class SerpApiFlightProvider {
       const key=canonical([offer.outbound,offer.inbound]);if(seen.has(key))return;
       if(offers.length>=liveObservationLimit)return;
       seen.add(key);offers.push(offer);returnedAirports.add(offer.outbound[0]!.origin);pairCounts[offer.outbound[0]!.origin]!.observations++;
+      // Stored counts describe accepted observations, not the whole supplier response.
       const destination=offer.inbound.at(-1)?.destination,destinations=pairCounts[offer.outbound[0]!.origin]!.returnDestinations;
       if(destination&&!destinations.includes(destination))destinations.push(destination);
     };
