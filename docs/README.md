@@ -1,19 +1,19 @@
 # Documentation
 
-Updated 16 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
+Updated 21 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
 
 ## Current guidance
 
 | Document | Purpose |
 | --- | --- |
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
-| [Database ER diagrams](database.md) | Initial ER baseline and a concise index of migrations 007–010 |
+| [Database ER diagrams](database.md) | Initial ER baseline and migration extensions; newer trip lifecycle is defined by migration 011 |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
-| [Product requirements](prd.md) | Current PRD v0.6: target behavior, priorities, scope and incremental milestones |
+| [Product requirements](prd.md) | Current PRD v0.7: long-term product scope, October flight priority override, backlog rules and release gates |
 | [Delivery status and acceptance](implementation.md) | Dated deployed capabilities, acceptance evidence and remaining gaps |
 | [Data Semantics Review](data-semantics-review.md) | Domain invariants, proposed decisions and migration gates; not a substitute for applied SQL |
 
-Requirements define what should exist; delivery status says what has been implemented, deployed and verified. Deployment alone does not complete acceptance. Use the most recent dated evidence section when an older record describes an earlier state.
+**Planning versus evidence:** requirements define intended behavior; [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) track actionable deliverables and dependencies; delivery status records what was implemented, deployed and verified. The active 21 October queue is [PRD §12](prd.md#12-incremental-roadmap-and-execution-backlog), with [#4 Flight F1](https://github.com/eddieyang-97/trip-planning-engine/issues/4) as the current primary product increment and [#3 database security](https://github.com/eddieyang-97/trip-planning-engine/issues/3) as the parallel P0 gate. Neither issue creation nor deployment alone proves acceptance. Use the newest dated evidence when historical records describe an earlier state.
 
 ## Feature guides and evidence
 
@@ -53,4 +53,4 @@ Diagnostic success is evidence for the observed request, not permission to expan
 
 Files in `spike/design/` are proposals, not runtime contracts or applied schema. Dated release reports preserve their original evidence even when feature status advances; avoid copying the same release report into several feature guides. Runtime behavior is defined by `src/`; applied schema by `migrations/`. External prices, repository activity and supplier terms in dated research have not been refreshed by this organization change.
 
-Keep architecture, ER and flow diagrams alongside the decisions and schema they describe. Update ER relationships when migrations change, and label local/proposed extensions until deployment is recorded. Keep new delivery evidence in the relevant feature guide and summarize it in `implementation.md`. Record accepted decisions in `architecture.md`; update product scope in the PRD. Preserve dated observations/reviews rather than rewriting them as current results.
+Keep architecture, ER and flow diagrams alongside the decisions and schema they describe. Update ER relationships when migrations change, and label local/proposed extensions until deployment is recorded. Keep new delivery evidence in the relevant feature guide and summarize it in `implementation.md`. Record accepted decisions in `architecture.md`, new product priorities in the PRD and executable acceptance criteria in the corresponding GitHub Issue. Preserve dated observations/reviews rather than rewriting them as current results. Avoid a second independent backlog file.
