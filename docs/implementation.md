@@ -1,6 +1,12 @@
 # Delivery status and acceptance
 
-Updated 16 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
+Updated 22 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
+
+## Hosted F1/F2 MCP acceptance — 22 October 2026
+
+The user reported deploying the latest merged `main` build; the exact Render deployment SHA was **not independently inspected**. An authorized real-account ChatGPT MCP test then proved live generalized multi-airport return discovery: a future LHR/LGW/LTN → GVA flight decision returned a persisted versioned combined-airport plan. The live run finished `complete` with **3/3 SerpApi flight-search attempts successful**, **0 result-validation failures**, and **10 provider-reported observations** (LGW/LTN return expansions). LHR was included in the combined outbound query but did not receive one of the two return expansions; no absence or sold-out claim is justified. A fresh `get_decision` read-back returned all ten saved observations, and `compare_candidates` evaluated all ten. All observed amounts still had `priceBasis: unknown` and `exactPartyQuoted: false`; these are neither guaranteed party totals nor bookable offers. No supplier booking or payment was made.
+
+**F3 client limitation:** The ChatGPT-exposed `create_decision` schema still requires `criteria.inbound` to be a date, rejecting `null` before transport for a one-way test despite the server-side implementation and isolated SDK tests supporting one-way. A labelled Hong Kong test trip was created, but no Hong Kong decision or supplier request was created; the return-search test decision remains labelled in the user's existing trip. Refresh/re-publish the connected MCP tool schema and validate one-way plus full assistant shortlist/selection/read-back and Claude independently in [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6). This report does **not** prove the exact deployed SHA, all provider responses, live one-way compatibility, full-market coverage or end-to-end F3 completion.
 
 ## Prepared bounded multi-airport coverage — 21 October 2026
 
