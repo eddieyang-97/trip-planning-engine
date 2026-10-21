@@ -162,6 +162,8 @@ Store monetary values exactly with currency and explicit units. Store flight ins
 
 ### Constraints and feasibility
 
+- The F1 implementation supports economy/GBP searches for 1–6 distinct origin IATA airports, one destination, future departure/optional return dates and 1–9 adults. Null return means one-way. A combined airport query and at most two return expansions do not establish an exhaustive sweep; disclose returned origins, failed expansions, truncation, price basis and baggage uncertainty. Deployment and non-Flaine live acceptance remain separate gates.
+
 - Support exact travel dates, allowed airports, passenger count, maximum stops, local time windows and required baggage. Allow a maximum total budget with explicit per-person or party scope.
 - Evaluate hard constraints before ranking. A candidate is **eligible**, **ineligible** or **needs verification**. Unknown is not equivalent to passing.
 - If required baggage is unpriced, the complete-price budget check remains unknown even when the base fare fits. If known costs already exceed the cap, it fails.

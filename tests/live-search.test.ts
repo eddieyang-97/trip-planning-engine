@@ -6,7 +6,6 @@ import {Core,saveOffer} from '../src/core.js';
 import {SerpApiFlightProvider,airportInstant} from '../src/live-provider.js';
 import {runOneLiveJob} from '../src/live-search.js';
 import {flaineCriteria,flaineTrip} from '../src/acceptance.js';
-import {probeQuery} from '../src/serpapi-probe.js';
 import {configuration} from '../src/config.js';
 
 const key=()=>({idempotencyKey:randomUUID()});
@@ -14,10 +13,10 @@ const account={account_status:'Active',plan_monthly_price:0,plan_searches_left:3
 function leg(back=false) {return {flights:[{airline:'easyJet',flight_number:back?'TEST2':'TEST1',travel_class:'Economy',
   departure_airport:{id:back?'GVA':'LGW',time:back?'2026-12-20 12:35':'2026-12-18 08:30'},
   arrival_airport:{id:back?'LGW':'GVA',time:back?'2026-12-20 13:15':'2026-12-18 11:10'}}],
-  ...(back?{booking_token:'private-booking-token'}:{departure_token:'private-departure-token'})};}
+    price:452,...(back?{booking_token:'private-booking-token'}:{departure_token:'private-departure-token'})};}
 function body(url:URL) {
   if(url.pathname==='/account.json')return account;
-  return {search_metadata:{status:'Success',google_flights_url:'https://www.google.com/travel/flights'},search_parameters:probeQuery,
+  return {search_metadata:{status:'Success',google_flights_url:'https://www.google.com/travel/flights'},search_parameters:Object.fromEntries(url.searchParams),
     ...(url.searchParams.has('booking_token')?{selected_flights:[leg(),leg(true)],booking_options:[{together:{book_with:'easyJet',price:452}}]}:
       url.searchParams.has('departure_token')?{other_flights:[leg(true)]}:{best_flights:[leg()]})};
 }
@@ -30,7 +29,7 @@ async function setup() {
   const args={...key(),decisionId:decision.decisionId,expectedRevision:1,criteriaVersion:1,provider:'live'};
   return {db,core,actor,decision,args};
 }
-test('live pilot reserves once, calls three stages, persists provider evidence and never leaks tokens',async()=>{
+test('live discovery reserves once, persists provider evidence and never leaks tokens',async()=>{
   const {db,core,actor,args}=await setup();
   try {
     const run=await core.call('start_search',args,actor);
@@ -48,7 +47,7 @@ test('live pilot reserves once, calls three stages, persists provider evidence a
     assert.equal(await runOneLiveJob(db,provider,saveOffer),true);
     assert.equal(await runOneLiveJob(db,provider,saveOffer),false);
     const result=await core.call('get_search_run',{runId:run.runId},actor);
-    assert.equal(result.status,'complete');assert.equal(requests,3);assert.equal(result.attempts.length,3);
+    assert.equal(result.status,'complete');assert.equal(requests,2);assert.equal(result.attempts.length,2);
     assert.equal(result.observations[0].provenance,'provider_reported');
     const offer=result.observations[0].payload;
     assert.equal(offer.priceMinor,45200);assert.equal(offer.priceBasis,'unknown');assert.equal(offer.exactPartyQuoted,false);
@@ -114,7 +113,7 @@ test('explicit opt-in and supported scope required; wall time conversion rejects
   assert.equal(airportInstant('2026-03-29 01:30','LGW'),null);
   assert.equal(airportInstant('2026-12-18 11:10','XXX'),null);
   const provider=new SerpApiFlightProvider('key',async()=>{assert.fail('must not send');});
-  await assert.rejects(provider.search({...flaineCriteria,adults:3},async()=>{}),{code:'UNSUPPORTED_SEARCH'});
+  await assert.rejects(provider.search({...flaineCriteria,destination:'XXX'},async()=>{}),{code:'UNSUPPORTED_AIRPORT'});
   const {db,actor,args}=await setup();
   try{await assert.rejects(new Core(db,false).call('start_search',args,actor),{code:'PROVIDER_ACCESS_REQUIRED'});}
   finally{await db.close();}

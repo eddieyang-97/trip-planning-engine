@@ -21,6 +21,7 @@ export function researchQuestions(research:ItineraryResearch|undefined):string[]
   return [...questions];
 }
 export function draftResearchFlight(observation:ItineraryObservation,direction:'outbound'|'inbound'):ItineraryItem {
+  if(!observation.offer[direction].length)throw new Error('This journey has no return leg');
   const leg=observation.offer[direction],first=leg[0]!,last=leg.at(-1)!;
   const start=airportLocal(first.departure,first.origin),end=airportLocal(last.arrival,last.destination);
   return {type:'flight',title:`${first.origin} → ${last.destination} · ${leg.map(s=>s.operatingFlight).join(' / ')}`,
@@ -50,7 +51,7 @@ function researchCard(observations:ItineraryObservation[],onDraft:(item:Itinerar
   if(booked)card.append(el('p',`Booking reported for ${booked.offer.seller}. This remains separate from your manual itinerary.`,'muted'));
   if(sample.provenance==='synthetic')card.append(el('p','Synthetic example. This is not a live flight or bookable offer.','question'));
   if(sample.disposition==='rejected')card.append(el('p','Rejected in your research.','muted'));
-  const legs=el('div','','research-legs');legs.append(legSummary(sample,'outbound'),legSummary(sample,'inbound'));card.append(legs);
+  const legs=el('div','','research-legs');legs.append(legSummary(sample,'outbound'));if(sample.offer.inbound.length)legs.append(legSummary(sample,'inbound'));card.append(legs);
   card.append(el('p','Saved research is not a held fare. Copy a flight into your plan only after reviewing it.','muted'));
   const detail=el('details','','seller-details'),summary=el('summary',`${observations.length} saved seller observation${observations.length===1?'':'s'} · view recorded prices`);
   detail.append(summary,el('p','Amounts are recorded evidence. Read the basis beside each price; unknown values cannot establish a whole-party total.','muted'));
@@ -67,6 +68,7 @@ function researchCard(observations:ItineraryObservation[],onDraft:(item:Itinerar
   const url=safeResearchUrl(sample.offer.sourceUrl);
   if(url){const link=el('a','Open research source ↗');link.href=url;link.target='_blank';link.rel='noopener noreferrer';actions.append(link);}
   if(sample.provenance!=='synthetic'&&sample.disposition!=='rejected')for(const direction of ['outbound','inbound'] as const) {
+    if(!sample.offer[direction].length)continue;
     const button=el('button',direction==='outbound'?'Review outbound for plan':'Review return for plan','subtle');button.type='button';
     button.onclick=()=>onDraft(draftResearchFlight(sample,direction));actions.append(button);
   }

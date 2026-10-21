@@ -2,6 +2,16 @@
 
 Updated 16 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## Prepared general-purpose MCP flight discovery — 21 October 2026
+
+The fixed Flaine validator/probe dependency is replaced locally by generalized SerpApi query/normalization. Supports future airport/date combinations, 1–6 origins, 1–9 adults, one-way/return economy/GBP and several airline/itinerary observations. A combined origin query plus at most two return expansions fits the existing three-request reservation and unchanged owner/global ceilings. No new provider, service, configuration or SQL migration is introduced. Generalized code is **not deployed or live-supplier accepted**; earlier hosted evidence remains scoped to the fixed Flaine pilot.
+
+One-way snapshots use null criteria return / empty offer return; old saved return evidence stays readable and immutable. New bounded evidence includes schedule, observed amount/basis, airline labels and restrictions; equipment, supplier expiry, exact party total and bookability remain unknown. Candidate identity reconciliation preserves old IDs when airport catalogue coverage expands. The existing saved-research web view tolerates one-way observations; no web search UI is added. See [flight scope, costs, examples, compatibility and remaining acceptance](hosted-live-search.md).
+
+Original generalization commit `66b5c9f`: type check/build and `npm test` passed 129/129 with zero skips, including four isolated pooled PostgreSQL checks and the official MCP client flow with deterministic supplier responses. The [flight guide](hosted-live-search.md#generalized-local-validation--21-october-2026) records commands and remaining live acceptance. No live supplier calls, real-trip mutations, deployments, paid plans or quota increases were performed. The parallel P0 security gate in issue #3 remains outside this PR.
+
+PR #11 review fixes add cached/bounded DST-aware conversion, cooperative normalization, supplier-shaped echo/default fixtures and separate provider-success/result-rejection diagnostics. Focused checks pass 23/23; the latest-head CI build/full suite is the automated gate. See [review evidence and remaining acceptance](hosted-live-search.md#pr-11-review-fixes--21-october-2026).
+
 ## Database access hardening — 21 October 2026
 
 The live metadata security repair was explicitly approved, applied and privately
