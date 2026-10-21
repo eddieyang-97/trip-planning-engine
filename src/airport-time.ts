@@ -1,7 +1,7 @@
-// Deliberately bounded to the accepted Flaine route. Extend only with reviewed airport mappings.
-// IANA zone names: https://data.iana.org/time-zones/tzdb/zone1970.tab
-export const airportZoneVersion='flaine-airports-v1';
-const zones:Readonly<Record<string,string>>=Object.freeze({
+import {airportZones,catalogueRevision} from './airport-zones.js';
+// Preserve the original reviewed mappings; expand via a pinned, licensed catalogue.
+export const airportZoneVersion=`iata-${catalogueRevision.slice(0,7)}`;
+const zones:Readonly<Record<string,string>>=Object.freeze({...airportZones,
   LHR:'Europe/London',LGW:'Europe/London',LTN:'Europe/London',STN:'Europe/London',LCY:'Europe/London',SEN:'Europe/London',
   GVA:'Europe/Zurich',
 });

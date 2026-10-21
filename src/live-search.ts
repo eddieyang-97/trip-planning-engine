@@ -1,11 +1,11 @@
 import {randomUUID} from 'node:crypto';
 import type {Database,Queryable} from './database.js';
 import {DomainError,type Actor,type Criteria,type Offer} from './domain.js';
-import {validateLiveCriteria,type LiveFlightProvider} from './live-provider.js';
+import {validateLiveCriteria,liveRequestLimit,liveObservationLimit,type LiveFlightProvider} from './live-provider.js';
 import {lockDecisionTrip} from './trip-lifecycle.js';
 
-export const liveLimits=Object.freeze({perRun:3,perOwnerDay:6,perDay:12,per30Days:60});
-interface LiveJob {id:string;decision_id:string;criteria_version:number;requested_by:string;client_id:string;grant_version:string|null;criteria:Criteria}
+export const liveLimits=Object.freeze({perRun:liveRequestLimit,perOwnerDay:6,perDay:12,per30Days:60});
+interface LiveJob {id:string;decision_id:string;criteria_version:number;requested_by:string;client_id:string;grant_version:string|null;criteria:Criteria;reserved_requests:number}
 export async function queueLiveSearch(tx:Queryable,actor:Actor,decisionId:string,version:number,c:Criteria) {
   validateLiveCriteria(c);
   await tx.query('select pg_advisory_xact_lock(781349, 2)');
@@ -22,7 +22,7 @@ export async function queueLiveSearch(tx:Queryable,actor:Actor,decisionId:string
   await tx.query(`insert into search_runs(id,decision_id,criteria_version,provider,status,requested_by,client_id,grant_version,reserved_requests)
     values($1,$2,$3,'serpapi','queued',$4,$5,$6,3)`,[id,decisionId,version,actor.userId,actor.clientId,actor.grantVersion??null]);
   return {runId:id,status:'queued',provenance:'provider_reported',maximumProviderRequests:3,
-    coverage:'Pilot: one direct easyJet LGW–GVA pair, four adults, 18–20 Dec 2026. Other London airports are not searched.'};
+    coverage:'Economy discovery: one combined query for the exact saved airports/dates/adults; up to two outbound return expansions. Incomplete market, seller and baggage coverage.'};
 }
 async function stillAuthorized(tx:Queryable,job:Pick<LiveJob,'requested_by'|'client_id'|'grant_version'>) {
   const grant=(await tx.query(`select g.permissions,c.grant_version from client_grants g
@@ -73,7 +73,8 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
         if(!running)throw new Error('Run inactive');
         if(event.status==='reserved') {
           if(!await stillAuthorized(tx,job))throw new Error('Authorization revoked');
-          // PK and CHECK constraints prevent retries, duplicate sends and a fourth search.
+          if(!Number.isInteger(event.attempt)||event.attempt<1||event.attempt>job.reserved_requests)throw new Error('Reservation exceeded');
+          // PK, reservation and CHECK constraints prevent duplicate or excess dispatch.
           await tx.query("insert into provider_attempts(run_id,attempt,stage,status) values($1,$2,$3,'reserved')",[job.id,event.attempt,event.stage]);
         } else {
           const updated=await tx.query(`update provider_attempts set status=$3,finished_at=now(),diagnostic=$4
@@ -90,11 +91,12 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
       if(!active)return;
       if(!await stillAuthorized(tx,job))throw new Error('Authorization revoked');
       const state=result.report.status==='completed'?'complete':result.report.status==='outcome_unknown'?'outcome_unknown':'failed';
-      for(const offer of result.offers.slice(0,10))await saveOffer(tx,job.decision_id,offer,'provider_reported',job.id);
+      const accepted=result.offers.slice(0,liveObservationLimit);
+      for(const offer of accepted)await saveOffer(tx,job.decision_id,offer,'provider_reported',job.id);
+      await tx.query("update provider_attempts set status='outcome_unknown',finished_at=now() where run_id=$1 and status='reserved'",[job.id]);
       const coverage={...result.report.coverage,complete:false,synthetic:false,source:'SerpApi / Google Flights',
-        sample:'One direct easyJet pair, up to ten sellers; not a market-wide comparison.',
         requestsAttempted:result.report.requestsAttempted,maximumProviderRequests:3,
-        acceptedObservationCount:result.offers.length,
+        acceptedObservationCount:accepted.length,
         priceBasisVerified:false,snowboardVerified:false,criteriaVersion:job.criteria_version};
       await tx.query(`update search_runs set status=$2,finished_at=now(),lease_until=null,error_code=$3,coverage=$4 where id=$1`,
         [job.id,state,state==='complete'?null:result.report.reason,JSON.stringify(coverage)]);

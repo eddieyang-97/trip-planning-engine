@@ -24,7 +24,8 @@ test('pooled PostgreSQL serializes live admission across different owners and co
       const actor={userId:randomUUID(),clientId:'pilot'};
       await db.query('insert into client_grants values($1,$2,$3,null)',[actor.userId,actor.clientId,['read','write','search']]);
       const trip=await core.call('create_trip',{...flaineTrip,idempotencyKey:randomUUID()},actor);
-      const decision=await core.call('create_decision',{tripId:trip.tripId,title:'Flights',criteria:flaineCriteria,idempotencyKey:randomUUID()},actor);
+      const decision=await core.call('create_decision',{tripId:trip.tripId,title:'Flights',criteria:{...flaineCriteria,
+        origins:n%2?['CDG']:['JFK','EWR'],destination:n%2?'FCO':'LAX',outbound:'2027-01-14',inbound:n%2?null:'2027-01-18',adults:n+1},idempotencyKey:randomUUID()},actor);
       requests.push({actor,args:{decisionId:decision.decisionId,expectedRevision:1,criteriaVersion:1,provider:'live',idempotencyKey:randomUUID()}});
     }
     const results=await Promise.allSettled(requests.map(r=>core.call('start_search',r.args,r.actor)));

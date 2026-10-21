@@ -70,8 +70,10 @@ export async function saveOffer(tx: Queryable, decisionId: string, offer: Offer,
   const normalizedIdentity=identity(offer);
   const key = 'airport-local-v2:'+createHash('sha256').update(normalizedIdentity).digest('hex');
   if(!(await tx.query('select id from candidates where decision_id=$1 and identity_key=$2',[decisionId,key])).rows.length) {
+    // Catalogue expansion can also change a former v2 unresolved-zone key. Reconcile
+    // against immutable evidence before inserting, under the same decision lock.
     const legacy=(await tx.query(`select c.id,o.payload from candidates c join observations o on o.candidate_id=c.id
-      where c.decision_id=$1 and c.identity_key not like 'airport-local-v2:%'`,[decisionId])).rows;
+      where c.decision_id=$1 and c.identity_key<>$2`,[decisionId,key])).rows;
     const identities=new Map<string,Set<string>>();
     for(const row of legacy){const values=identities.get(row.id)??new Set<string>();values.add(identity(row.payload));identities.set(row.id,values);}
     const matches=[...identities].filter(([,values])=>values.has(normalizedIdentity));
