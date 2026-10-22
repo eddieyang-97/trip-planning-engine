@@ -2,6 +2,10 @@
 
 Updated 15 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. Manual organization, saved-research review and private viewer invitations are deployed. Hosted creation/save, second-account joining and revocation passed; broader organizer editing and automatic research reconciliation remain incomplete. See [current architecture](architecture.md) and [delivery status](implementation.md).
 
+## Research archive/restore — Issue #24 (prepared)
+
+Owners can archive an active research decision from its saved-research section. Archived research disappears from active flight cards, selections and open questions; manual itinerary items stay in place. The **Archived research** disclosure lists retired decisions with restore controls and pagination. A decision with any linked booking report cannot be archived. Restore retains the same evidence and selection rationale, with no new search or evaluation. Already admitted searches continue; archive neither cancels supplier work nor refunds allowance. These controls share decision revision and retry protection with MCP `archive_decision`/`restore_decision`. Assistants can use `list_decisions({tripId,status:"archived"})` and `get_decision` for deliberate evidence retrieval and the latest 20 transition events; older journal entries remain stored. Migration 012 is required. This is implementation guidance, not deployed acceptance; see [delivery status](implementation.md).
+
 ## Overview and detailed navigation — 14 October 2026
 
 The default Overview presents days side by side on desktop and as a compact vertical agenda on phones. Morning, afternoon and evening sections group items by their recorded local start time; card heights do not represent duration. Flight cards explicitly show differing departure/arrival zones. Stays appear through their checkout date as references to the same item; unknown times and undated alternatives remain separate. Known same-zone interval overlaps receive a check-details label; unknown ends and cross-zone intervals are not guessed. Details retains the organizer's manual order.

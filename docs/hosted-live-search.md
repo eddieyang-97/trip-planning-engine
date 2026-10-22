@@ -2,6 +2,10 @@
 
 Updated 22 October 2026. General-purpose MCP multi-airport **round-trip** discovery passed bounded real-account hosted acceptance. The client acceptance below verifies one-way criteria persistence and independent Claude read-only retrieval; it does not establish live one-way fares. Older prepared/local checkpoints preserve their original evidence. The original fixed Flaine pilot passed hosted acceptance on 13 October. Read the [current delivery summary](implementation.md#current-state--22-october-2026) before older acceptance notes.
 
+## Research archive/restore (Issue #24, prepared)
+
+Default `get_trip` and `get_itinerary` omit archived research. Use owner-only `list_decisions` with `status:"archived"` or `"all"`, then `get_decision` for explicit status, retained rationale/evidence and the latest 20 archive/restore events. `archive_decision` and `restore_decision` require the current decision revision and an idempotency key. Booking-linked decisions cannot be archived. Restore first before new research writes. Admitted supplier runs may still finish and consume allowance; archive is not cancellation, refund or permission to replay uncertain work. Migration 012 and refreshed client tool discovery are required after rollout. No new supplier access or live acceptance is implied.
+
 ## Refreshed ChatGPT one-way criteria — 22 October 2026
 
 Public `/health` reported commit `48eafd93ea66bf8dc27d50c34c53183f7754370f`, schema 11. The existing Trip Planning connection showed **dev mode / DEVELOPMENT** and the correct hosted `/mcp` URL. Its pre-refresh definitions still required a string return date and advertised the fixed easyJet pilot. In ChatGPT Settings → Plugins → Trip Planning, **Refresh tools** was applied, then **Try in chat** opened a fresh conversation.

@@ -32,6 +32,10 @@
 
 **Verification limit:** Reviewed repository files, not a live database schema dump or deploy logs. The historical database diagrams cover migrations 001–006; the repository includes 007–010, indexed in [database.md](database.md#changes-since-the-001006-er-baseline-007010). Dated releases record successful migration/version checks, but source presence alone is not proof of deployment or every feature's real-user acceptance.
 
+### Research archive (Issue #24)
+
+A decision keeps its stable ID and ownership under its trip. Nullable paired `archived_at`/`archived_by` fields mark visibility; decision revision protects transitions. Append-only `decision_lifecycle_events` records each archive/restore actor, time and resulting revision, retained with the decision and erased only by existing permanent trip deletion. Existing records start active; no evidence backfill or rewrite. Owner-only archive refuses any booking-linked selection, including superseded selections. Manual itinerary items remain independent. New research mutations require restoration; already admitted runs can finish without cancellation, refund or unsafe replay. Restore retains immutable criteria, observations, selections and evaluation. Migration 012 is additive; older code must not be redeployed while archived decisions exist because it ignores visibility. Prefer forward recovery or restore all decisions before an older-code rollback.
+
 ## 3. Domain invariants to test
 
 These are behavior contracts, not proposals for immediate new tables.

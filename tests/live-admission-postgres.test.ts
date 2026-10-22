@@ -18,7 +18,7 @@ test('pooled PostgreSQL serializes live admission across different owners and co
     await admin.query(`create schema ${schema}`);
     db=pooledDatabase(new pg.Pool({connectionString:url.href,max:8,options:`-c search_path=${schema}`,statement_timeout:10000}));
     // Admission uses these real migrations; do not install the public OAuth hook in test DBs.
-    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
+    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
     const core=new Core(db,false,true),requests=[];
     for(let n=0;n<6;n++) {
       const actor={userId:randomUUID(),clientId:'pilot'};

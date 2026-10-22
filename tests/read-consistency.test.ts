@@ -39,7 +39,7 @@ test('pooled PostgreSQL returns one itinerary snapshot across a controlled concu
     db=pooledDatabase(new pg.Pool({connectionString:url.href,max:3,options:`-c search_path=${schema}`,statement_timeout:10000}));
     // Only the actual migrations needed here. OAuth migration 002 explicitly targets public;
     // do not create or replace a public auth hook in a user-supplied test database.
-    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
+    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
     const core=new Core(db,false),owner=randomUUID();
     const trip=await core.callFromWeb('create_trip',{...flaineTrip,idempotencyKey:randomUUID()},owner);
     let sawRevision!:()=>void,releaseRead!:()=>void;
