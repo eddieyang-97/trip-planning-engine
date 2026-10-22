@@ -74,8 +74,13 @@ function researchCard(observations:ItineraryObservation[],onDraft:(item:Itinerar
   }
   card.append(actions);return card;
 }
-function decisionView(decision:ItineraryResearchDecision,onDraft:(item:ItineraryItem)=>void) {
+function decisionView(decision:ItineraryResearchDecision,onDraft:(item:ItineraryItem)=>void,lifecycle?:ResearchLifecycle) {
   const section=el('section','','research-decision');section.append(el('h3',decision.title));
+  if(lifecycle&&decision.revision){
+    const archive=el('button','Archive decision','subtle');archive.type='button';archive.disabled=!!decision.bookingLinked;
+    archive.onclick=()=>{archive.disabled=true;void lifecycle.change(decision.id,decision.revision!,true).catch(error=>{archive.disabled=false;lifecycle.error(error);});};
+    section.append(archive,el('p',decision.bookingLinked?'This decision has a booking report and cannot be archived.':'Archive hides this research from active views. Evidence is kept; admitted searches continue and supplier allowance is unchanged.','muted'));
+  }
   const coverage=decision.latestRun?.coverage;
   if(decision.latestRun){section.append(el('p',`Latest search: ${decision.latestRun.status} · ${stamp(decision.latestRun.createdAt)} UK · criteria version ${decision.latestRun.criteriaVersion}`,'muted'));
     if(decision.latestRun.criteriaVersion!==decision.criteriaVersion)section.append(el('p','Your criteria changed after this search. Recheck the evidence against your current requirements.','question'));
@@ -93,12 +98,31 @@ function decisionView(decision:ItineraryResearchDecision,onDraft:(item:Itinerary
   if(decision.pinnedEvidenceTruncated)section.append(el('p','Showing up to 20 pinned selections and booking reports. Use your assistant to inspect the remaining records.','muted'));
   return section;
 }
-export function renderResearch(target:HTMLElement,research:ItineraryResearch|undefined,onDraft:(item:ItineraryItem)=>void,expanded=true) {
-  target.replaceChildren();target.hidden=!research?.decisions.length;if(target.hidden)return;
+export interface ResearchLifecycle {
+  change:(id:string,revision:number,archive:boolean)=>Promise<void>;
+  list:(offset:number)=>Promise<{decisions:{id:string;title:string;revision:number;archived_at:string}[];pagination:{hasMore:boolean}}>;
+  error:(error:unknown)=>void;
+}
+export function renderResearch(target:HTMLElement,research:ItineraryResearch|undefined,onDraft:(item:ItineraryItem)=>void,expanded=true,lifecycle?:ResearchLifecycle) {
+  target.replaceChildren();target.hidden=!research?.decisions.length&&!research?.archivedCount;if(target.hidden)return;
   const disclosure=el('details'),summary=el('summary','','research-heading');disclosure.open=expanded;
-  summary.append(el('span','FROM YOUR SAVED RESEARCH','eyebrow'),el('span','Flight options, ready to review','research-title'));
+  summary.append(el('span','FROM YOUR SAVED RESEARCH','eyebrow'),el('span',research?.decisions.length?'Flight options, ready to review':'Archived research','research-title'));
   disclosure.append(summary,el('p','These observations are separate from your itinerary. Reviewing a flight opens an editable draft; it is saved as tentative only when you choose Save.','muted'));
-  for(const decision of research!.decisions)disclosure.append(decisionView(decision,onDraft));
+  for(const decision of research!.decisions)disclosure.append(decisionView(decision,onDraft,lifecycle));
   if(research!.truncatedDecisions)disclosure.append(el('p','Showing the first five decisions by title. Use your assistant for the remaining saved research.','muted'));
+  if(lifecycle&&research?.archivedCount){
+    const archived=el('details'),heading=el('summary',`Archived research (${research.archivedCount})`),content=el('div');
+    archived.append(heading,content);let loaded=false;
+    const load=async(offset:number)=>{
+      content.textContent='Loading archived research…';
+      try{const page=await lifecycle.list(offset);content.replaceChildren();
+        for(const row of page.decisions){const card=el('section','','research-decision');card.append(el('h3',row.title),el('p',`Archived · ${new Date(row.archived_at).toLocaleString('en-GB')} · evidence and rationale retained`,'muted'));
+          const restore=el('button','Restore decision','subtle');restore.type='button';restore.onclick=()=>{restore.disabled=true;void lifecycle.change(row.id,row.revision,false).catch(error=>{restore.disabled=false;lifecycle.error(error);});};card.append(restore);content.append(card);}
+        for(const [label,next] of [['Previous',offset-20],['Next',offset+20]] as const){if(next<0||(label==='Next'&&!page.pagination.hasMore))continue;const b=el('button',label,'subtle');b.type='button';b.onclick=()=>void load(next);content.append(b);}
+        if(!page.decisions.length)content.append(el('p','No archived decisions.'));
+      }catch(error){loaded=false;content.textContent='Unable to load archived research. Close and reopen to retry.';lifecycle.error(error);}
+    };
+    archived.ontoggle=()=>{if(archived.open&&!loaded){loaded=true;void load(0);}};disclosure.append(archived);
+  }
   target.append(disclosure);
 }

@@ -211,7 +211,15 @@ function render(){
     const existing=plan!.items.find(row=>row.payload.type==='flight'&&row.payload.startDate===item.startDate
       &&row.payload.startTime===item.startTime&&row.payload.endDate===item.endDate&&row.payload.endTime===item.endTime&&row.payload.location===item.location);
     openItem(existing??null,existing?undefined:item);
-  },plan.items.length===0);
+  },plan.items.length===0,!demo&&!anonymousView&&!shared?{
+    list:offset=>api('list_decisions',{tripId:plan!.trip.id,status:'archived',limit:20,offset}),
+    change:async(id,revision,archive)=>{
+      const tripId=plan!.trip.id;
+      try{await mutate(archive?'archive_decision':'restore_decision',{decisionId:id,expectedRevision:revision});
+        if(plan?.trip.id===tripId)await loadPlan(tripId);
+      }catch(error){if(plan?.trip.id===tripId)await loadPlan(tripId);throw error;}
+    },error:error=>message(errorText(error)),
+  }:undefined);
   $('plan-empty').hidden=plan.items.length>0;
   const questions=plan.items.filter(i=>i.payload.openQuestion);
   const researchOpen=researchQuestions(plan.research);

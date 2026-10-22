@@ -13,9 +13,12 @@ import {dispatchComments,commentSchemas} from './itinerary-comments.js';
 import {dispatchLifecycle,lifecycleSchemas,lockDecisionTrip} from './trip-lifecycle.js';
 import {activeMember} from './itinerary-sharing.js';
 
+import {decisionLifecycleSchemas,changeDecisionArchive} from './decision-lifecycle.js';
+
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
   ...lifecycleSchemas,
+  ...decisionLifecycleSchemas,
   ...itinerarySchemas,
   ...editorItinerarySchemas,
   ...sharingSchemas,
@@ -37,7 +40,7 @@ export const schemas = {
   record_booking: z.strictObject({ ...edit, selectionId: uuid, bookedAt: z.iso.datetime({ offset: true }), note: z.string().min(1).max(1000) }),
 };
 export type ToolName = keyof typeof schemas;
-const reads = new Set<ToolName>(['list_itinerary_comments','get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
+const reads = new Set<ToolName>(['list_decisions','list_itinerary_comments','get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
 export const isRead = (name: ToolName) => reads.has(name);
 function fail(code: string, message: string): never { throw new DomainError(code, message); }
 
@@ -115,7 +118,7 @@ export class Core {
   }
   // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
   async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
-    if(!['list_trips','create_trip',...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    if(!['list_trips','create_trip',...Object.keys(decisionLifecycleSchemas),...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
     return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
   }
   private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
@@ -152,6 +155,10 @@ export class Core {
           if(scopedTrip?.owner_id!==actor.userId&&!(name==='prepare_trip_action'&&args.action==='leave'&&await activeMember(tx,tripId!,actor.userId)))fail('FORBIDDEN_OR_NOT_FOUND','This trip action is unavailable.');
           if((name==='archive_trip'||name==='restore_trip')&&!!scopedTrip.archived_at!==(name==='archive_trip'))fail('REVISION_CONFLICT','The trip status changed after this request. Refresh it.');
         }
+        if(Object.hasOwn(decisionLifecycleSchemas,name)){
+          const decision=await ownedDecision(tx,actor,args.decisionId,true);
+          if(!!decision.archived_at!==(name==='archive_decision')||decision.revision!==old.response?.revision)fail('REVISION_CONFLICT','The decision changed after this request. Reload it.');
+        }
         // Recheck invitation state on retries: a cached acceptance never overrides revocation.
         if(name==='accept_itinerary_invite')return work();
         if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name)||Object.hasOwn(commentSchemas,name))await itineraryAccess(tx,args.tripId,actor.userId,true,!checkGrant);
@@ -170,13 +177,13 @@ export class Core {
     },{readOnly:isRead(name)});
   }
   private async run(tx: Queryable, actor: Actor, id: string): Promise<Record<string, any> & { observations: Record<string, any>[] }> {
-    const row = (await tx.query(`select r.* from search_runs r join decisions d on r.decision_id=d.id
+    const row = (await tx.query(`select r.*,d.archived_at as decision_archived_at from search_runs r join decisions d on r.decision_id=d.id
       join trips t on d.trip_id=t.id where r.id=$1 and t.owner_id=$2`, [id, actor.userId])).rows[0];
     if (!row) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');
     const observations = (await tx.query('select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id where o.run_id=$1 order by o.id', [id])).rows;
     const attempts=(await tx.query('select attempt,stage,status,reserved_at,finished_at,diagnostic from provider_attempts where run_id=$1 order by attempt',[id])).rows;
     const coverage=projectLiveCoverage(row.coverage,attempts as {attempt:number;status:'reserved'|'success'|'failed'|'outcome_unknown'}[]);
-    return { ...row, coverage, observations, attempts:attempts.map(a=>({...a,
+    return { ...row, decisionArchived:!!row.decision_archived_at, coverage, observations, attempts:attempts.map(a=>({...a,
       ...(coverage?.queries?.find((q:any)=>q.attempt===a.attempt)?{query:coverage.queries.find((q:any)=>q.attempt===a.attempt)}:{})})) };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor,fromWeb:boolean): Promise<Record<string, any>> {
@@ -196,15 +203,21 @@ export class Core {
       await tx.query('insert into trips(id,owner_id,payload) values($1,$2,$3)', [id, actor.userId, JSON.stringify(payload)]);
       return { tripId: id, ...payload };
     }
+    if(name==='list_decisions'){
+      await ownedTrip(tx,actor,a.tripId);
+      const rows=(await tx.query(`select d.*,exists(select 1 from booking_records b join selections s on s.id=b.selection_id where s.decision_id=d.id) as booking_linked from decisions d where trip_id=$1
+        and ($2='all' or ($2='archived' and archived_at is not null) or ($2='active' and archived_at is null)) order by title,id limit $3 offset $4`,[a.tripId,a.status,a.limit+1,a.offset])).rows;
+      return {decisions:rows.slice(0,a.limit),pagination:{limit:a.limit,offset:a.offset,hasMore:rows.length>a.limit}};
+    }
     if (name === 'get_trip') {
       const trip = await ownedTrip(tx, actor, a.tripId);
-      const decisions = (await tx.query('select * from decisions where trip_id=$1 order by id', [a.tripId])).rows;
+      const decisions = (await tx.query('select * from decisions where trip_id=$1 and archived_at is null order by id', [a.tripId])).rows;
       for (const d of decisions) {
         d.criteria = await criteria(tx, d.id);
         d.selections = await currentSelections(tx, actor, d.id, d.criteria.version);
         d.bookings = (await tx.query('select b.* from booking_records b join selections s on b.selection_id=s.id where s.decision_id=$1', [d.id])).rows;
       }
-      return { trip, decisions };
+      return { trip, decisions, archivedDecisionCount:(await tx.query('select count(*)::int n from decisions where trip_id=$1 and archived_at is not null',[a.tripId])).rows[0]!.n };
     }
     if (name === 'get_search_run') return this.run(tx, actor, a.runId);
     if (name === 'create_decision') {
@@ -233,19 +246,22 @@ export class Core {
           priceDeltaMinor: before !== null && after !== null ? after - before : null,
           scheduleChanged: prior ? canonical([prior.payload.outbound, prior.payload.inbound]) !== canonical([o.payload.outbound, o.payload.inbound]) : null };
       });
-      return { criteriaChanged, changes,
+      return { decisionArchived:current.decisionArchived, criteriaChanged, changes,
         notSeen: [...previous].filter(([key]) => !seen.has(key)).map(([, o]) => o.candidate_id),
         warning: 'Not seen is not sold out. Synthetic runs do not establish market price changes.' };
     }
     const decision = await ownedDecision(tx, actor, a.decisionId, !isRead(name));
     const active = await criteria(tx, decision.id);
-    if (name === 'get_decision') return { decision, criteria: active,
+    if (name === 'get_decision') return { decision, archived:!!decision.archived_at, criteria: active,
+      lifecycleHistory:(await tx.query('select * from decision_lifecycle_events where decision_id=$1 order by revision desc limit 20',[decision.id])).rows,
       selections: await currentSelections(tx, actor, decision.id, active.version),
       observations: (await tx.query(`select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id
         where o.decision_id=$1 order by o.created_at desc,o.id limit $2 offset $3`, [decision.id, a.limit, a.offset])).rows,
       pagination: { limit: a.limit, offset: a.offset },
       recentRuns: (await tx.query('select * from search_runs where decision_id=$1 order by created_at desc,id limit 20', [decision.id])).rows };
     if (!isRead(name) && a.expectedRevision !== decision.revision) fail('REVISION_CONFLICT', 'Reload the decision before changing it');
+    if(name==='archive_decision'||name==='restore_decision')return changeDecisionArchive(tx,decision,name==='archive_decision',actor.userId);
+    if(!isRead(name)&&decision.archived_at)fail('DECISION_ARCHIVED','Restore this decision before changing research or starting another search.');
     if (name === 'compare_candidates') {
       const version = await criteria(tx, decision.id, a.criteriaVersion);
       const policyNotes = await readPolicyReferences(tx,actor.userId,a.policyReferences);
@@ -258,7 +274,7 @@ export class Core {
       }
       const order = { eligible: 0, conditional: 1, ineligible: 2 };
       results.sort((a, b) => order[a.eligibility] - order[b.eligibility] || b.score.lower - a.score.lower || a.observationId.localeCompare(b.observationId));
-      return { criteriaVersion: version.version, results, policyNotes,
+      return { decisionArchived:!!decision.archived_at, criteriaVersion: version.version, results, policyNotes,
         ordering: 'Eligibility first, then conservative score bound descending. Overlapping score intervals do not establish a winner.',
         assumptions: version.payload.assumptions,
         warning: 'Flight/equipment comparison only; transfer feasibility is unresolved. Synthetic examples are not bookable.' };
