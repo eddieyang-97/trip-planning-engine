@@ -41,7 +41,9 @@ jobs:
       - run: npm test
 
       - name: Install pinned Chromium headless shell
-        run: npx playwright install --with-deps --only-shell chromium
+        # Ubuntu runner already includes Chromium runtime libraries. Avoid slow
+        # apt upgrades/extra font downloads; launch still fails if a library is missing.
+        run: npx playwright install --only-shell chromium
         timeout-minutes: 3
       - name: Built-frontend sharing regression
         run: npm run test:e2e

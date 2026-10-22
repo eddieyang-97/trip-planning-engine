@@ -46,7 +46,7 @@ Implementation `b04a9e31912edadc772b70ff64c7b626353f4d7f` passed [CI run 3863174
 
 ## Repeatable browser regression — 22 October 2026
 
-Issue [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) now has a reproducible `npm run test:e2e` journey against the compiled app, loopback HTTP and a disposable PGlite database. It covers organizer edit with lost-acknowledgement retry, named-viewer privacy/restrictions and owner revoke → next-read denial, with matching persisted revision/history/mutation counts. The local Chromium run passed. See [browser testing](browser-testing.md) for setup, the lean failure-case convention and CI/hosted acceptance boundaries. Earlier ad hoc browser observations below remain historical evidence; this new command does not repeat hosted Supabase sign-in or physical-phone acceptance.
+Issue [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) now has a reproducible `npm run test:e2e` journey against the compiled app, loopback HTTP and a disposable PGlite database. It covers organizer edit with lost-acknowledgement retry, named-viewer privacy/restrictions and owner revoke → next-read denial, with matching persisted revision/history/mutation counts. The local Chromium run passed; [PR #26 checks](https://github.com/eddieyang-97/trip-planning-engine/pull/26/checks) records the current-head CI result. See [browser testing](browser-testing.md) for setup, the lean failure-case convention and CI/hosted acceptance boundaries. Earlier ad hoc browser observations below remain historical evidence; this new command does not repeat hosted Supabase sign-in or physical-phone acceptance.
 
 ## Scope and privacy
 
