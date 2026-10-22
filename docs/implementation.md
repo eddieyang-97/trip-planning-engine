@@ -2,11 +2,11 @@
 
 Updated 22 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
-## Guarded release preparation — 22 October 2026
+## Guarded release safeguards and platform blocker � 22 October 2026
 
-[Issue #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) prepares validated commit/schema health metadata, a read-only exact-SHA smoke command, an isolated journaled-worker drain regression and a 180-second Render shutdown allowance. Eight focused runtime/configuration/MCP tests and local check/build pass. `autoDeployTrigger` stays **off** pending release safeguards and platform activation evidence. GitHub's active `main-ci-release` ruleset (25630562) was verified through read-back: `main` protected, PR required, strict GitHub Actions `test`, no bypass actors, resolved review threads and force-push/deletion restrictions. [Release guidance](releases.md) records procedures and limits.
+[PR #16](https://github.com/eddieyang-97/trip-planning-engine/pull/16) is merged and user-manually deployed at `a29f491b3301741b173622e0f1517148fc7190eb`. Main CI succeeded; Render build/startup/Live and the exact-SHA read-only smoke passed (schema 11, health 200, unauthenticated MCP 401, account 200, hosted web mode). An existing authorized MCP read also succeeded. GitHub's active `main-ci-release` ruleset (25630562) requires PRs, strict GitHub Actions `test`, resolved threads, no bypass and blocked force pushes/deletion. Notifications inherit failure-only delivery. No supplier search or trip write was made.
 
-The user already manually deployed merged F3 `266ffc2`; the Render view, successful startup and public/authenticated MCP read-only smoke were inspected. This establishes exact baseline deployment evidence, not rollout of the new ops source, automated deployment, client-schema refresh or full F3 acceptance. Existing Render notifications inherit failure-only delivery. No supplier search or trip write was made.
+Render's Blueprint validator **rejected the proposed 180-second shutdown allowance on Free compute**; manual code deployment did not apply that setting. The unsupported field is removed in the follow-up source correction, retaining the default 30 seconds and Auto-Deploy **off**. Isolated worker-drain tests do not prove full live-run draining inside the platform limit. [Issue #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) remains open for a reviewed drain strategy, applied configuration and automatic deployment evidence. [Release guidance](releases.md) records exact evidence and recovery limits. No new service or paid plan was enabled.
 
 ## Prepared F3 decision workflow — 22 October 2026
 
