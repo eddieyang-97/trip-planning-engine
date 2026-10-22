@@ -34,7 +34,8 @@ async function stillAuthorized(tx:Queryable,job:Pick<LiveJob,'requested_by'|'cli
     &&(!job.grant_version||grant.grant_version===job.grant_version);
 }
 type SaveOffer=(tx:Queryable,decisionId:string,offer:Offer,provenance:'provider_reported',runId:string)=>Promise<unknown>;
-export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,saveOffer:SaveOffer) {
+export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,saveOffer:SaveOffer,signal?:AbortSignal) {
+  if(signal?.aborted)return false;
   await db.transaction(async tx=>{
     await tx.query('select pg_advisory_xact_lock(781349, 2)');
     // Root-before-child order also applies to recovery and deletion.
@@ -49,8 +50,10 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
       await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
     }
   });
+  if(signal?.aborted)return false;
   const job=await db.transaction<LiveJob|null>(async tx=>{
     await tx.query('select pg_advisory_xact_lock(781349, 2)');
+    if(signal?.aborted)return null;
     if((await tx.query("select id from search_runs where provider='serpapi' and status='running' limit 1")).rows.length)return null;
     const row=(await tx.query<LiveJob>(`select * from search_runs where provider='serpapi' and status='queued'
       order by created_at,id limit 1`)).rows[0];
@@ -62,6 +65,7 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
       await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[row.decision_id]);
       return null;
     }
+    if(signal?.aborted)return null;
     await tx.query("update search_runs set status='running',lease_until=now()+interval '3 minutes',generation=generation+1 where id=$1",[row.id]);
     await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[row.decision_id]);
     return {...row,criteria:(await tx.query('select payload from criteria_versions where decision_id=$1 and version=$2',[row.decision_id,row.criteria_version])).rows[0]!.payload as Criteria};
@@ -74,8 +78,10 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
         const running=(await tx.query("select id,coverage from search_runs where id=$1 and status='running' and lease_until>now() for update",[job.id])).rows[0];
         if(!running)throw new Error('Run inactive');
         if(event.status==='reserved') {
+          signal?.throwIfAborted();
           if(!await stillAuthorized(tx,job))throw new Error('Authorization revoked');
           if(!Number.isInteger(event.attempt)||event.attempt<1||event.attempt>job.reserved_requests)throw new Error('Reservation exceeded');
+          signal?.throwIfAborted();
           // PK, reservation and CHECK constraints prevent duplicate or excess dispatch.
           await tx.query("insert into provider_attempts(run_id,attempt,stage,status) values($1,$2,$3,'reserved')",[job.id,event.attempt,event.stage]);
         } else {
@@ -90,7 +96,7 @@ export async function runOneLiveJob(db:Database,provider:LiveFlightProvider,save
         await tx.query('update search_runs set coverage=$2 where id=$1',[job.id,JSON.stringify({...running.coverage,queries})]);
         await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=(select trip_id from decisions where id=$1)',[job.decision_id]);
       });
-    },job.coverage?.plan??liveSearchPlan(job.criteria,true));
+    },job.coverage?.plan??liveSearchPlan(job.criteria,true),signal);
     await db.transaction(async tx=>{
       if(!await lockDecisionTrip(tx,job.decision_id))return;
       const active=(await tx.query("select id from search_runs where id=$1 and status='running' and lease_until>now() for update",[job.id])).rows.length;

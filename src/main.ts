@@ -10,6 +10,7 @@ import { embedded, migrate, postgres, schemaVersion } from './database.js';
 import { FixtureProvider } from './providers.js';
 import { configuration, deploymentCommit } from './config.js';
 import {startSearchWorker} from './search-worker.js';
+import {serviceShutdown} from './shutdown.js';
 import { accountRoutes, supabaseAccounts } from './accounts.js';
 import { itineraryRoutes } from './itinerary-web.js';
 
@@ -55,17 +56,18 @@ const server = app.listen(port, local ? '127.0.0.1' : '0.0.0.0', () => {
 server.requestTimeout = 30_000;
 const provider = new FixtureProvider();
 const liveProvider=config.liveSearch?new SerpApiFlightProvider(process.env.SERPAPI_API_KEY!):undefined;
-const worker = local||liveProvider ? startSearchWorker(async()=>{
-  if(liveProvider)await runOneLiveJob(db,liveProvider,saveOffer);
-  if(local)await runOneJob(db,provider);
+const worker = local||liveProvider ? startSearchWorker(async signal=>{
+  if(liveProvider)await runOneLiveJob(db,liveProvider,saveOffer,signal);
+  if(local&&!signal.aborted)await runOneJob(db,provider);
 },()=>console.error('Search worker failed; persisted run state will be recovered without retrying live requests.')) : undefined;
-let stopping = false;
-async function stop() {
-  if (stopping) return; stopping = true;
-  const drained=worker?.stop();
-  await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-  await drained;
-  await db.close();
-}
+const stop=serviceShutdown({
+  stopWork:()=>worker?.stop(),
+  closeHttp:()=>new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve())),
+  closeDatabase:()=>db.close(),
+  onFailure:()=>{
+    console.error('Shutdown incomplete; durable live attempts require conservative recovery.');
+    process.exit(1);
+  },
+});
 process.on('SIGINT', () => { void stop(); });
 process.on('SIGTERM', () => { void stop(); });

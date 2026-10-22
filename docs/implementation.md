@@ -2,6 +2,10 @@
 
 Updated 22 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## Interruptible live worker prepared - 22 October 2026
+
+The #14 follow-up propagates shutdown cancellation through the active live runner and SerpApi discovery, prevents further dispatch, bounds request/body waits, preserves completed observations on successful finalization and records interrupted work as unknown without replay. Process cleanup has a 25-second deadline; stalled finalization falls back to durable lease recovery. No migration or provider/quota/hosting-plan change. Source and deterministic tests do not establish hosted signal delivery or deployment timing. Manual rollout and exact-SHA smoke must precede `checksPass`; Auto-Deploy remains off.
+
 ## Guarded release safeguards and platform blocker — 22 October 2026
 
 [PR #16](https://github.com/eddieyang-97/trip-planning-engine/pull/16) is merged and user-manually deployed at `a29f491b3301741b173622e0f1517148fc7190eb`. Main CI succeeded; Render build/startup/Live and the exact-SHA read-only smoke passed (schema 11, health 200, unauthenticated MCP 401, account 200, hosted web mode). An existing authorized MCP read also succeeded. GitHub's active `main-ci-release` ruleset (25630562) requires PRs, strict GitHub Actions `test`, resolved threads, no bypass and blocked force pushes/deletion. Notifications inherit failure-only delivery. No supplier search or trip write was made.

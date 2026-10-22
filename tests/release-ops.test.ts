@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {createServer} from 'node:http';
 import {setTimeout as delay} from 'node:timers/promises';
 import {startSearchWorker} from '../src/search-worker.js';
+import {serviceShutdown} from '../src/shutdown.js';
 import {deploymentCommit} from '../src/config.js';
 import {createApp} from '../src/app.js';
 import {Core,saveOffer} from '../src/core.js';
@@ -16,7 +17,7 @@ import {smokeRelease} from '../scripts/smoke-release.js';
 const sha='a'.repeat(40),key=()=>({idempotencyKey:randomUUID()});
 function gate(){let resolve!:()=>void;const promise=new Promise<void>(r=>{resolve=r;});return {promise,resolve};}
 
-test('shutdown drains a journaled provider attempt, does not claim queued work, and persists without replay',async()=>{
+test('shutdown aborts journaled live work, leaves queued work and persists uncertainty without replay',async()=>{
   const db=await embedded(),entered=gate(),release=gate();let requests=0;
   let worker:ReturnType<typeof startSearchWorker>|undefined;
   try{
@@ -35,13 +36,12 @@ test('shutdown drains a journaled provider attempt, does not claim queued work, 
       // An empty result is a completed observation scope, not fabricated flight inventory.
       const url=new URL(String(input));return Response.json({search_metadata:{status:'Success'},search_parameters:Object.fromEntries(url.searchParams),best_flights:[]});
     });
-    worker=startSearchWorker(async()=>{await runOneLiveJob(db,provider,saveOffer);},()=>assert.fail('worker failed'),5);
+    worker=startSearchWorker(async signal=>{await runOneLiveJob(db,provider,saveOffer,signal);},()=>assert.fail('worker failed'),5);
     await entered.promise;
-    let drained=false;const stopped=worker.stop().then(()=>{drained=true;});
-    await delay(25);assert.equal(drained,false);assert.equal(requests,1);
-    release.resolve();await stopped;await worker.stop();await delay(25);
+    const stopped=worker.stop();await stopped;assert.equal(requests,1);
+    release.resolve();await worker.stop();await delay(25);
     const fresh=new Core(db,false,true);
-    assert.equal((await fresh.call('get_search_run',{runId:first.runId},actor)).status,'complete');
+    assert.equal((await fresh.call('get_search_run',{runId:first.runId},actor)).status,'outcome_unknown');
     assert.equal((await fresh.call('get_search_run',{runId:queued.runId},actor)).status,'queued');
     assert.equal((await db.query('select count(*)::int as n from provider_attempts')).rows[0]!.n,1);
     assert.equal((await db.query('select count(*)::int as n from observations')).rows[0]!.n,0);
@@ -90,4 +90,31 @@ test('release smoke fails closed on wrong SHA/schema, unhealthy DB, auth regress
   }
   await assert.rejects(smokeRelease('https://example.com/path',sha,async()=>assert.fail('must not send')));
   await assert.rejects(smokeRelease('http://example.com',sha,async()=>assert.fail('must not send')));
+});
+
+test('service shutdown signals before HTTP drain, waits before DB close, and bounds stalled cleanup',async()=>{
+  for(const stall of ['none','worker','http','database'] as const){
+    const work=gate(),http=gate(),database=gate(),expired=gate(),events:string[]=[],failures:string[]=[];
+    const stop=serviceShutdown({deadlineMs:50,
+      stopWork:()=>{events.push('abort');return work.promise;},
+      closeHttp:()=>{events.push('http');return http.promise;},
+      closeDatabase:()=>{events.push('database');return database.promise;},
+      onFailure:reason=>{failures.push(reason);expired.resolve();},
+    });
+    const stopped=stop();assert.equal(stop(),stopped);assert.deepEqual(events,['abort','http']);
+    if(stall!=='worker')work.resolve();if(stall!=='http')http.resolve();if(stall!=='database')database.resolve();
+    if(stall==='none'){await stopped;assert.deepEqual(failures,[]);}
+    else {
+      // Keep the test alive while the production deadline timer is intentionally unref'ed.
+      await Promise.race([expired.promise,delay(1000).then(()=>assert.fail('deadline did not fire'))]);
+      assert.deepEqual(failures,['deadline']);
+      if(stall==='worker'||stall==='http')assert.deepEqual(events,['abort','http']);
+      work.resolve();http.resolve();database.resolve();await stopped;
+    }
+    assert.deepEqual(events,['abort','http','database']);
+  }
+  let failures=0,closed=false;
+  await serviceShutdown({stopWork:async()=>{throw Error('private diagnostics');},closeHttp:async()=>{},
+    closeDatabase:async()=>{closed=true;},onFailure:()=>{failures++;}})();
+  assert.equal(failures,1);assert.equal(closed,false);
 });
