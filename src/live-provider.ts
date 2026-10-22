@@ -43,6 +43,17 @@ class SearchStop extends Error {
   constructor(readonly reason:string,readonly uncertain=false,readonly diagnostic?:SerpApiDiagnostic){super(reason);}
 }
 class ResultRejected extends SearchStop {constructor(){super('result_validation_failed');}}
+async function abortable<T>(work:()=>Promise<T>,signal:AbortSignal):Promise<T> {
+  signal.throwIfAborted();
+  let onAbort!:()=>void;
+  try {
+    return await new Promise<T>((resolve,reject)=>{
+      onAbort=()=>reject(signal.reason);
+      signal.addEventListener('abort',onAbort,{once:true});
+      work().then(resolve,reject);
+    });
+  }finally{signal.removeEventListener('abort',onAbort);}
+}
 function sourceTime(body:Json):string|null {
   const value=body.search_metadata?.created_at;
   if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}(?:T| )\d{2}:\d{2}:\d{2}(?:\.\d+)?(?: UTC|Z|[+-]\d{2}:\d{2})$/.test(value))return null;
@@ -84,7 +95,7 @@ function normalized(c:Criteria,out:Json,back:Json|null,body:Json):Offer|null {
 
 export class SerpApiFlightProvider {
   constructor(private readonly apiKey:string,private readonly send:typeof fetch=fetch){}
-  async search(c:Criteria,record:(event:LiveAttemptEvent)=>Promise<void>,savedPlan?:LiveSearchPlan) {
+  async search(c:Criteria,record:(event:LiveAttemptEvent)=>Promise<void>,savedPlan?:LiveSearchPlan,signal?:AbortSignal) {
     validateLiveCriteria(c);
     const plan=savedPlan??liveSearchPlan(c);
     if(![liveSearchPlan(c),liveSearchPlan(c,true)].some(p=>canonical(p)===canonical(plan)))throw new DomainError('UNSUPPORTED_SEARCH','Saved search plan is incompatible; no requests sent.');
@@ -95,15 +106,25 @@ export class SerpApiFlightProvider {
     const resultValidationFailures:{attempt:number;stage:string;reason:FlightValidationReason}[]=[],echoOmissions:{attempt:number;fields:string[]}[]=[];
     const returnedAirports=new Set<string>();
     const clean=(value:unknown)=>!JSON.stringify(value).includes(this.apiKey)&&!JSON.stringify(value).includes(encodeURIComponent(this.apiKey));
+    const checkShutdown=()=>{if(signal?.aborted)throw new SearchStop('worker_interrupted',true);};
     const get=async(path:string,params:Record<string,string>):Promise<Json>=>{
+      checkShutdown();
       const url=new URL(path,'https://serpapi.com');for(const [k,v]of Object.entries(params))url.searchParams.set(k,v);url.searchParams.set('api_key',this.apiKey);
-      let response:Response,body:Json;
-      try{response=await this.send(url,{redirect:'error',signal:AbortSignal.timeout(30000)});}catch{throw new SearchStop('network_outcome_unknown',true);}
-      try{body=object(await response.json());}catch{throw new SearchStop('unreadable_provider_response',true);}
-      if(!response.ok||body.error)throw new SearchStop(`provider_${response.status}`,response.status>=500,serpApiDiagnostic(body,response.status,this.apiKey));
-      return body;
+      const requestSignal=AbortSignal.any([AbortSignal.timeout(30000),...(signal?[signal]:[])]);
+      try{return await abortable(async()=>{
+        let response:Response,body:Json;
+        try{response=await this.send(url,{redirect:'error',signal:requestSignal});}catch{throw new SearchStop('network_outcome_unknown',true);}
+        try{body=object(await response.json());}catch{throw new SearchStop('unreadable_provider_response',true);}
+        if(!response.ok||body.error)throw new SearchStop(`provider_${response.status}`,response.status>=500,serpApiDiagnostic(body,response.status,this.apiKey));
+        return body;
+      },requestSignal);}catch(error){
+        checkShutdown();
+        if(error instanceof SearchStop)throw error;
+        throw new SearchStop('network_outcome_unknown',true);
+      }
     };
     const search=async(stage:'outbound'|'return',origins:string[],token?:string,selected?:Json,parentAttempt?:number)=>{
+      checkShutdown();
       if(attempts>=liveRequestLimit)throw new SearchStop('request_limit_reached');
       const event={cycle:1,stage,attempt:attempts+1,query:{origins:[...origins],destination:c.destination,
         outboundDate:c.outbound,returnDate:c.inbound,adults:c.adults,currency:c.currency,cabin:'economy' as const,maxStops:c.maxStops,
@@ -190,7 +211,7 @@ export class SerpApiFlightProvider {
       if(expansionFailures)reason='partial_return_expansion_failure';
       else if(c.inbound&&!expanded.length&&outboundCount)reason='no_expandable_departures';
       if(resultValidationFailures.length){reason=offers.length?'partial_result_validation_failure':'result_validation_failed';if(!offers.length)status='stopped';}
-    }catch(error){status=error instanceof SearchStop&&!error.uncertain?'stopped':'outcome_unknown';reason=error instanceof SearchStop?error.reason:'ledger_or_worker_failure';}
+    }catch(error){status=error instanceof SearchStop&&!error.uncertain?'stopped':'outcome_unknown';reason=signal?.aborted?'worker_interrupted':error instanceof SearchStop?error.reason:'ledger_or_worker_failure';}
     return {offers,report:{status,reason,requestsAttempted:attempts,coverage:projectLiveCoverage({complete:false,plan,queries,pairCounts,
       requestedAirports:c.origins,queriedAirports:[...new Set(queries.filter(q=>q.stage==='outbound'&&q.status==='success'&&!q.resultValidation).flatMap(q=>q.origins))],returnedAirports:[...returnedAirports],
       notRequestedAirports:plan.omittedOrigins,unknownCoverageAirports:c.origins.filter(code=>!returnedAirports.has(code)),
