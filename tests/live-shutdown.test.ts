@@ -59,7 +59,7 @@ for(const phase of ['preflight','body',1,2,3] as const)test(`shutdown interrupts
       if(phase==='body'){entered.resolve();return {ok:true,status:200,json:()=>new Promise(()=>{})} as Response;}
       return response(url);
     });
-    const work=runOneLiveJob(db,provider,saveOffer,cancel.signal);await entered.promise;
+    const work=runOneLiveJob(db,provider,saveOffer,cancel.signal);await Promise.race([entered.promise,work.then(()=>assert.fail('run completed before interruption'))]);
     const start=performance.now();cancel.abort(new Error('private shutdown diagnostics'));await work;
     assert.ok(performance.now()-start<2000,'healthy persistence has ample margin inside the 30s platform budget');assert.equal(signal?.aborted,true);
     const fresh=new Core(db,false,true),ready=await fresh.call('get_search_run',{runId:s.run.runId},s.actor);
@@ -121,7 +121,7 @@ for(const interrupted of [2,3])test(`return expansion ${interrupted} interruptio
         arrival_airport:{id:back?'LHR':'GVA',time:back?'2027-01-18 13:00':`2027-01-14 ${index?'11':'10'}:30`}}],price:123,departure_token:`fictional-${index}`});
       return Response.json({search_metadata:{status:'Success'},search_parameters:Object.fromEntries(url.searchParams),best_flights:url.searchParams.has('departure_token')?[leg(true,0)]:[leg(false,0),leg(false,1)]});
     });
-    const work=runOneLiveJob(db,provider,saveOffer,cancel.signal);await entered.promise;cancel.abort();await work;
+    const work=runOneLiveJob(db,provider,saveOffer,cancel.signal);await Promise.race([entered.promise,work.then(()=>assert.fail('run completed before interruption'))]);cancel.abort();await work;
     const ready=await new Core(db,false,true).call('get_search_run',{runId:run.runId},s.actor);
     assert.equal(ready.status,'outcome_unknown');assert.equal(ready.observations.length,interrupted===3?1:0);
     assert.equal(ready.attempts.at(-1).status,'outcome_unknown');assert.equal(ready.attempts.at(-1).stage,'return');
@@ -140,7 +140,11 @@ test('pooled PostgreSQL shutdown persists partial results; failed finalization r
   try{
     await admin.query(`create schema ${schema}`);
     db=pooledDatabase(new pg.Pool({connectionString:url.href,max:5,options:`-c search_path=${schema}`,statement_timeout:5000}));
-    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
+    for(const file of ['001_initial.sql','002_account_linking.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql']){
+      const sql=await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8');
+      // Use the real OAuth tables/constraints without installing the public Supabase hook.
+      await db.execute(file==='002_account_linking.sql'?sql.split('-- Enable this hook separately')[0]!:sql);
+    }
     for(const failPersistence of [false,true]){
       const s=await setup(db),cancel=new AbortController(),entered=gate();let searches=0,failed=false;
       const provider=new SerpApiFlightProvider(secret,async input=>{
@@ -158,7 +162,7 @@ test('pooled PostgreSQL shutdown persists partial results; failed finalization r
           return tx.query(sql,params);
         }}),options);
       }) as Database['transaction']};
-      const work=runOneLiveJob(guarded,provider,saveOffer,cancel.signal);await entered.promise;cancel.abort();
+      const work=runOneLiveJob(guarded,provider,saveOffer,cancel.signal);await Promise.race([entered.promise,work.then(()=>assert.fail('run completed before interruption'))]);cancel.abort();
       if(failPersistence){
         await assert.rejects(work);
         assert.equal((await db.query('select status from provider_attempts where run_id=$1 and attempt=2',[s.run.runId])).rows[0]!.status,'reserved');
@@ -185,7 +189,7 @@ test('late supplier acknowledgement after abort cannot change the terminal run o
       const url=new URL(String(input));if(url.pathname==='/account.json')return Response.json(account);
       searches++;entered.resolve();await late.promise;return response(url);
     });
-    const work=runOneLiveJob(db,provider,saveOffer,cancel.signal);await entered.promise;cancel.abort();await work;
+    const work=runOneLiveJob(db,provider,saveOffer,cancel.signal);await Promise.race([entered.promise,work.then(()=>assert.fail('run completed before interruption'))]);cancel.abort();await work;
     const before=await s.core.call('get_search_run',{runId:s.run.runId},s.actor);
     late.resolve();await new Promise<void>(resolve=>setImmediate(resolve));
     const after=await new Core(db,false,true).call('get_search_run',{runId:s.run.runId},s.actor);
