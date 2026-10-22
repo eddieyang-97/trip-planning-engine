@@ -21,17 +21,15 @@ Start with the [high-level architecture](docs/architecture.md#high-level-archite
 
 Account-confirmation emails use Supabase Auth with [Brevo custom SMTP](docs/account-linking.md#account-email-delivery). A second account received and confirmed its email, signed in and joined a view-only itinerary; organizer revocation then removed access. Organizers share trip invitation links manually. This is pilot acceptance, not a guarantee of delivery to every mailbox.
 
-## Execution priorities and tracking
+## Current delivery and priorities (22 October 2026)
 
-**Product roadmap and sequencing:** [PRD §12](docs/prd.md#12-incremental-roadmap-and-execution-backlog) · **Actionable work / acceptance criteria:** [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) · **Verified delivery evidence:** [Implementation status](docs/implementation.md).
+The [PRD](docs/prd.md) defines the intended product, [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) are the sole actionable queue, and [delivery status](docs/implementation.md) distinguishes implemented, deployed and actually accepted behavior.
 
-| Queue | Current focus |
-| --- | --- |
-| **Now — P0 safety gate** | [#3 Audit database exposure and migration permissions](https://github.com/eddieyang-97/trip-planning-engine/issues/3); confidential production findings belong outside public issues. |
-| **Now — P1 primary product feature** | [#4 Flight F1 generalized single-route MCP flight search](https://github.com/eddieyang-97/trip-planning-engine/issues/4). |
-| **Next — P1/P2** | [#5 F2 multi-airport](https://github.com/eddieyang-97/trip-planning-engine/issues/5), [#6 F3 assistant journey](https://github.com/eddieyang-97/trip-planning-engine/issues/6), [#2 browser E2E](https://github.com/eddieyang-97/trip-planning-engine/issues/2), then [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues) itinerary import, group logistics, lodging and dining. |
+- **Completed/closed:** database security bootstrap audit [#3](https://github.com/eddieyang-97/trip-planning-engine/issues/3); bounded generalized flight discovery [F1 #4](https://github.com/eddieyang-97/trip-planning-engine/issues/4), multi-airport coverage [F2 #5](https://github.com/eddieyang-97/trip-planning-engine/issues/5), and ChatGPT conditional selection/read-back [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6). Flight amounts remain research evidence, not confirmed whole-party bookable totals; F3 closure does not establish a single complete hosted new-search journey.
+- **Operations:** guarded Render service auto-deploy uses `checksPass` after main CI; [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) tracks outstanding failed-CI prevention and operational acceptance. Blueprint Auto Sync remains off.
+- **Open follow-ups:** [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) for ChatGPT one-way schema exposure and independent Claude compatibility; [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) browser E2E; [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues/7) for itinerary import, group logistics, accommodation and dining.
 
-Keep one primary feature implementation in flight; gates may proceed independently. Queue tags in issue titles (`Now`/`Next`) denote planning order, **not** shipping or acceptance. Avoid maintaining a duplicate backlog file.
+**No new primary product implementation has been selected since closing F3.** Treat the closed F1–F3 issue titles and older pilot reports as dated history, not present work instructions.
 
 ## Run locally
 
@@ -49,7 +47,7 @@ npm run dev
 
 `demo` uses a temporary in-memory PostgreSQL database, runs the Flaine example and prints the comparison. `dev` starts a persistent database in `.data/postgres` and serves MCP at `http://127.0.0.1:3000/mcp`. Settings are in `.env.example`; copy it to `.env` if needed. A local bearer token is generated in `.data/local-token` unless `LOCAL_TOKEN` is set. Configure a compatible **local HTTP MCP client** to send `Authorization: Bearer <that token>`. The token is never printed to service logs. This endpoint is reachable only on this computer; a cloud chat client cannot reach it.
 
-The job runners use the same process. `start_search` returns a run ID; use `get_search_run` to poll. All synthetic fares are labelled and use example.com links. `provider: live` requires explicit `LIVE_SEARCH_ENABLED=true` and a backend `SERPAPI_API_KEY`; it samples one direct easyJet LGW–GVA pair for four adults on 18–20 December 2026. It saves up to ten seller observations with `provider_reported` provenance and unresolved price/equipment fields. This is partial coverage; the other London airports are not searched.
+The job runners use the same process. `start_search` returns a run ID; use `get_search_run` to poll. Synthetic fixtures are labelled and use example.com links. `provider: live` requires explicit `LIVE_SEARCH_ENABLED=true`, a backend `SERPAPI_API_KEY`, an authorized search and the existing quota. The deployed generalized adapter supports bounded searches for future dates, economy/GBP, one destination, 1–6 origin airports and 1–9 adults: round trips use a combined outbound query and at most two return expansions; one-way runs query up to three origins separately. A run reserves at most three provider requests. Coverage is explicitly partial, and provider-reported prices do not establish a verified whole-party total or booking availability. See [hosted flight search](docs/hosted-live-search.md) for client/schema limitations and precise evidence.
 
 ```sh
 npm test
@@ -139,7 +137,7 @@ The executable schema normalizes relationships and versions while storing valida
 
 ## Next milestone
 
-**Current primary development milestone (21 October 2026):** [Flight F1 — general-purpose, bounded single-route MCP flight search](https://github.com/eddieyang-97/trip-planning-engine/issues/4). [F2 multi-airport coverage](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and [F3 assistant end-to-end acceptance](https://github.com/eddieyang-97/trip-planning-engine/issues/6) follow as distinct deliverables. An [independent P0 database access/security review](https://github.com/eddieyang-97/trip-planning-engine/issues/3) is required before widening real-user access. Current code still supports only the explicitly bounded pilot; issue creation does not imply a deployment.
+**Current status (22 October 2026):** The bounded F1/F2 flight implementation and F3's persisted ChatGPT conditional selection/read-back are delivered; [#4](https://github.com/eddieyang-97/trip-planning-engine/issues/4), [#5](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and [#6](https://github.com/eddieyang-97/trip-planning-engine/issues/6) are closed. Follow-up [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) isolates the unresolved ChatGPT one-way metadata and Claude checks. [Security #3](https://github.com/eddieyang-97/trip-planning-engine/issues/3) is closed; [guarded deployment #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) and [browser E2E #2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) retain remaining acceptance. Do not interpret closed issues as proof of unsupported client behavior or bookable fares.
 
 The long-term product direction remains the shared itinerary and sourced accommodation/restaurant research. Follow-on tasks cover [import](https://github.com/eddieyang-97/trip-planning-engine/issues/7), [participant logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8), [stay comparison](https://github.com/eddieyang-97/trip-planning-engine/issues/9) and [restaurant shortlists](https://github.com/eddieyang-97/trip-planning-engine/issues/10). The focused [browser E2E](https://github.com/eddieyang-97/trip-planning-engine/issues/2) remains separate. Consult the [priority rationale](docs/prd.md#12-incremental-roadmap-and-execution-backlog) and [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) for the executable queue. No live supplier calls or production changes are authorized by these priorities.
 
@@ -147,4 +145,4 @@ The standalone [flight](docs/flight-probe.md) and [accommodation](docs/accommoda
 
 See [account linking](docs/account-linking.md) for completed OAuth/retrieval proof and remaining refresh/revocation, second-account and other-assistant checks. Shared state and permissions are acceptance requirements for both surfaces.
 
-The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is off, but Blueprint changes can still sync and trigger deployment. The service checks database availability on `/health` and refuses to run local mode on Render. GitHub Actions checks the build and tests. See [implementation notes](docs/implementation.md).
+The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is configured for `checksPass` on the protected `main` branch; **Blueprint Auto Sync stays off** and configuration changes are manually coordinated. Release gate acceptance is tracked separately in [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) and the [release guide](docs/releases.md). The service checks database availability on `/health` and refuses local mode on Render. GitHub Actions runs the build and tests.
