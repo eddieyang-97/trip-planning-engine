@@ -1,10 +1,10 @@
 # User flow diagrams
 
-Updated 15 October 2026. The diagrams describe the recorded deployed release unless marked **work in progress** or **target flow**. Implementation does not imply that every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [delivery evidence](implementation.md).
+Updated 22 October 2026 for the flight-research entry point; other diagrams retain their original dated release scope unless marked **work in progress** or **target flow**. Implementation does not imply every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [current delivery evidence](implementation.md#current-state--22-october-2026).
 
 ## Sign in and connect an assistant
 
-Web and MCP use the same account, with different session/permission boundaries. Initial direct sign-in and official-SDK OAuth passed; ChatGPT linking/retrieval has recorded proof. Other-assistant and refresh/revocation acceptance remain separate.
+Web and MCP use the same account, with different session/permission boundaries. Direct sign-in and official-SDK OAuth passed; ChatGPT retrieval and a conditional test selection/read-back have recorded evidence. Independent Claude and additional refresh/revocation acceptance remain separate.
 
 ```mermaid
 flowchart TB
@@ -26,7 +26,7 @@ Web sign-in does not grant an assistant access. Assistant tokens cannot manage a
 
 ## Research flights through an assistant
 
-The current search entry point is MCP. The web app can read saved research and prepare itinerary drafts, but direct web search/comparison/outcome controls remain further delivery work. The pilot covers one direct Gatwick–Geneva pair and up to ten sellers.
+The current search entry point is MCP. The web app can read saved research and prepare itinerary drafts, but direct web search/comparison/outcome controls remain further delivery work. Bounded generalized live MCP search now supports up to six origin airports in criteria, with at most three supplier requests per run: return searches expand at most two departure results, and one-way searches cover at most three origins. The recorded LHR/LGW/LTN → GVA return search produced ten observations with partial coverage, not guaranteed fares. ChatGPT's actual one-way input schema and Claude remain separate acceptance gaps ([#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21)).
 
 ```mermaid
 flowchart TB
