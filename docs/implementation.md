@@ -2,6 +2,12 @@
 
 Updated 22 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## Guarded release preparation — 22 October 2026
+
+[Issue #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) prepares validated commit/schema health metadata, a read-only exact-SHA smoke command, an isolated journaled-worker drain regression and a 180-second Render shutdown allowance. Eight focused runtime/configuration/MCP tests and local check/build pass. `autoDeployTrigger` stays **off** pending release safeguards and platform activation evidence. GitHub's active `main-ci-release` ruleset (25630562) was verified through read-back: `main` protected, PR required, strict GitHub Actions `test`, no bypass actors, resolved review threads and force-push/deletion restrictions. [Release guidance](releases.md) records procedures and limits.
+
+The user already manually deployed merged F3 `266ffc2`; the Render view, successful startup and public/authenticated MCP read-only smoke were inspected. This establishes exact baseline deployment evidence, not rollout of the new ops source, automated deployment, client-schema refresh or full F3 acceptance. Existing Render notifications inherit failure-only delivery. No supplier search or trip write was made.
+
 ## Prepared F3 decision workflow — 22 October 2026
 
 `get_decision` now returns current selections with saved rationale, original criteria, frozen evaluation and pinned observation independent of pagination; `get_trip` uses the same owner-only context. The official-SDK deterministic return/one-way workflows exercise criteria through persisted search, comparison, shortlist, selection and fresh read-back, including retries, changed criteria and access boundaries. Read-only hosted acceptance tooling now checks server flight metadata. No migration or provider/configuration change is needed; the source change has not been deployed. See [F3 scope and metadata diagnosis](hosted-live-search.md#f3-decision-read-back-and-metadata-diagnosis--22-october-2026).

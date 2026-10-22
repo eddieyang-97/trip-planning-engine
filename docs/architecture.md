@@ -146,6 +146,8 @@ These are intentional **private-pilot choices**, not claims of real-time collabo
 
 ## Live execution and pilot limits
 
+Releases retain the same service and database. The release baseline uses manual deployment until protected-branch and CI-gated activation is verified. Public health can include a validated Render commit SHA and the startup-checked schema version, alongside the database readiness check. Shutdown stops new local worker ticks, waits for current work and HTTP close, then closes the database; the Blueprint requests a 180-second shutdown allowance. Forced termination still recovers conservatively from durable leases/attempts. See [guarded releases](releases.md) for migration compatibility, rolling overlap, pause/recovery and actual activation evidence. No post-deploy check is allowed to block the same CI gate while waiting for its deployment.
+
 `start_search` persists a run and reserves three request slots before returning its ID. Current allowances are two runs per owner per rolling day, four globally per rolling day and twenty globally per rolling 30 days. Admission and worker concurrency are serialized in Postgres. These are configured pilot ceilings, separate from supplier quota and standalone diagnostic usage.
 
 One live job runs at a time. Each potentially metered request has a committed attempt before transmission; permissions/version are checked between stages and before saving. Requests time out after 30 seconds; the lease is three minutes and queued jobs expire after one hour. Interrupted running work becomes `outcome_unknown` and is never automatically resent. Fixture lease recovery remains separate. See [the flight guide](hosted-live-search.md) for exact behavior and rollback.

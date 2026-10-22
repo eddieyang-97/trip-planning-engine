@@ -28,6 +28,7 @@ Updated 21 October 2026. Use this index to find the authoritative guide for each
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
 | [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker--15-october-2026) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
 | [Hosted flight search](hosted-live-search.md) | General-purpose MCP discovery, examples, unchanged quotas and dated fixed-pilot hosted evidence |
+| [Guarded releases](releases.md) | CI/branch safeguards, exact-SHA smoke checks, worker draining and staged Render auto-deploy activation |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
 | [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | Historical 15 October deployment, hosted smoke checks and acceptance limits |
 | [Apple Calendar export](calendar-export.md) | Deployed individual/all/subset .ics export; saved-trip/native device acceptance pending |
