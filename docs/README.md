@@ -9,7 +9,7 @@ Updated 22 October 2026. Use this index to find the authoritative guide for each
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
 | [Database ER diagrams](database.md) | Initial ER baseline and migration extensions; newer trip lifecycle is defined by migration 011 |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
-| [Product requirements](prd.md) | Current PRD v0.7: long-term product scope, October flight priority override, backlog rules and release gates |
+| [Product requirements](prd.md) | PRD v0.7: long-term product scope, completed October flight priority, open roadmap choices and release gates |
 | [Delivery status and acceptance](implementation.md) | Dated deployed capabilities, acceptance evidence and remaining gaps |
 | [Data Semantics Review](data-semantics-review.md) | Domain invariants, proposed decisions and migration gates; not a substitute for applied SQL |
 
@@ -27,7 +27,7 @@ Updated 22 October 2026. Use this index to find the authoritative guide for each
 | [Itinerary map](itinerary-map.md) | Current map behavior, pin saving/read-back, presentation, source access and dated map acceptance |
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
 | [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker--15-october-2026) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
-| [Hosted flight search](hosted-live-search.md) | General-purpose MCP discovery, examples, unchanged quotas and dated fixed-pilot hosted evidence |
+| [Hosted flight search](hosted-live-search.md) | Bounded generalized F1/F2 live acceptance, F3 conditional ChatGPT selection/read-back, client gaps, limits and historical pilot evidence |
 | [Guarded releases](releases.md) | CI/branch safeguards, exact-SHA smoke checks, worker draining and staged Render auto-deploy activation |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
 | [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | Historical 15 October deployment, hosted smoke checks and acceptance limits |
