@@ -1,3 +1,8 @@
+// Only a public Git SHA may leave the process through /health; never echo arbitrary env text.
+export function deploymentCommit(env:NodeJS.ProcessEnv=process.env):string|null {
+  return /^[a-f0-9]{40}$/i.test(env.RENDER_GIT_COMMIT??'')?env.RENDER_GIT_COMMIT!.toLowerCase():null;
+}
+
 export function databaseConnection(env: NodeJS.ProcessEnv = process.env): string {
   if (!env.DATABASE_URL) throw new Error('Missing DATABASE_URL');
   let database: URL;

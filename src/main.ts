@@ -8,7 +8,8 @@ import {SerpApiFlightProvider} from './live-provider.js';
 import {runOneLiveJob} from './live-search.js';
 import { embedded, migrate, postgres, schemaVersion } from './database.js';
 import { FixtureProvider } from './providers.js';
-import { configuration } from './config.js';
+import { configuration, deploymentCommit } from './config.js';
+import {startSearchWorker} from './search-worker.js';
 import { accountRoutes, supabaseAccounts } from './accounts.js';
 import { itineraryRoutes } from './itinerary-web.js';
 
@@ -42,6 +43,7 @@ if (!local) await db.query(`insert into oauth_resource(singleton,audience) value
 const core=new Core(db,local,config.liveSearch);
 const accounts=!local&&config.publishableKey?supabaseAccounts(issuer!,config.publishableKey):undefined;
 const app = createApp({ core, authenticate, publicOrigin: origin, issuer,
+  deployment:{commit:deploymentCommit(),schemaVersion},
   itinerary:itineraryRoutes({core,origin,local,authenticate:local?authenticate:accounts?.authenticate,
     supabaseUrl:issuer?new URL(issuer).origin:undefined,publishableKey:config.publishableKey}),
   accounts: !local && config.publishableKey ? accountRoutes({ db, origin, issuer:issuer!, publishableKey:config.publishableKey,
@@ -51,21 +53,18 @@ const server = app.listen(port, local ? '127.0.0.1' : '0.0.0.0', () => {
   console.log(`Travel decision MCP listening at ${origin}/mcp (${mode}; live pilot ${config.liveSearch?'enabled':'disabled'})`);
 });
 server.requestTimeout = 30_000;
-let active: Promise<unknown> | undefined;
 const provider = new FixtureProvider();
 const liveProvider=config.liveSearch?new SerpApiFlightProvider(process.env.SERPAPI_API_KEY!):undefined;
-const timer = local||liveProvider ? setInterval(() => {
-  if (!active) active = (async()=>{
-    if(liveProvider)await runOneLiveJob(db,liveProvider,saveOffer);
-    if(local)await runOneJob(db,provider);
-  })().catch(() => console.error('Search worker failed; persisted run state will be recovered without retrying live requests.')).finally(() => { active = undefined; });
-}, 1000) : undefined;
+const worker = local||liveProvider ? startSearchWorker(async()=>{
+  if(liveProvider)await runOneLiveJob(db,liveProvider,saveOffer);
+  if(local)await runOneJob(db,provider);
+},()=>console.error('Search worker failed; persisted run state will be recovered without retrying live requests.')) : undefined;
 let stopping = false;
 async function stop() {
   if (stopping) return; stopping = true;
-  if (timer) clearInterval(timer);
+  const drained=worker?.stop();
   await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-  await active;
+  await drained;
   await db.close();
 }
 process.on('SIGINT', () => { void stop(); });

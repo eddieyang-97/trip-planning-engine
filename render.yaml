@@ -9,6 +9,8 @@ services:
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
+    # A run can include an account check and three 30-second supplier requests.
+    maxShutdownDelaySeconds: 180
     autoDeployTrigger: "off"
     envVars:
       - key: NODE_VERSION

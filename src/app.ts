@@ -68,7 +68,7 @@ function serverFor(core: Core, actor: Actor) {
   return server;
 }
 
-export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void>; accounts?: Router; itinerary?:Router }) {
+export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void>; accounts?: Router; itinerary?:Router; deployment?:{commit:string|null;schemaVersion:number} }) {
   const origin = new URL(options.publicOrigin);
   if (origin.origin !== options.publicOrigin) throw new Error('PUBLIC_ORIGIN must be an origin without a trailing slash');
   const app = express();
@@ -82,7 +82,8 @@ export function createApp(options: { core: Core; authenticate: Authenticate; pub
     next();
   });
   app.get('/health', async (_req, res) => {
-    try { await options.ready?.(); res.json({ status: 'ok', liveSearch: options.core.liveEnabled }); }
+    try { await options.ready?.(); res.json({ status: 'ok', liveSearch: options.core.liveEnabled,
+      ...(options.deployment?{deployment:options.deployment}:{}) }); }
     catch { res.status(503).json({ status: 'unavailable', liveSearch: false }); }
   });
   if (options.issuer) {
