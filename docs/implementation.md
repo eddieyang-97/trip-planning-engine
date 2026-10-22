@@ -2,6 +2,12 @@
 
 Updated 22 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## Prepared F3 decision workflow — 22 October 2026
+
+`get_decision` now returns current selections with saved rationale, original criteria, frozen evaluation and pinned observation independent of pagination; `get_trip` uses the same owner-only context. The official-SDK deterministic return/one-way workflows exercise criteria through persisted search, comparison, shortlist, selection and fresh read-back, including retries, changed criteria and access boundaries. Read-only hosted acceptance tooling now checks server flight metadata. No migration or provider/configuration change is needed; the source change has not been deployed. See [F3 scope and metadata diagnosis](hosted-live-search.md#f3-decision-read-back-and-metadata-diagnosis--22-october-2026).
+
+These fixtures do not close [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6): refreshed ChatGPT one-way and complete conversational selection/read-back, Claude acceptance and exact deployed SHA remain unverified. No supplier request, real-trip mutation or deployment was performed.
+
 ## Hosted F1/F2 MCP acceptance — 22 October 2026
 
 The user reported deploying the latest merged `main` build; the exact Render deployment SHA was **not independently inspected**. An authorized real-account ChatGPT MCP test then proved live generalized multi-airport return discovery: a future LHR/LGW/LTN → GVA flight decision returned a persisted versioned combined-airport plan. The live run finished `complete` with **3/3 SerpApi flight-search attempts successful**, **0 result-validation failures**, and **10 provider-reported observations** (LGW/LTN return expansions). LHR was included in the combined outbound query but did not receive one of the two return expansions; no absence or sold-out claim is justified. A fresh `get_decision` read-back returned all ten saved observations, and `compare_candidates` evaluated all ten. All observed amounts still had `priceBasis: unknown` and `exactPartyQuoted: false`; these are neither guaranteed party totals nor bookable offers. No supplier booking or payment was made.

@@ -93,6 +93,13 @@ test('policy context cannot fill missing quote costs; selections keep pinned ver
   const persisted=await core.call('get_trip',{tripId:trip.tripId},owner);
   const pinned=persisted.decisions[0].selections[0].policyNotes[0];
   assert.equal(pinned.note.summary,note.summary);assert.equal(pinned.version,1);assert.equal(pinned.latestVersion,2);assert.equal(pinned.currentStatus,'withdrawn');
+  const decisionRead=await core.call('get_decision',{decisionId:decision.decisionId,offset:50},owner);
+  assert.equal(decisionRead.selections[0].id,chosen.selectionId);
+  const {checkedAt:tripCheckedAt,...tripPolicy}=pinned;
+  const {checkedAt:decisionCheckedAt,...decisionPolicy}=decisionRead.selections[0].policyNotes[0];
+  assert.deepEqual(decisionPolicy,tripPolicy);
+  assert.equal(decisionRead.selections[0].observation.id,observation.observationId);
+  assert.deepEqual(decisionRead.selections[0].criteria.payload,flaineCriteria);
   const secondTrip=await core.call('create_trip',{...key(),...flaineTrip,name:'Another trip'},owner);
   assert.notEqual(secondTrip.tripId,trip.tripId);
   assert.equal((await core.call('list_policy_notes',{},owner)).notes.length,1,'notes belong to the account and can be reused across trips');

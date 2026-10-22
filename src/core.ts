@@ -63,6 +63,21 @@ async function criteria(tx: Queryable, decisionId: string, version?: number): Pr
     ${version ? 'and version=$2' : ''} order by version desc limit 1`, version ? [decisionId, version] : [decisionId]);
   return result.rows[0] as { version: number; payload: Criteria } ?? fail('FORBIDDEN_OR_NOT_FOUND', 'Criteria not found');
 }
+// Called only after ownership is checked, within the caller's read snapshot.
+// At most one active selection; its immutable evidence must not depend on observation pagination.
+async function currentSelections(tx: Queryable, actor: Actor, decisionId: string, activeVersion: number) {
+  const selections = (await tx.query('select * from selections where decision_id=$1 and superseded_at is null', [decisionId])).rows;
+  for (const selection of selections) {
+    const original = await criteria(tx, decisionId, selection.criteria_version);
+    selection.criteria = { version: original.version, payload: original.payload };
+    selection.criteriaChanged = selection.criteria_version !== activeVersion;
+    selection.observation = (await tx.query(`select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id
+      where o.id=$1 and o.decision_id=$2`, [selection.observation_id, decisionId])).rows[0];
+    const refs = (await tx.query('select note_id as "noteId",version from selection_policy_notes where selection_id=$1 order by note_id', [selection.id])).rows;
+    selection.policyNotes = await readPolicyReferences(tx, actor.userId, refs as {noteId:string;version:number}[]);
+  }
+  return selections;
+}
 export async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, provenance: Provenance, runId: string | null) {
   const trip=await lockDecisionTrip(tx,decisionId);if(!trip)fail('FORBIDDEN_OR_NOT_FOUND','This trip is unavailable.');
   await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
@@ -186,11 +201,7 @@ export class Core {
       const decisions = (await tx.query('select * from decisions where trip_id=$1 order by id', [a.tripId])).rows;
       for (const d of decisions) {
         d.criteria = await criteria(tx, d.id);
-        d.selections = (await tx.query('select * from selections where decision_id=$1 and superseded_at is null', [d.id])).rows;
-        for (const selection of d.selections) {
-          const refs = (await tx.query('select note_id as "noteId",version from selection_policy_notes where selection_id=$1 order by note_id',[selection.id])).rows;
-          selection.policyNotes = await readPolicyReferences(tx,actor.userId,refs as {noteId:string;version:number}[]);
-        }
+        d.selections = await currentSelections(tx, actor, d.id, d.criteria.version);
         d.bookings = (await tx.query('select b.* from booking_records b join selections s on b.selection_id=s.id where s.decision_id=$1', [d.id])).rows;
       }
       return { trip, decisions };
@@ -229,6 +240,7 @@ export class Core {
     const decision = await ownedDecision(tx, actor, a.decisionId, !isRead(name));
     const active = await criteria(tx, decision.id);
     if (name === 'get_decision') return { decision, criteria: active,
+      selections: await currentSelections(tx, actor, decision.id, active.version),
       observations: (await tx.query(`select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id
         where o.decision_id=$1 order by o.created_at desc,o.id limit $2 offset $3`, [decision.id, a.limit, a.offset])).rows,
       pagination: { limit: a.limit, offset: a.offset },
