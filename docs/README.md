@@ -32,6 +32,7 @@ Updated 22 October 2026. Use this index to find the authoritative guide for each
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
 | [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | Historical 15 October deployment, hosted smoke checks and acceptance limits |
 | [Apple Calendar export](calendar-export.md) | Deployed individual/all/subset .ics export; saved-trip/native device acceptance pending |
+| [Browser regression testing](browser-testing.md) | One built-app edit/retry/viewer/revoke journey, isolated setup and sanitized failure-case convention |
 | [Itinerary sharing](itinerary-sharing.md) | Anonymous links, signed-in viewer/editor invitations, access privacy, revocation and acceptance |
 | [Private policy notes](policy-notes.md) | Versioned account-private manual references, separate from quote evidence |
 | [Correctness fixes](correctness-fixes.md) | Budget, airport-zone identity and read consistency corrections with regression evidence |

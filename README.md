@@ -29,7 +29,7 @@ The [PRD](docs/prd.md) defines the intended product, [GitHub Issues](https://git
 - **Operations:** guarded Render service auto-deploy uses `checksPass` after main CI; [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) tracks outstanding failed-CI prevention and operational acceptance. Blueprint Auto Sync remains off.
 - **Open follow-ups:** [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) for ChatGPT one-way schema exposure and independent Claude compatibility; [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) browser E2E; [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues/7) for itinerary import, group logistics, accommodation and dining.
 
-**No new primary product implementation has been selected since closing F3.** Treat the closed F1–F3 issue titles and older pilot reports as dated history, not present work instructions.
+**Current implementation slice: browser sharing regression [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2).** Its isolated local journey is implemented; merge/CI evidence is tracked in [delivery status](docs/implementation.md). Treat the closed F1–F3 issue titles and older pilot reports as dated history, not present work instructions.
 
 ## Run locally
 
@@ -57,6 +57,8 @@ npm start
 ```
 
 `npm start` uses the compiled app with the same mode and data path. Stop the dev process first; only one process should open a given embedded database. Tests use isolated databases and do not contact flight suppliers, Supabase or other external APIs.
+
+The built-frontend browser check is separate: install Chromium once with `npx playwright install --only-shell chromium`, then run `npm run test:e2e`. It uses fictional local identities and a fresh in-memory database. See [browser tests and failure regressions](docs/browser-testing.md) for the exact checks, CI gate and hosted-account limits.
 
 ## The Flaine acceptance case
 
