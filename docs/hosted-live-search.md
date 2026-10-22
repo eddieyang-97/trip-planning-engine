@@ -1,6 +1,12 @@
 # Hosted live flight search
 
-Updated 22 October 2026. General-purpose MCP multi-airport **round-trip** discovery passed a bounded real-account hosted acceptance test; the deployed commit SHA was not independently inspected. The prepared/local validation sections below preserve their historical dates and do not establish live one-way or Claude support. The original fixed Flaine pilot passed hosted acceptance on 13 October. See [architecture](architecture.md) and [delivery status](implementation.md).
+Updated 22 October 2026. General-purpose MCP multi-airport **round-trip** discovery passed bounded real-account hosted acceptance. The prepared/local checkpoints below preserve the evidence as it existed on their stated dates; they do not establish live one-way or Claude support. The original fixed Flaine pilot passed hosted acceptance on 13 October. Read the [current delivery summary](implementation.md#current-state--22-october-2026) before older acceptance notes.
+
+## Latest ChatGPT F3 decision/read-back verification — 22 October 2026
+
+Following deployment of selection-read support, the connected ChatGPT Trip Planning integration reused an existing **labelled test flight decision** within the Zermatt trip (not a new trip booking). The saved provider-reported observations were retrieved without additional SerpApi requests. `compare_candidates` returned conditional eligibility for the tested observations, with missing party-price basis, total cost and supplier expiry. The caller then made an explicitly acknowledged **test selection** using `select_candidate` with a bounded rationale; the server returned `booked:false` and advanced the decision revision. Fresh `get_decision` and `get_trip` reads independently returned that selection's rationale, frozen evaluation, original criteria and pinned observation; bookings remained empty.
+
+This establishes a **persisted conditional selection/read-back using pre-existing real supplier observations**, not one single hosted conversation that creates criteria, sends a search, polls, shortlists and selects, nor a verified bookable airfare. A separate saved-shortlist disposition was not exercised in this check. [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6) was subsequently closed at the owner's direction. The actual ChatGPT-exposed one-way input schema remains date-only despite source support for `inbound:null`; Claude has not been independently accepted. Both client gaps and remaining full-journey evidence are in [follow-up #21](https://github.com/eddieyang-97/trip-planning-engine/issues/21). No booking, payment or new metered search occurred. Earlier paragraphs below describe their **then-current** F3 status and do not override this later verification.
 
 ## Hosted F1/F2 MCP acceptance — 22 October 2026
 
@@ -8,7 +14,7 @@ The user reported deploying the latest merged `main` build; the exact Render dep
 
 **F3 client limitation:** The ChatGPT-exposed `create_decision` schema still requires `criteria.inbound` to be a date, rejecting `null` before transport for a one-way test despite the server-side implementation and isolated SDK tests supporting one-way. A labelled Hong Kong test trip was created, but no Hong Kong decision or supplier request was created; the return-search test decision remains labelled in the user's existing trip. Refresh/re-publish the connected MCP tool schema and validate one-way plus full assistant shortlist/selection/read-back and Claude independently in [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6). This report does **not** prove the exact deployed SHA, all provider responses, live one-way compatibility, full-market coverage or end-to-end F3 completion.
 
-## F3 decision read-back and metadata diagnosis — 22 October 2026
+## Historical F3 implementation/metadata checkpoint — 22 October 2026
 
 Prepared source adds current selections to `get_decision`, including the saved rationale, original criteria, frozen assessment, pinned observation and versioned policy context. `get_trip` uses the same projection. This is an additive owner-only read over existing records, with no migration, new configuration, provider endpoint or quota change. Shortlisting still stores only candidate disposition; reasoned choice uses the existing selection record.
 

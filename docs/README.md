@@ -1,6 +1,6 @@
 # Documentation
 
-Updated 21 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
+Updated 22 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
 
 ## Current guidance
 
@@ -9,11 +9,11 @@ Updated 21 October 2026. Use this index to find the authoritative guide for each
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
 | [Database ER diagrams](database.md) | Initial ER baseline and migration extensions; newer trip lifecycle is defined by migration 011 |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
-| [Product requirements](prd.md) | Current PRD v0.7: long-term product scope, October flight priority override, backlog rules and release gates |
+| [Product requirements](prd.md) | PRD v0.7: long-term product scope, completed October flight priority, open roadmap choices and release gates |
 | [Delivery status and acceptance](implementation.md) | Dated deployed capabilities, acceptance evidence and remaining gaps |
 | [Data Semantics Review](data-semantics-review.md) | Domain invariants, proposed decisions and migration gates; not a substitute for applied SQL |
 
-**Planning versus evidence:** requirements define intended behavior; [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) track actionable deliverables and dependencies; delivery status records what was implemented, deployed and verified. The active 21 October queue is [PRD §12](prd.md#12-incremental-roadmap-and-execution-backlog), with [#4 Flight F1](https://github.com/eddieyang-97/trip-planning-engine/issues/4) as the current primary product increment and [#3 database security](https://github.com/eddieyang-97/trip-planning-engine/issues/3) as the parallel P0 gate. Neither issue creation nor deployment alone proves acceptance. Use the newest dated evidence when historical records describe an earlier state.
+**Planning versus evidence:** requirements define intended behavior; [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) track actionable deliverables; delivery status records code, deployment and actual client acceptance. [Security #3](https://github.com/eddieyang-97/trip-planning-engine/issues/3) and flight [F1 #4](https://github.com/eddieyang-97/trip-planning-engine/issues/4), [F2 #5](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6) are closed; [guarded release #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14), [client interoperability #21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) and [browser E2E #2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) remain open. Read the [current summary](implementation.md#current-state--22-october-2026) before historical sections. Closure is not proof of unresolved one-way/Claude functionality.
 
 ## Feature guides and evidence
 
@@ -27,7 +27,7 @@ Updated 21 October 2026. Use this index to find the authoritative guide for each
 | [Itinerary map](itinerary-map.md) | Current map behavior, pin saving/read-back, presentation, source access and dated map acceptance |
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
 | [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker--15-october-2026) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
-| [Hosted flight search](hosted-live-search.md) | General-purpose MCP discovery, examples, unchanged quotas and dated fixed-pilot hosted evidence |
+| [Hosted flight search](hosted-live-search.md) | Bounded generalized F1/F2 live acceptance, F3 conditional ChatGPT selection/read-back, client gaps, limits and historical pilot evidence |
 | [Guarded releases](releases.md) | CI/branch safeguards, exact-SHA smoke checks, worker draining and staged Render auto-deploy activation |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
 | [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | Historical 15 October deployment, hosted smoke checks and acceptance limits |

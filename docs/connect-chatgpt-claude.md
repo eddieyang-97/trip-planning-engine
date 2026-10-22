@@ -33,7 +33,7 @@ Try: **“Using Trip Planning, list the trips I can access and show me the itine
 
 ## Option B: ChatGPT
 
-**Availability matters:** As of October 2026, full custom MCP support in ChatGPT is documented for Business and Enterprise/Edu workspaces, subject to admin permissions. Pro may have more limited read/fetch support. **If your ChatGPT account does not show custom MCP setup, use Claude or the Trip Planner website instead.** Do not upgrade without checking that your workspace supports this feature.
+**Availability matters:** Custom MCP/Plugin setup depends on the ChatGPT plan, workspace settings and available rollout. Follow the options actually shown under Plugins rather than assuming all accounts expose the same connector controls. If custom MCP setup is absent, use the Trip Planner website or a separately supported assistant; do not upgrade without confirming eligibility.
 
 1. Open [ChatGPT](https://chatgpt.com) **on the web**.
 2. Go to **Plugins → + → Add custom MCP server** (if available).
@@ -42,7 +42,7 @@ Try: **“Using Trip Planning, list the trips I can access and show me the itine
 5. Install/connect the resulting plugin, sign in with your **own Trip Planner account**, and approve the permissions you want.
 6. Start a new chat, type **@**, choose **Trip Planning**, and ask: **“List the trips I can access.”**
 
-Initial ChatGPT sign-in and saved-trip retrieval have been verified for the project; that is not a guarantee of every tool or user account.
+ChatGPT sign-in, saved flight retrieval, comparison and a conditional **test selection with fresh rationale/evaluation read-back** have been verified against the deployed integration. That is not a booking or a guarantee of every tool/account. As of 22 October the actual connected ChatGPT criteria schema still rejects omitted/null one-way `inbound` before calling the server, even though backend source supports it. [Follow-up #21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) tracks refresh/verification of that input and independent Claude acceptance.
 
 ## Permissions and important limits
 
