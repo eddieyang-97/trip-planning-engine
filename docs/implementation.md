@@ -2,6 +2,12 @@
 
 Updated 22 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## CI deployment gate applied - 22 October 2026
+
+PR #19 merged at `00155ef3d104abd091d26145a14c6566728359a3`; main build and 173/173 tests passed with zero failures/skips. A subsequent approved Blueprint sync completed successfully and independently verified service Settings shows **After CI Checks Pass**. Blueprint Auto Sync remains No; configuration changes are manually coordinated after CI. Failure-only notification configuration was read back; actual notification delivery was not tested.
+
+The harmless documentation merge's automatic trigger timing, exact deployed SHA and smoke evidence are recorded in [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) once observed. Failed-CI prevention remains pending; applied configuration alone is not full auto-deploy acceptance. No supplier request, paid upgrade, additional service or real-trip mutation.
+
 ## Worker deployed; CI-gated activation prepared - 22 October 2026
 
 Reviewed PR #18 is merged and manually deployed at `4bd870eee724a416b03374c439e5cacdff37cceb`. Main CI build and 173/173 tests passed (zero failures/skips). Render startup/Live, exact-SHA/schema-11 public smoke and an existing authenticated MCP read passed. One explicitly approved restart was recorded by Render; the same public/authenticated checks passed afterward. No active supplier request was induced, global active/queued counts or exact shutdown duration were not measured, and no supplier call or trip write was submitted.
