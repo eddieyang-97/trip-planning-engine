@@ -75,8 +75,20 @@ try{
     assert.ok(!result.isError,`Tool failed: ${name}`);assert.ok(result.structuredContent);
     return result.structuredContent as Record<string,any>;
   };
-  const tools=await client.listTools();await call('list_trips',{});
-  console.log(JSON.stringify({mcp:'connected',toolCount:tools.tools.length}));
+  phase='flight tool discovery';
+  const tools=await client.listTools();
+  for(const name of ['create_decision','update_decision_criteria']){
+    const criteria=tools.tools.find(t=>t.name===name)?.inputSchema.properties?.criteria as any;
+    assert.ok(criteria?.properties?.inbound?.anyOf?.some((v:any)=>v.type==='null'));
+    assert.ok(criteria.properties.inbound.anyOf.some((v:any)=>v.type==='string'&&v.format==='date'));
+    assert.ok(!criteria.required.includes('inbound'));
+  }
+  const searchDescription=tools.tools.find(t=>t.name==='start_search')?.description??'';
+  assert.match(searchDescription,/1–6 origins/);assert.doesNotMatch(searchDescription,/Flaine|easyJet|18–20 Dec/);
+  assert.match(tools.tools.find(t=>t.name==='get_decision')?.description??'',/saved rationale/);
+  await call('list_trips',{});
+  console.log(JSON.stringify({mcp:'connected',toolCount:tools.tools.length,flightMetadata:'current',
+    clientCacheVerified:false}));
   if(live){
     phase='Flaine trip and decision';
     const trip=await call('create_trip',{...flaineTrip,name:'Flaine snowboard weekend — hosted acceptance',idempotencyKey:'744ac34b-4a3f-49a9-aac4-4b4c6899dc11'});
