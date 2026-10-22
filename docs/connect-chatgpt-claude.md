@@ -1,6 +1,6 @@
 # Connect Trip Planner to ChatGPT or Claude
 
-Updated 21 October 2026. **A quick guide for friends — no coding required.**
+Updated 22 October 2026. **A quick guide for friends — no coding required.**
 
 Trip Planner is a shared travel itinerary and research tool. You can use it directly in a browser; connecting an AI assistant is optional.
 
@@ -42,7 +42,11 @@ Try: **“Using Trip Planning, list the trips I can access and show me the itine
 5. Install/connect the resulting plugin, sign in with your **own Trip Planner account**, and approve the permissions you want.
 6. Start a new chat, type **@**, choose **Trip Planning**, and ask: **“List the trips I can access.”**
 
-ChatGPT sign-in, saved flight retrieval, comparison and a conditional **test selection with fresh rationale/evaluation read-back** have been verified against the deployed integration. That is not a booking or a guarantee of every tool/account. As of 22 October the actual connected ChatGPT criteria schema still rejects omitted/null one-way `inbound` before calling the server, even though backend source supports it. [Follow-up #21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) tracks refresh/verification of that input and independent Claude acceptance.
+ChatGPT sign-in, saved flight retrieval, comparison and a conditional **test selection with fresh rationale/evaluation read-back** have been verified against the deployed integration. That is not a booking or a guarantee of every tool/account. On 22 October, refreshing the existing development-mode connection and opening a new chat allowed an isolated one-way decision to persist `inbound:null`, without a supplier search. Its final summaries failed to render; exact metadata inspection and independent Claude acceptance remain in [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21). See [dated evidence and limits](hosted-live-search.md#refreshed-chatgpt-one-way-criteria--22-october-2026).
+
+### Refresh changed tool definitions
+
+For an existing development-mode custom MCP connection, go to **Settings → Plugins → Trip Planning → Refresh tools**, then start a **new chat**. Older conversations may retain the old required return date or fixed-pilot description. If one-way input is still rejected, report the exposed schema; do not supply a fictitious return date. Published plugins use their own tool-update review flow. [Official refresh guidance](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata).
 
 ## Permissions and important limits
 
