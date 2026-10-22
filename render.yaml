@@ -10,8 +10,8 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     # Free instances reject maxShutdownDelaySeconds; retain the platform default.
-    # Keep manual releases until long-running live work is safe within that limit.
-    autoDeployTrigger: "off"
+    # Blueprint Auto Sync stays No; apply config changes manually after green main CI.
+    autoDeployTrigger: checksPass
     envVars:
       - key: NODE_VERSION
         value: "24"

@@ -2,6 +2,12 @@
 
 Updated 22 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). This summarizes dated deployment and acceptance evidence; earlier release snapshots below are preserved as historical records.
 
+## Worker deployed; CI-gated activation prepared - 22 October 2026
+
+Reviewed PR #18 is merged and manually deployed at `4bd870eee724a416b03374c439e5cacdff37cceb`. Main CI build and 173/173 tests passed (zero failures/skips). Render startup/Live, exact-SHA/schema-11 public smoke and an existing authenticated MCP read passed. One explicitly approved restart was recorded by Render; the same public/authenticated checks passed afterward. No active supplier request was induced, global active/queued counts or exact shutdown duration were not measured, and no supplier call or trip write was submitted.
+
+Blueprint Auto Sync was set to No and read back. The separate activation change requests `checksPass` for code commits; configuration sync remains manual after green main CI. Applied settings, automatic green-merge timing, exact deployed SHA and failed-CI prevention evidence remain tracked in [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14). See [release evidence](releases.md). No infrastructure upgrade or migration.
+
 ## Interruptible live worker prepared - 22 October 2026
 
 The #14 follow-up propagates shutdown cancellation through the active live runner and SerpApi discovery, prevents further dispatch, bounds request/body waits, preserves completed observations on successful finalization and records interrupted work as unknown without replay. Process cleanup has a 25-second deadline; stalled finalization falls back to durable lease recovery. No migration or provider/quota/hosting-plan change. Source and deterministic tests do not establish hosted signal delivery or deployment timing. Manual rollout and exact-SHA smoke must precede `checksPass`; Auto-Deploy remains off.
