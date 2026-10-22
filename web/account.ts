@@ -16,9 +16,9 @@ const configResponse = await fetch('/account/config',{signal:AbortSignal.timeout
 if (!configResponse.ok) throw new Error('Account configuration unavailable');
 const config = await configResponse.json();
 const liveSearch=config.liveSearch===true;
-el('pilot-notice').textContent=liveSearch?'Live flight research is available for the Flaine pilot: four adults, 18–20 Dec 2026, one direct easyJet Gatwick–Geneva pair. Other London airports, snowboard costs and bookable totals remain unverified. Booking is unavailable.':'This pilot saves research and manual evidence. Live search and booking are unavailable.';
+el('pilot-notice').textContent=liveSearch?'Live flight research supports bounded economy/GBP one-way and return searches for future dates, 1–6 origin airports, one destination and 1–9 adults. Coverage is partial; baggage costs, party-price basis and bookability may be unknown. Booking is unavailable.':'This pilot saves research and manual evidence. Live search and booking are unavailable.';
 el('search-option').hidden=!liveSearch;
-el('search-scope').textContent=liveSearch?'Searches sample one Gatwick–Geneva flight pair for four adults, 18–20 Dec 2026. Each run uses up to three provider requests; at most two runs per account per day, subject to shared limits. Prices and snowboard costs remain unverified.':'Live search is unavailable.';
+el('search-scope').textContent=liveSearch?'Each run uses at most three provider requests: up to three origin queries for one-way, or one combined-origin query plus at most two return expansions. At most two runs per account in a rolling 24 hours, subject to shared limits. This is partial coverage, not a complete airport sweep or a verified bookable party fare; baggage may remain unknown.':'Live search is unavailable.';
 el<HTMLInputElement>('allow-write').onchange=()=>{
   const search=el<HTMLInputElement>('allow-search');search.disabled=!liveSearch||!el<HTMLInputElement>('allow-write').checked;
   if(search.disabled)search.checked=false;

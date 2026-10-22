@@ -14,6 +14,8 @@ const serverUrl='https://trip-planning-engine.onrender.com/mcp';
 const issuer='https://boesckxmbghiobxpyuqc.supabase.co/auth/v1';
 const redirectUrl='http://127.0.0.1:8732/callback';
 const live=process.argv.includes('--live');
+const metadataOnly=process.argv.includes('--metadata-only');
+assert.ok(!(live&&metadataOnly),'--metadata-only cannot be combined with --live');
 let phase='setup',information:OAuthClientInformationMixed|undefined,tokens:OAuthTokens|undefined,verifier='';
 const state=randomBytes(32).toString('base64url');
 let acceptCode!:(code:string)=>void,rejectCode!:(error:Error)=>void;
@@ -86,9 +88,10 @@ try{
   const searchDescription=tools.tools.find(t=>t.name==='start_search')?.description??'';
   assert.match(searchDescription,/1–6 origins/);assert.doesNotMatch(searchDescription,/Flaine|easyJet|18–20 Dec/);
   assert.match(tools.tools.find(t=>t.name==='get_decision')?.description??'',/saved rationale/);
-  await call('list_trips',{});
+  // Metadata diagnosis needs discovery only, without enumerating private trips.
+  if(!metadataOnly)await call('list_trips',{});
   console.log(JSON.stringify({mcp:'connected',toolCount:tools.tools.length,flightMetadata:'current',
-    clientCacheVerified:false}));
+    clientCacheVerified:false,tripReadPerformed:!metadataOnly}));
   if(live){
     phase='Flaine trip and decision';
     const trip=await call('create_trip',{...flaineTrip,name:'Flaine snowboard weekend — hosted acceptance',idempotencyKey:'744ac34b-4a3f-49a9-aac4-4b4c6899dc11'});

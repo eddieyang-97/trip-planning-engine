@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   pull_request:
+concurrency:
+  # Cancel superseded PR checks, but never discard validation for a main commit.
+  # Main uses its SHA because a shared main group can cancel pending runs.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
