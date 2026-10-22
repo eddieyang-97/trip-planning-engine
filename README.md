@@ -11,7 +11,7 @@ The product helps people compare travel choices, retain their reasoning and turn
 | Surface | Product role | Current slice |
 | --- | --- | --- |
 | Web app | Use the trip directly: review saved research, organize an itinerary and collaborate without an assistant account | Deployed manual organizer, shared viewing/editor access, signed-in comments, map pins, profiles, calendar export and saved-flight drafts; fuller research controls and remaining real-device/account acceptance are separate increments |
-| MCP | Let a connected assistant retrieve and update the same trip, research options, explain trade-offs and manage the plan | Deployed persistent decisions, bounded live pilot, comparisons, selections, itinerary and private policy tools; official-SDK OAuth/search and connected retrieval verified |
+| MCP | Let a connected assistant retrieve and update the same trip, research options, explain trade-offs and manage the plan | Deployed generalized, cost-bounded flight search, comparisons and conditional selections, plus itinerary and private policy tools; authenticated ChatGPT selection/read-back verified, while one-way client metadata and Claude acceptance remain open |
 
 Both surfaces are core to the product. Their interfaces can suit different tasks, while shared operations retain the same permissions, facts and revision rules. Delivery proceeds in independently verified increments. Existing invitations and comments are implemented; advanced proposals remain conditional. The [PRD](docs/prd.md) defines target behavior and current priorities; [implementation notes](docs/implementation.md) track delivered behavior and acceptance gaps.
 
