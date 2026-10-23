@@ -1,6 +1,6 @@
 # Guarded releases
 
-Updated 22 October 2026. The existing Blueprint-managed Free Render web service and Supabase remain the only deployment. [Issue #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) tracks activation and observed platform evidence; source configuration is not proof of applied settings.
+Updated 23 October 2026. The existing Blueprint-managed Free Render web service and Supabase remain the only deployment. [Issue #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) tracks activation and observed platform evidence; source configuration is not proof of applied settings.
 
 ## Before enabling automatic deployment
 
@@ -47,6 +47,16 @@ Separately verify an authenticated read through an already approved client/sessi
 The job uses no production secrets, authentication, browser account, trip data, supplier calls, bookings, payments or write endpoints. No Render deployment, rollback, permission change or automated schedule is triggered. The check does **not** prove authenticated MCP tool discovery (including ChatGPT's plugin action cache), real-user sign-in, Web UI browser journeys, supplier correctness or booking availability.
 
 **Later, only if needed:** consider a scheduled independent check or a separately triggered external release monitor with bounded propagation/supersession handling. Do not add a schedule that blindly assumes `HEAD(main)` is live; do not add a CI-to-Render-to-CI circular gate. This lightweight step is deliberately subordinate to itinerary import, accommodation and dining development.
+
+## Verified manual production smoke — 23 October 2026
+
+[PR #29](https://github.com/eddieyang-97/trip-planning-engine/pull/29) merged at `8d675d72b0ed0a9b6446002efc6b069f716888cb`. Render auto-deployed that exact SHA (deployment `dep-dbdro76k1f9s73egnt0g`, Live 19:57:57 UTC). The first [manual Production smoke run 40015680713](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/40015680713) passed, with exact expected/served SHA match, schema **12**, `/health` 200, unauthenticated `/mcp` 401, `/account` 200 and hosted `/itinerary/config` 200 in **one attempt**. A distinct pre-merge required CI run passed 190/190 backend/tests and one compiled-frontend browser journey. [Issue #28](https://github.com/eddieyang-97/trip-planning-engine/issues/28) is closed with detailed evidence. This validates public deploy readiness, **not** signed-in flows or supplier results.
+
+### Connected Supabase production diagnostics
+
+The Supabase connector points at the **live** project. Use it primarily to inspect read-only metadata, effective schema, RLS/grants, limited aggregated logs and advisors. A connection alone does not authorize SQL writes/DDL, migration application, Auth changes, branch/project creation or inspection of private trip/traveler records. Obtain separate approval and disclose potential branch costs before such actions; never install production credentials into GitHub smoke jobs.
+
+Application schema authority is `migrations/` plus `src/database.ts` / `app_schema_migrations`. Do **not** assume Supabase's separate migration list contains the app's 001–012 SQL versions or reapply migrations through both channels. Keep code/schema edits in reviewed PRs, pass disposable PostgreSQL checks, and deploy through the existing guarded release flow. After approved schema changes, recheck effective RLS/grants and Supabase security/performance advisors without exposing private rows. See [agent instructions](../AGENTS.md#connected-production-service-tools) and the [database schema reference](database.md).
 
 ## Pause, drain and recover
 
