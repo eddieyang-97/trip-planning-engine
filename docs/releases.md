@@ -34,6 +34,20 @@ The command makes only four GETs: `/health`, unauthenticated `/mcp`, `/account`,
 
 Separately verify an authenticated read through an already approved client/session. Keep identifiers, credentials, booking notes and private results out of CI logs and public evidence.
 
+## Manual production smoke workflow — 23 October 2026
+
+[Issue #28](https://github.com/eddieyang-97/trip-planning-engine/issues/28) adds a **non-required, manually dispatched** GitHub Actions check for the currently deployed production release. It is separate from the `Check / test` main/PR gate: **never make post-deploy smoke a required status**, since Render's `checksPass` would then wait for a workflow that itself waits for deployment.
+
+1. After Render shows a deployment as **Live**, copy that deployment's **full 40-character SHA** (not the current tip of `main` unless it matches the deployed commit).
+2. In GitHub, open **Actions → Production smoke (manual) → Run workflow**. Supply the SHA in `expected_sha`. The workflow checks out that exact release, installs its dependencies, and calls `scripts/post-deploy-smoke.ts`. This workflow and runner must exist in the release under test; older commits made before this increment are not supported by that GitHub job.
+3. Inspect the **smoke-production** job and its summary. PASS requires the public `/health` response to report the exact supplied Git SHA and matching source schema version, the database to be ready, unauthenticated `/mcp` to return 401, `/account` to return 200, and `/itinerary/config` to report hosted mode.
+4. On failure, the summary reports only the expected/observed public SHA, schema, endpoint status codes, attempts and a short reason. A mismatched SHA or schema, broken authentication boundary or invalid hosted configuration **fails immediately**; safe GET-only network/5xx faults can retry up to **three attempts** within a **five-minute runner deadline** (eight-minute GitHub job timeout). Do not regard an older `main` deployment as a green release just because health returned 200.
+5. To reproduce locally from the same release revision: `node --import tsx scripts/post-deploy-smoke.ts FULL_EXPECTED_40_CHARACTER_SHA`.
+
+The job uses no production secrets, authentication, browser account, trip data, supplier calls, bookings, payments or write endpoints. No Render deployment, rollback, permission change or automated schedule is triggered. The check does **not** prove authenticated MCP tool discovery (including ChatGPT's plugin action cache), real-user sign-in, Web UI browser journeys, supplier correctness or booking availability.
+
+**Later, only if needed:** consider a scheduled independent check or a separately triggered external release monitor with bounded propagation/supersession handling. Do not add a schedule that blindly assumes `HEAD(main)` is live; do not add a CI-to-Render-to-CI circular gate. This lightweight step is deliberately subordinate to itinerary import, accommodation and dining development.
+
 ## Pause, drain and recover
 
 - Pause unattended releases by setting Auto-Deploy **Off** in Render and reconciling `render.yaml` before the next Blueprint sync. Record the pause; do not disable required CI to force a release.
