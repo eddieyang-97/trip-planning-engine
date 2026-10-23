@@ -1,22 +1,22 @@
-# Trip Planning Workspace — PRD
+# Trip Planning — Agent-first PRD
 
-Version: 0.7 · Updated 23 October 2026 · Status: agreed product direction; requirements and acceptance targets
+Version: 0.8 · Updated 23 October 2026 · Status: agreed product direction; requirements and acceptance targets
 
-This file defines product requirements, not verified shipping status; see [implementation.md](implementation.md) for delivery evidence, [architecture.md](architecture.md) for accepted technical direction, and [README.md](README.md) for feature guides. Web and authorized MCP assistants are first-class interfaces to one trip state; their UX can differ. The working name and repository/deployment identifiers stay unchanged.
+This file defines product requirements, not verified shipping status; see [implementation.md](implementation.md) for delivery evidence, [architecture.md](architecture.md) for accepted technical direction, and [README.md](README.md) for feature guides. The *target* experience is an in-app AI travel-planning agent, with the structured shared trip as durable authority. Existing web and authorized MCP surfaces remain deployed; the in-app model-backed agent is **not yet implemented**. Interfaces can differ. The working name and repository/deployment identifiers stay unchanged.
 
 **Long-term product direction (15 October):** Accommodation and restaurant options are primary research workflows. A reliable shared itinerary and remembered decisions are the core product. Flights establish trip **feasibility** (plausible routes, timing, luggage and transfers), not comprehensive fare optimization. The narrow flight pilot and its evidence safeguards remain valid. Deliver useful, independently verified increments; there is no monolithic v1/MVP gate.
 
 **Historical execution snapshot (22 October):** The time-boxed **general-purpose, cost-bounded MCP flight discovery** priority delivered F1 [#4](https://github.com/eddieyang-97/trip-planning-engine/issues/4), F2 [#5](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and a persisted, conditional ChatGPT selection/read-back for F3 [#6](https://github.com/eddieyang-97/trip-planning-engine/issues/6); these issues are closed. Verified F3 selection reused earlier live observations rather than exercising a new hosted search in the same conversation. [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) records refreshed ChatGPT one-way criteria persistence, authenticated metadata checks and independent Claude read-only retrieval. A complete hosted new-search conversation and live one-way fares remain unverified. Security [#3](https://github.com/eddieyang-97/trip-planning-engine/issues/3) is closed with recorded evidence; CI-gated release acceptance [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) was still being tracked in this dated snapshot. **At that time the user selected research decision archive/restore [#24](https://github.com/eddieyang-97/trip-planning-engine/issues/24) as the next bounded implementation.** The itinerary, accommodation and dining thesis is unchanged; see [delivery status](implementation.md#current-state--23-october-2026).
 
-**Current feature queue (23 October):** [#24](https://github.com/eddieyang-97/trip-planning-engine/issues/24) research archive/restore, [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) browser sharing regression and [#28](https://github.com/eddieyang-97/trip-planning-engine/issues/28) minimal production smoke are now merged, verified within their stated boundaries and closed. The next user-facing options remain [#7](https://github.com/eddieyang-97/trip-planning-engine/issues/7) itinerary import, [#8](https://github.com/eddieyang-97/trip-planning-engine/issues/8) group logistics, [#9](https://github.com/eddieyang-97/trip-planning-engine/issues/9) accommodation and [#10](https://github.com/eddieyang-97/trip-planning-engine/issues/10) dining. #7 is the recommended next implementation, subject to user prioritization. See the delivery record rather than inferring release status from this PRD.
+**Product direction decision (23 October): agent-first.** A user should start a new trip **inside Trip Planning** by describing a goal in natural language, then review structured proposals, research and decisions. AI drives planning; the user approves consequential changes. The durable trip and shared itinerary—not a chat transcript—are the source of truth. The existing manual web organizer and external ChatGPT/Claude MCP integrations remain useful alternate interfaces. **Next proposed milestone:** [#31 In-app conversational trip creation and approved itinerary](https://github.com/eddieyang-97/trip-planning-engine/issues/31) (P1/Now), followed by [#9 accommodation](https://github.com/eddieyang-97/trip-planning-engine/issues/9) and [#10 dining](https://github.com/eddieyang-97/trip-planning-engine/issues/10), with [#8 group logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8) later and [#7 legacy import](https://github.com/eddieyang-97/trip-planning-engine/issues/7) in the backlog. #2, #24 and #28 have bounded verified acceptance and are closed. This decision **changes prioritization and UX targets, not the currently shipped product**; select a model/provider and approve its costs/data handling before building #31. Read the [delivery status](implementation.md#current-state--23-october-2026) for verified features.
 
 ## 1. Product thesis
 
-Create a shared travel workspace that remembers research, shortlisted options, selection rationale, booking conditions and what changed, then maintains one authoritative itinerary for a group. Different trips create different decisions: accommodation configurations, restaurants, transfers, flights and activities.
+Build an **AI travel-planning agent** that takes the lead on turning a user's travel goal into a researched, reviewable plan. The agent helps gather constraints, proposes options and structured edits, explains uncertainty and asks for approval; **the user stays in control**. One authoritative, shareable trip persists the decisions, observations, reasoning, itinerary and booking facts across sessions and interfaces. Accommodation and dining are the primary research workflows, with flight feasibility as a supporting job.
 
 **Primary job to be done:**
 
-> Help me find and compare places to stay and eat that suit my group, understand their complete known costs and practical trade-offs, remember why I chose or rejected them, and revisit the decision without repeating research.
+> Let me describe the trip I want in one message, have an agent do the planning and comparison work, approve choices as I go, and return to a shared itinerary that remembers the decisions without needing a separate AI account or Google Doc.
 
 **Connected itinerary job:**
 
@@ -26,7 +26,7 @@ Create a shared travel workspace that remembers research, shortlisted options, s
 
 > Establish whether the trip is reachable with workable flights, bags and transfers; clearly label missing costs, conditions and coverage instead of claiming a complete market search.
 
-The product differentiates on **persistent, assistant-accessible decision context**, not replicating booking-site inventory. The web app provides direct controls and readable mobile plans; connected assistants provide conversational research and edits. The backend owns identity, durable trip state, provenance, constraints, permissions and explainable comparison. Manual and sourced options must work even without supplier APIs. Selection is not a booking; a user-reported confirmation is not automatically provider-verified.
+The product differentiates on **agent-driven planning with persistent, verifiable trip state**, not duplicating booking-site inventory or merely generating narrative itineraries. An in-app agent is the primary starting point for new organizers; direct web controls and authorized external MCP assistants remain alternate interfaces over the *same* authorized backend. Friends can read the shared itinerary without the AI conversation. Manual and sourced options still work without supplier APIs. The backend—not model text—owns identities, constraints, authorizations, evidence and booking facts. A selection is not a booking; reported confirmation is not supplier verification. **Today this is the target, not a claim that an embedded agent has shipped.**
 
 ## 2. Audience and problem
 
@@ -42,7 +42,7 @@ Compare real organizer effort with booking websites + an assistant + a shared do
 
 | Outcome | Acceptance evidence |
 |---|---|
-| Import, don't rebuild | Migrate Alba itinerary and critical bookings/transfers, flagging uncertain fields for organizer review |
+| Start with a goal | In-app model-backed agent turns an organizer's natural-language Zermatt trip request into an approved, persisted trip and tentative itinerary without a separate AI account |
 | Compare accommodations | Compare Zermatt stays by whole-party cost, actual beds, location, refundable deposit, cancellation deadline and late check-in |
 | Compare restaurants | Save a sourced shortlist with menu, group fit, expected costs including documented service, booking path and rationale |
 | Reduce repeat work | On revisiting stay or dining research, see material changes in two minutes without reconstructing the shortlist |
@@ -60,7 +60,7 @@ A deployed API or smoke test does not establish that a complete user journey wor
 
 Keep product-market-fit evidence separate from technical feature acceptance. Establish a lightweight baseline during a few real trips; do **not** set unsupported conversion or retention targets before observing usage. Prefer small, consented pilot feedback and privacy-minimal aggregate counters over broad tracking.
 
-- **First value:** can another organizer create/import a trip and obtain a useful itinerary or stay/dining comparison without coaching? Record whether they abandon or require manual intervention.
+- **First value:** can another organizer enter one natural-language trip request, review/approve the resulting structured plan, and obtain a useful persistent itinerary without coaching or ChatGPT/Claude setup? Record latency, cost, abandonment, corrections and manual interventions. Compare with the direct non-AI organizer.
 - **Return and reuse:** do organizers return to the same trip to revisit research, update a plan, or make another decision instead of rebuilding it elsewhere? Note which repeat tasks actually save effort.
 - **Group usefulness:** do invited friends open the shared plan and find their own attendance, accommodation and departure information on a phone without contacting the organizer?
 - **Displacement and trust:** does the organizer stop maintaining a parallel planning document, and can members identify unverified prices and booking status correctly? Record confusion or consequential omissions.
@@ -74,8 +74,8 @@ Ship independently useful increments rather than making accommodation and dining
 
 | Priority / near-term | Later / conditional |
 |---|---|
-| Trip, itinerary and saved decision state shared by web and authorized MCP | Separate backend LLM; embedded assistant widgets |
-| Import/paste existing itineraries or confirmations with review of ambiguous fields | Universal automated extraction from all external sites and inboxes |
+| Agent-first in-app conversation with bounded, server-side model orchestration; structured, user-approved trip and itinerary proposals share the existing trip state | Open-ended autonomous agents, unrestricted tool loops and extra services without a demonstrated need |
+| Native trip creation, direct editing and shared viewing remain available without AI | Import/paste existing itineraries (#7), universal inbox/PDF ingestion |
 | Accommodation comparison: hotels, combinations of rooms, apartments, chalets and entire-place stays; manual/sourced options first | Comprehensive accommodation API inventory, unapproved scraping or automated checkout |
 | Restaurant comparison: menus, group fit, price evidence, saved shortlists and real reservation links | Live table inventory and reservation actions without approved access |
 | Dated research observations, repeat comparisons and retained selection rationale | Opaque AI-generated fact scores or invented availability |
@@ -90,9 +90,9 @@ Provider access, display/retention rights and cost determine which live research
 
 ## 5. Core experience
 
-Web and authorized MCP clients share trip IDs, evidence, permissions and revision rules; interface design may differ. The web app does not require an assistant account. Resolve ambiguous trip names using dates and stable IDs, and never guess a travel-account identity.
+**Target agent-first journey:** the organizer opens Trip Planning, describes the destination, dates, group and what help they want, and the in-app agent guides the workflow. The agent produces typed proposals, not hidden writes. The organizer can accept, amend or reject proposed trip details, shortlist decisions and itinerary entries; confirmed state survives refresh and can be shared independently of chat. The same trip IDs, facts, permissions and revision rules are used by web, the model-backed server orchestration and authorized MCP clients. Direct manual controls remain available if model access is unavailable. Resolve ambiguous trip names using dates/stable IDs, never guess travel-account identity.
 
-1. **Create or import.** Start a trip or paste/import an existing itinerary and booking notes; review uncertain dates, amounts, statuses and participant assignments before committing.
+1. **Start in-app.** Describe the trip naturally; the agent extracts explicit constraints, asks only necessary questions, and proposes an editable trip draft. After user approval, create the structured trip. Existing-document import is an optional later onboarding route, not the default.
 2. **Define logistics and decisions.** Represent different traveler arrivals, lodging, activity participation and returns. Save explicit hard constraints, preferences and assumptions for accommodation, restaurants and any flight-feasibility check.
 3. **Discover options.** Use approved provider results or manual/sourced links. Show provider coverage, prices and basis, local conditions, observation times and unknowns.
 4. **Compare and explain.** Accommodation emphasizes whole-party total cost, beds, location and cancellations; dining emphasizes menu, party fit, price/service and genuine reservation path; flights emphasize viable times, baggage and onward transfer.
@@ -132,6 +132,8 @@ Use Trip → Decision → Candidate as the ownership structure for accommodation
 | Evidence | Provenance for a fact: provider response, link or manual note; observed time, scope and whether the fact is quoted, calculated or assumed |
 | BookingRecord | Separate external booking record with selected option, provenance (reported or verified), paid amount and timestamp |
 
+An **AgentConversation/AgentProposal** is a *proposed conceptual extension*, not an applied table or approved migration: store only the minimum consented conversational context needed to resume planning, plus typed proposed actions with explicit owner/trip binding and expiry or disposal rules. Approved actions resolve to the existing Trip/Decision/ItineraryItem state; the chat log is never a second authoritative itinerary. Validate semantics, deletion/retention and privacy before choosing a schema.
+
 The organizer foundation adds ItineraryItem to the same trip without requiring a research decision for every manual item. Basic access adds memberships and share links; optional future discussion adds comments and proposals, building on shared activity history:
 
 | Object | Meaning and essential information |
@@ -152,6 +154,15 @@ Candidate disposition is independent of live availability: saved, rejected or se
 Store monetary values exactly with currency and explicit units. Store flight instants and relevant IANA time zones, displaying the local date and time at each airport. Preserve source identifiers as well as normalized fields. Provider terms will determine which raw responses and historical facts may be retained and for how long.
 
 ## 7. Functional requirements
+
+### In-app agent and human-reviewed actions — target, not shipped
+
+- The default new-trip entry point is a model-backed conversational UI hosted in our web product. A user should not need a ChatGPT/Claude account, MCP plugin installation or external Google Doc. A manual alternative remains accessible.
+- The agent may **propose** trip creation, constraints, research requests, shortlist choices, tentative itinerary items and edits; the server validates typed inputs, identity, permissions, revisions, budgets and provenance before any write. Explicit user approval gates trip creation and itinerary changes in the initial slice. Never infer a booking or payment from a plan.
+- A refresh/revisit resumes an authorized minimal conversation context, but every approved decision and itinerary item lives in durable domain records with independent web/MCP read-back. Private conversation data is not implicitly shared with friends or viewers.
+- Treat model output and retrieved material as untrusted. Enforce bounded tool/action allowlists, response limits, timeouts, retries/idempotency, token/inference budgets, consent/retention and privacy redaction. No provider/key selection, paid usage or new deploy service is implied by this PRD.
+- The first milestone [#31](https://github.com/eddieyang-97/trip-planning-engine/issues/31) validates **real model-backed** Zermatt trip-to-approved-itinerary creation, persistence, auth/revocation, cost guardrails and graceful failure. The AI can collect accommodation requirements and manual links, but automatic property discovery and comparison are staged under [#9](https://github.com/eddieyang-97/trip-planning-engine/issues/9); dining under [#10](https://github.com/eddieyang-97/trip-planning-engine/issues/10). No fabricated live supplier availability.
+- Separate agent intent/proposals from external side effects. Supplier research, bookings, payments, invitations, data deletion and other consequential operations require their own explicit authority, budgets, reconciliation and acceptance; model-generated SQL or directly trusted model IDs are forbidden.
 
 ### Import, accommodation, dining and participants
 
@@ -421,7 +432,7 @@ The Scale Readiness review is **not a prerequisite for the next small accommodat
 
 ## 11. Architecture direction and spike brief
 
-The product has two first-class entry points: the web app and a hosted HTTPS MCP endpoint. ChatGPT, Claude and other validated clients call MCP tools; they do not host our server. Both entry points call the same application service for trips, itinerary items, research and, at the collaboration milestone, discussion and proposals. The service owns criteria, provider queries, normalization, evidence, deterministic ranking and permission checks. Direct web sessions and authorized assistant clients use their appropriate authentication paths; neither bypasses the shared authorization rules. Client conversation and presentation remain separate from backend authority and durable state.
+**Currently shipped architecture:** the web app and hosted HTTPS MCP endpoint are two working entry points to the same backend. **Target entry point:** a native model-backed conversational agent inside that web app, with the shared domain store as the sole authority. ChatGPT, Claude and other validated clients call MCP tools; they do not host our server. Both entry points call the same application service for trips, itinerary items, research and, at the collaboration milestone, discussion and proposals. The service owns criteria, provider queries, normalization, evidence, deterministic ranking and permission checks. Direct web sessions and authorized assistant clients use their appropriate authentication paths; neither bypasses the shared authorization rules. Client conversation and presentation remain separate from backend authority and durable state.
 
 ```mermaid
 flowchart LR
@@ -438,7 +449,7 @@ The selected initial architecture is one Render service for the web app, hosted 
 
 Initial tool contract: list_trips, create_trip and get_trip retrieve durable context; create_decision and update_decision_criteria manage versioned requirements; start_search and get_search_run manage live queries; compare_candidates and compare_search_runs expose trade-offs and changes; save_candidate and set_candidate_disposition support manual evidence, saving, rejection and restoration; select_candidate and record_booking record distinct outcomes. Each tool needs validated inputs, typed outputs, explicit effects and bounded results. Return stable IDs, source references, observation times, completeness and verification status. Keep full evidence retrievable without returning every historical record on each call.
 
-The organizer foundation exposes itinerary management, saved research and bounded flight tools through web and MCP. The October MCP flight generalization slices F1–F3 have closed; [one-way criteria/metadata and independent Claude read-only retrieval](https://github.com/eddieyang-97/trip-planning-engine/issues/21) also passed bounded acceptance. This does not establish Claude writes or supplier searches, live one-way fares or a complete hosted new-search journey. Import review, participant logistics and sourced/manual stay/dining comparisons are the next proposed product increments, while #24 research archive/restore is the selected primary implementation. Extend discussion and proposals only when usage supports them. Define exact tool names and schemas during milestone design. Web and MCP must reference the same item IDs and revisions; neither surface requires a separate backend LLM for these workflows.
+The organizer foundation exposes itinerary management, saved research and bounded flight tools through web and MCP. The October MCP flight generalization slices F1–F3 have closed; [one-way criteria/metadata and independent Claude read-only retrieval](https://github.com/eddieyang-97/trip-planning-engine/issues/21) also passed bounded acceptance. This does not establish Claude writes or supplier searches, live one-way fares or a complete hosted new-search journey. The new **agent-first** target starts with a bounded native chat-to-approved-trip journey [#31](https://github.com/eddieyang-97/trip-planning-engine/issues/31); sourced/manual stay/dining comparison and agent tools [#9](https://github.com/eddieyang-97/trip-planning-engine/issues/9) / [#10](https://github.com/eddieyang-97/trip-planning-engine/issues/10) follow. #24 is now closed; imported legacy plans [#7](https://github.com/eddieyang-97/trip-planning-engine/issues/7) are deferred. Extend discussion and proposals only when usage supports them. Define exact tool names and schemas during milestone design. Web and MCP must reference the same item IDs and revisions; neither surface requires a separate backend LLM for these workflows.
 
 The technical/product spike and remaining validation must:
 
@@ -449,6 +460,23 @@ The technical/product spike and remaining validation must:
 5. Recommend build versus reuse at component level. Preserve required attribution for any permitted reuse; review actual licenses and dependencies. Treat GPL/AGPL projects as idea references unless their use is explicitly decided. A missing license is not permission to copy.
 6. Present remaining validation findings before expanding implementation commitments. Include repeat-search unit economics, the shared-itinerary access model and state continuity. This PRD update does not itself implement those requirements.
 
+### Proposed agent orchestration boundary — not implemented
+
+```mermaid
+flowchart LR
+    User[Organizer in web app] --> Chat[In-app chat and proposal review]
+    Chat --> Agent[Bounded model-backed orchestrator]
+    Agent --> Proposals[Typed proposals and allowed tool requests]
+    Proposals --> Gate[Server validation, consent, authorization, revisions and budgets]
+    Gate --> Core[Existing Trip / Decision / Itinerary core]
+    Core --> DB[(Existing Supabase Postgres)]
+    Gate --> Sources[Approved bounded research adapters, later]
+    Core --> View[Shared permission-filtered itinerary]
+    External[ChatGPT / Claude MCP] --> Core
+```
+
+This describes **desired separation, not a new service or existing deployed component**. Start within the current modular Node/TypeScript service, reuse durable domain operations rather than implementing business logic in prompts, keep the model key server-side, and allow manual user interactions when inference fails. Provider selection, cost, data-transfer permissions, redaction/retention, request limits and latency/cancellation require an explicit pre-implementation decision. Never introduce direct LLM-to-database authority or background work that cannot resume safely.
+
 ## 12. Incremental roadmap and execution backlog
 
 The roadmap records **product choices**, not deployed features or guaranteed delivery dates. The [GitHub Issues queue](https://github.com/eddieyang-97/trip-planning-engine/issues) is the **sole actionable backlog**; [implementation.md](implementation.md) is the source for what has shipped and what acceptance actually passed. Do not duplicate an independent task tracker here.
@@ -457,15 +485,13 @@ The roadmap records **product choices**, not deployed features or guaranteed del
 
 | Queue | Issue / increment | Deliverable and completion evidence |
 | --- | --- | --- |
-| **Now · P2 research** | [#24 Archive/restore research decisions](https://github.com/eddieyang-97/trip-planning-engine/issues/24) | Owner-only reversible visibility, preserved rationale/evidence, booking safeguard and consistent web/MCP reads; isolated fixture/PostgreSQL tests before hosted acceptance. |
-| **Now · P2 operations** | [#14 Guarded Render auto-deploy](https://github.com/eddieyang-97/trip-planning-engine/issues/14) | Branch protection, exact-SHA smoke and `checksPass` service configuration were verified; close only after remaining failed-CI/non-production evidence and operational acceptance. Blueprint Auto Sync remains off. |
-| **Closed · flight F1–F3** | [#4 F1](https://github.com/eddieyang-97/trip-planning-engine/issues/4) · [#5 F2](https://github.com/eddieyang-97/trip-planning-engine/issues/5) · [#6 F3](https://github.com/eddieyang-97/trip-planning-engine/issues/6) | Bounded generalized searches, partial multi-airport return coverage and persisted conditional ChatGPT selection/read-back. F3 closure is **not** evidence of a complete new-search-to-selection hosted journey or unverified client support. |
-| **Verified · P2 interoperability** | [#21 One-way client schema / Claude](https://github.com/eddieyang-97/trip-planning-engine/issues/21) | Refreshed ChatGPT one-way persistence, authenticated metadata and independently authorized Claude read-only retrieval passed without supplier calls. The complete hosted new-search journey remains a distinct evidence gap. |
-| **Next · P2 reliability** | [#2 One browser sharing/revocation E2E](https://github.com/eddieyang-97/trip-planning-engine/issues/2) | One reproducible built-frontend test against local HTTP/DB: edit, role/privacy projection, revoke, persisted state, CI; minimal sanitized failure-regression convention. Flight-specific fault tests belong to F1/F2. |
-| **Next · P2 product** | [#7 Reviewable Alba itinerary import](https://github.com/eddieyang-97/trip-planning-engine/issues/7) | Preview and approve imported items, preserve uncertain/source fields, prevent duplicates and stale overwrites; user-approved real import later. |
-| **Next · P2 product** | [#8 Participant-aware Center Parcs logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8) | Stable participant identities (not account IDs), separate Sunday/Monday returns and activity subsets; correct private mobile view. |
-| **Next · P2 product** | [#9 Sourced/manual Zermatt accommodation comparison](https://github.com/eddieyang-97/trip-planning-engine/issues/9) | Whole-party lodging alternatives, actual beds, mandatory fees, deposits, cancellations, provenance and saved rationale; no provider API dependency. |
-| **Next · P2 product** | [#10 Sourced/manual restaurant shortlist](https://github.com/eddieyang-97/trip-planning-engine/issues/10) | Menu, group fit, evidenced service/price, location and genuine reservation links; saved reasoning without invented availability. |
+| **Now · P1 agent** | [#31 In-app conversational trip creation](https://github.com/eddieyang-97/trip-planning-engine/issues/31) | Ordinary user describes a fictional Zermatt trip in the app; real bounded model proposes a typed trip and tentative itinerary; user approves; fresh web/MCP read-back, resume, privacy, idempotency and cost limits pass. No supplier booking or automatic inventory claims. |
+| **Next · P2 stay research** | [#9 Agent-ready sourced accommodation comparison](https://github.com/eddieyang-97/trip-planning-engine/issues/9) | Preserve party-wide costs, actual beds, fees, sources and rationale in structured alternatives accessible by the in-app agent and direct web. Manual/source-link entry before licensed live discovery. |
+| **Next · P2 dining research** | [#10 Agent-ready restaurant shortlist](https://github.com/eddieyang-97/trip-planning-engine/issues/10) | Agent collects dining constraints and proposes evidence-backed options; user compares/approves them in shared trip state with genuine reservation links, not assumed live tables. |
+| **Later · P2 group planning** | [#8 Participant-aware Center Parcs logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8) | Correct group identities, assignment, split return plans and permission-filtered member views; agent text does not invent account/participant identities. |
+| **Backlog · P3 onboarding** | [#7 Reviewable legacy itinerary import](https://github.com/eddieyang-97/trip-planning-engine/issues/7) | Safely adopt an existing Alba/Google Docs trip without duplicating confirmed details; not a prerequisite for starting a new trip in the app. |
+| **Closed · engineering foundations** | [#2 Browser E2E](https://github.com/eddieyang-97/trip-planning-engine/issues/2) · [#3 Security](https://github.com/eddieyang-97/trip-planning-engine/issues/3) · [#14 Guarded release](https://github.com/eddieyang-97/trip-planning-engine/issues/14) · [#24 Research archive](https://github.com/eddieyang-97/trip-planning-engine/issues/24) · [#28 Manual smoke](https://github.com/eddieyang-97/trip-planning-engine/issues/28) | Shipped/accepted only to the bounded levels documented in [delivery status](implementation.md). |
+| **Closed · flight/interoperability** | [#4–#6 F1–F3](https://github.com/eddieyang-97/trip-planning-engine/issues/4) · [#21 Client interoperability](https://github.com/eddieyang-97/trip-planning-engine/issues/21) | Existing cost-bounded feasibility research and client metadata/read acceptance; no full-market fares or native flight ticketing. |
 
 **Later / conditional (not active Issues until a bounded deliverable is approved):** repeat-search material-change detection and provider integrations; booking handoff and confirmation reconciliation; trip-aware expense ledger with partial repayments; richer collaboration; native reservations only with approved provider access; fare alerts, market-wide flight comparison, ticketing and support/servicing. Manual/sourced stay and dining research must remain viable without integrations. The earlier flight pilot remains the historical proof of feasibility, not a present limit on F1's target supported inputs.
 
@@ -482,8 +508,9 @@ Stay comparison covers Airbnb-style whole homes as well as hotel-room combinatio
 
 | Question | Working position | Next evidence or resolution |
 |---|---|---|
-| What is the product's leading value? | Agreed: a reliable trip workspace with **accommodation and restaurant choices** and persistent reasoning; flights mainly test feasibility | Prove with real stays/dining shortlists and another organizer |
-| What replaces the Google Doc? | One mobile itinerary, import/paste of existing plans, bookings/open decisions and participant-specific logistics | Alba and Center Parcs migration tests |
+| What is the product's leading value? | **Agent-first trip planning**: user describes a goal, AI helps organize/research, human approves, persistent trip and itinerary remain authoritative; accommodation/dining are the main research verticals, flights support feasibility | #31 initial in-app journey, then real sourced stay/dining research and second-organizer adoption |
+| What replaces the Google Doc? | Start a new trip **in-app by conversation**, approve structured plan items and share a mobile itinerary; legacy import is optional later | #31 Zermatt chat-to-itinerary + independent viewer, then Alba import #7 and Center Parcs #8 |
+| Does agent need a separately connected assistant account? | **No**: native web agent is the target; external MCP ChatGPT/Claude remain optional alternate clients. The existing MCP server is not itself an embedded agent | #31 real model-backed in-app acceptance, model-provider and privacy/cost review first |
 | Can research work before supplier APIs? | Yes: sourced links, manual entry, preserved evidence and comparisons are first-class | Test Zermatt stay options and dining links |
 | What does flight search promise? | Delivered F1–F3 slice: supported route/date/adult-count MCP discovery, bounded partial multi-airport coverage, reproducible comparison and conditional selection—not full-market results or bookable party fares | [F1](https://github.com/eddieyang-97/trip-planning-engine/issues/4), [F2](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and [F3](https://github.com/eddieyang-97/trip-planning-engine/issues/6) are closed; [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) records one-way criteria/metadata and one-account Claude read-only acceptance |
 | When should collaboration expand beyond basic comments? | Member discussion is implemented, with broader hosted acceptance pending; proposals, approvals and voting remain usage-driven, never blockers for accommodation research | Observe real collaboration |
@@ -502,6 +529,6 @@ Stay comparison covers Airbnb-style whole homes as well as hotel-room combinatio
 | Which adoption signals indicate product value? | Time to first useful itinerary/comparison, repeat trip use, independent friend comprehension and replacement of parallel documents, gathered through privacy-minimal pilot observation | Second-organizer and real group-trip feedback; define thresholds only after a baseline |
 | Which flight test assumptions remain? | Flaine 18–20 Dec 2026, four travelers, a snowboard and London airports confirmed; adult ages, number of boards, exact time windows and budget remain unresolved | Require clarification only for booking-ready comparison |
 
-**Current delivery order (23 October):** F1–F3, security #3 and release operations #14 are closed with dated evidence and stated limits. User-selected research archive/restore #24 and independently developed browser sharing E2E #2 have separate delivery records; see [delivery status](implementation.md) and [browser test guidance](browser-testing.md). Itinerary import/group logistics/manual stay/dining #7–#10 remain queued. Use #21 for verified one-way criteria/metadata and Claude read-only evidence; broader live/client tests need their own authorization. Flight scope stays cost-bounded and booking-free.
+**Current delivery order (23 October, agent-first decision):** [#31](https://github.com/eddieyang-97/trip-planning-engine/issues/31) first in-app agent and approved itinerary, then [#9](https://github.com/eddieyang-97/trip-planning-engine/issues/9) stay research and [#10](https://github.com/eddieyang-97/trip-planning-engine/issues/10) dining, with [#8](https://github.com/eddieyang-97/trip-planning-engine/issues/8) group logistics later and [#7](https://github.com/eddieyang-97/trip-planning-engine/issues/7) import as legacy onboarding backlog. Existing shipped F1–F3, #2, #3, #14, #21, #24 and #28 acceptance remains bounded as recorded in [delivery status](implementation.md). The agent has **not** been implemented or deployed; provider/cost/data handling are prerequisite decisions.
 
 
