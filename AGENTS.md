@@ -37,6 +37,12 @@ These instructions apply across the repository. Keep this file operational and c
 - **Repository migrations are authoritative** (`migrations/`, executed by `src/database.ts` and tracked in `app_schema_migrations`). Supabase's own migration catalog may not represent these application migrations. Write additive SQL in a versioned GitHub PR, pass applicable CI/PostgreSQL tests and coordinate deployment through [releases](docs/releases.md). Never run a GitHub migration and also replay it blindly via the Supabase connector.
 - For security-sensitive schema or permission changes, inspect effective grants/RLS, privileged access paths and Supabase security advisors with read-only tools before proposing a fix. An advisor suggestion is not permission to apply its remediation; verify effective protections after an approved change.
 
+## Core product journey — MCP delegation to web review
+
+- Prioritize **complete outcomes** over isolated tool CRUD: an authorized ChatGPT/Claude conversation should be able to save a sourced/manual accommodation or dining shortlist in the *same durable trip* that the web app renders, with stable decision IDs, provenance and unknowns. Web users must be able to inspect, edit and select without re-entering the assistant's research.
+- Reuse existing authorized typed MCP/domain operations, item revisions, idempotency, private projections and manual web fallback. Selection is not a booking; a reviewed itinerary entry stays tentative unless a genuine separate booking report is recorded. Avoid a chat-only store, embedded LLM, custom autonomous harness or new infrastructure to make this work.
+- Treat **one connected-client → persisted shortlist → web review → tentative itinerary → fresh web/MCP read-back** as the target user acceptance for #9/#10, with fictional fixtures and separately authorized hosted testing. An SDK/unit pass or model prose cannot prove this journey; record client/provider limitations explicitly.
+
 ## Implementation workflow
 
 1. Start with the smallest independently useful increment and **one primary feature issue at a time**. Before coding, confirm its queue position, bounded deliverable, dependencies and evidence conditions in the current Issue; do not implement every PRD target at once. Keep the existing modular monolith, shared domain rules and supplier adapters. Do not add microservices, queues, elaborate abstractions, enterprise RBAC or infrastructure for hypothetical scale.
