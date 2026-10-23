@@ -26,7 +26,7 @@ Create a shared travel workspace that remembers research, shortlisted options, s
 
 > Establish whether the trip is reachable with workable flights, bags and transfers; clearly label missing costs, conditions and coverage instead of claiming a complete market search.
 
-The product differentiates on **persistent, assistant-accessible decision context**, not replicating booking-site inventory. The web app provides direct controls and readable mobile plans; connected assistants provide conversational research and edits. The backend owns identity, durable trip state, provenance, constraints, permissions and explainable comparison. Manual and sourced options must work even without supplier APIs. Selection is not a booking; a user-reported confirmation is not automatically provider-verified.
+The product differentiates on **complete, delegated travel-planning outcomes backed by persistent, assistant-accessible decision context**, not replicating booking-site inventory. In ChatGPT/Claude, an organizer should be able to request a bounded accommodation or dining research outcome, not orchestrate every individual data-management operation. The authorized assistant may research within available source rights and grants, save an evidence-backed comparison/shortlist through MCP, and hand off a stable trip/decision reference for review in the web app. The user can inspect, revise and explicitly select an option; the approved tentative plan then appears in the shared itinerary. This is a **target workflow, not existing end-to-end hosted acceptance**. The web app also provides direct controls and readable mobile plans; connected assistants provide conversational research and edits. The backend owns identity, durable trip state, provenance, constraints, permissions and explainable comparison. Manual and sourced options must work even without supplier APIs. Selection is not a booking; a user-reported confirmation is not automatically provider-verified.
 
 ## 2. Audience and problem
 
@@ -43,14 +43,14 @@ Compare real organizer effort with booking websites + an assistant + a shared do
 | Outcome | Acceptance evidence |
 |---|---|
 | Import, don't rebuild | Migrate Alba itinerary and critical bookings/transfers, flagging uncertain fields for organizer review |
-| Compare accommodations | Compare Zermatt stays by whole-party cost, actual beds, location, refundable deposit, cancellation deadline and late check-in |
-| Compare restaurants | Save a sourced shortlist with menu, group fit, expected costs including documented service, booking path and rationale |
+| Delegate and review a stay decision | In an authorized assistant conversation, request a Zermatt stay comparison once; review a persisted, sourced shortlist in the web app; select an option into a **tentative** itinerary entry without reconstructing it or claiming it is booked |
+| Delegate and review dining | Ask an authorized assistant for group-dining options; open the same sourced shortlist, menu, price/service evidence and real booking links in the web app; choose a meal for the tentative itinerary without losing rationale |
 | Reduce repeat work | On revisiting stay or dining research, see material changes in two minutes without reconstructing the shortlist |
 | Support group logistics | A Center Parcs friend can identify activities and their Sunday/Monday return arrangements on a phone |
 | Preserve booking integrity | Clearly separate shortlisted, selected, requested, user-reported booked and genuinely verified states |
 | Preserve evidence | Display source, observation time, price basis, known mandatory charges and unknowns; never fabricate availability |
 | Respect roles | Verify anonymous-link revocation, editor limits, private-field filtering and conflicting edits with real accounts |
-| Continue across interfaces | Web and each authorized MCP client see the same saved items and permitted updates |
+| Continue across interfaces | A complete permitted research-to-shortlist task from an actual ChatGPT/Claude client produces persistent trip/decision IDs, matching authorized web state and a fresh read-back; a new chat can continue from saved data, not an earlier transcript |
 | Check flight feasibility | Flaine options show viable times and unresolved snowboard/transfer costs within known source coverage |
 | Prove adoption | A second organizer can manage a real trip without a parallel working Google Doc |
 
@@ -101,6 +101,15 @@ Web and authorized MCP clients share trip IDs, evidence, permissions and revisio
 7. **Share and use.** Show a mobile itinerary with permission-filtered statuses and participant-specific logistics. Support basic sharing and one-off Apple Calendar exports.
 
 For any comparison, answer: Does it fit? What will it cost? Why choose or avoid it? What remains unverified? The detailed flight-specific search and cost rules below remain applicable to the bounded feasibility feature, not mandatory prerequisites for accommodation or dining work.
+
+### Outcome-oriented MCP → web journeys — target acceptance
+
+The primary assistant workflow is **delegate a bounded travel outcome → gather permitted sourced/manual evidence → save structured candidates, observations and rationale through authorized MCP → open the same decision in the web app → review/edit/choose → record a tentative itinerary item → retrieve the same approved state through web/MCP**. Each step must be possible without a separate in-app LLM. The organizer should not need to coordinate individual CRUD calls, copy a prose comparison between apps, or reconstruct option details in the browser. Linked candidate/decision IDs, source freshness, known costs and unknowns survive the handoff.
+
+- **Web is useful without an assistant:** manual/source-link entry, visual comparison and selection are first-class; unsupported provider coverage must be explicit. An assistant is an optional client, not the database, source of truth or required interface.
+- **MCP tools are composable, not a guaranteed autonomous harness:** publish reliable typed operations and task-oriented descriptions; verify that an actual authorized ChatGPT/Claude client can execute the intended multi-step journey rather than infer success from individual server SDK calls.
+- **Selection and booking remain separate:** selected options can create or link a **tentative** itinerary item after review. Do not silently overwrite saved plans or set a booked/verified state. Preserve revisions, idempotency, privacy boundaries, client grants and fresh read-back.
+- **Evidence threshold:** deterministic fictional end-to-end web + MCP regression plus a separately authorized, fictional hosted-client pilot. Measure unnecessary copy/paste, organizer interventions and whether a user can review an existing shortlist in the web app; lack of provider access remains a scope/coverage limitation, not permission to fabricate.
 
 ### Itinerary experience and collaboration
 
@@ -285,9 +294,9 @@ The primary product tests use actual planning cases:
 | Case | Required behavior |
 |---|---|
 | Alba, 13–15 Nov 2026 | Import existing itinerary, preserve separate flight groups, transfers, booked dining and uncertain confirmation details without manually rebuilding |
-| Zermatt, 14–18 Jan 2027 | Compare competing stays with full group price, actual beds, location and cancellation deadlines; retain alternatives and rationale |
+| Zermatt, 14–18 Jan 2027 | Delegate a bounded stay comparison through an authorized assistant using fictional or approved sourced data, persist alternatives with whole-party price/beds/unknowns, open them in the web app, select a tentative stay and verify fresh cross-surface read-back |
 | Center Parcs, 27–30 Nov 2026 | Preserve separate Sunday/Monday return groups and activity participation; friends see the right plan on mobile |
-| Restaurant options | Compare a sourced shortlist by party fit, menu, expected cost/service and authentic booking path; revisiting retains earlier decisions |
+| Restaurant options | Delegate a sourced dining shortlist through MCP, review the same party-fit/menu/cost and authentic reservation links in web, add a tentative meal and retain the shortlist and rationale on revisit; no live-table claim |
 
 These are acceptance targets, not claims of shipped functionality.
 
@@ -451,7 +460,7 @@ The technical/product spike and remaining validation must:
 
 ## 12. Incremental roadmap and execution backlog
 
-The roadmap records **product choices**, not deployed features or guaranteed delivery dates. The [GitHub Issues queue](https://github.com/eddieyang-97/trip-planning-engine/issues) is the **sole actionable backlog**; [implementation.md](implementation.md) is the source for what has shipped and what acceptance actually passed. Do not duplicate an independent task tracker here.
+The roadmap records **product choices**, not deployed features or guaranteed delivery dates. The near-term **core UX** is successful outcome-oriented delegation through an *external authorized MCP assistant*, persisted structured research, and direct web review/itinerary continuation—not development of an embedded model agent. Validate these journeys within #9/#10 rather than creating an independent Duet-inspired implementation epic. The [GitHub Issues queue](https://github.com/eddieyang-97/trip-planning-engine/issues) is the **sole actionable backlog**; [implementation.md](implementation.md) is the source for what has shipped and what acceptance actually passed. Do not duplicate an independent task tracker here.
 
 **Prioritization rule (21 October 2026):** rank current work by security/data-integrity risk, immediate user value and validated demand, dependency readiness, supplier rights/cost, and the size of the next independently verifiable increment. P0 = safety gate; P1 = current product milestone; P2 = next validated value/reliability; conditional = not yet authorized/justified. **Now** should contain at most one primary product implementation stream alongside genuine safety work. Queue location does not mean a GitHub issue has an assigned engineer or an active PR. Re-rank after real usage evidence rather than treating historical numbered epics as a fixed schedule.
 
