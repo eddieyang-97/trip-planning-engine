@@ -1,6 +1,6 @@
 # Trip Planning Workspace — PRD
 
-Version: 0.7 · Updated 22 October 2026 · Status: agreed product direction; requirements and acceptance targets
+Version: 0.7 · Updated 23 October 2026 · Status: agreed product direction; requirements and acceptance targets
 
 This file defines product requirements, not verified shipping status; see [implementation.md](implementation.md) for delivery evidence, [architecture.md](architecture.md) for accepted technical direction, and [README.md](README.md) for feature guides. Web and authorized MCP assistants are first-class interfaces to one trip state; their UX can differ. The working name and repository/deployment identifiers stay unchanged.
 
