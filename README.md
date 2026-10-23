@@ -93,6 +93,7 @@ Mutations require an idempotency key. Mutable decision/itinerary updates also re
 | Purpose | Tools |
 | --- | --- |
 | Trips and evidence | `list_trips`, `create_trip`, `get_trip`, `get_decision` |
+| Research lifecycle | `list_decisions`, `archive_decision`, `restore_decision` (owner-only, revisioned, reversible) |
 | Manual itinerary | `get_itinerary`, `add_itinerary_item`, `update_itinerary_item`, `remove_itinerary_item`, `move_itinerary_item` |
 | Private policy notes | `create_policy_note`, `update_policy_note`, `get_policy_note`, `list_policy_notes` |
 | Decision criteria | `create_decision`, `update_decision_criteria` |
