@@ -6,3 +6,6 @@ dist/
 .data/
 coverage/
 *.log
+
+playwright-report/
+test-results/

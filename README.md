@@ -31,7 +31,8 @@ The [PRD](docs/prd.md) defines the intended product, [GitHub Issues](https://git
 - **Client acceptance:** [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) records refreshed one-way criteria, authenticated metadata and independent Claude read-only retrieval; it does not establish live one-way fares or one complete hosted new-search-to-selection journey.
 - **Open follow-ups:** [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) browser E2E; [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues/7) for itinerary import, group logistics, accommodation and dining.
 
-**Research archive/restore #24 is the user-selected primary implementation.** Treat the closed F1–F3 issue titles and older pilot reports as dated history, not present work instructions.
+**Current work:** research archive/restore [#24](https://github.com/eddieyang-97/trip-planning-engine/issues/24) and the independently developed browser sharing regression [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2). The browser journey is implemented locally; review/CI evidence is tracked in [delivery status](docs/implementation.md). Treat closed F1–F3 issue titles and older pilot reports as dated history.
+
 
 ## Run locally
 
@@ -59,6 +60,8 @@ npm start
 ```
 
 `npm start` uses the compiled app with the same mode and data path. Stop the dev process first; only one process should open a given embedded database. Tests use isolated databases and do not contact flight suppliers, Supabase or other external APIs.
+
+The built-frontend browser check is separate: install Chromium once with `npx playwright install --only-shell chromium`, then run `npm run test:e2e`. It uses fictional local identities and a fresh in-memory database. See [browser tests and failure regressions](docs/browser-testing.md) for the exact checks, CI gate and hosted-account limits.
 
 ## The Flaine acceptance case
 

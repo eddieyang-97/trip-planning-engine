@@ -16,7 +16,8 @@
     "probe:flights": "tsx --env-file-if-exists=.env scripts/probe-flights.ts",
     "probe:places": "tsx scripts/probe-places.ts",
     "probe:accommodation": "tsx --env-file-if-exists=.env scripts/probe-accommodation.ts",
-    "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts"
+    "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
+    "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",
@@ -29,6 +30,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@supabase/supabase-js": "2.117.3",
     "@types/express": "5.0.6",
     "@types/leaflet": "^1.9.21",
