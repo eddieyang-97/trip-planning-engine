@@ -1,0 +1,41 @@
+# Intentionally NOT a push/PR check: Render waits for green main CI before deploying.
+# Making this a required check would deadlock the checksPass deployment gate.
+name: Production smoke (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Exact 40-character Git SHA shown as Live in Render"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  smoke:
+    name: smoke-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Require an exact production release SHA
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        shell: bash
+        run: |
+          if [[ ! "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "::error::Supply the full lowercase 40-character release SHA shown as Live in Render."
+            exit 1
+          fi
+      - name: Checkout the release under test
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Verify hosted release (public GET only)
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: node --import tsx scripts/post-deploy-smoke.ts "$EXPECTED_SHA"
