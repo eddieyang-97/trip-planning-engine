@@ -16,6 +16,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
+      - name: Require an exact production release SHA
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        shell: bash
+        run: |
+          if [[ ! "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "::error::Supply the full lowercase 40-character release SHA shown as Live in Render."
+            exit 1
+          fi
       - name: Checkout the release under test
         uses: actions/checkout@v4
         with:
