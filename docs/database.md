@@ -1,6 +1,6 @@
 # Database ER diagrams
 
-Updated 16 October 2026. The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–011 extension index below** for subsequent role, anonymous-link, comments, profile and lifecycle changes, and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
+Updated 23 October 2026. The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–012 extension index below** for subsequent role, anonymous-link, comments, profile and lifecycle changes, and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
 
 Entity names match SQL table names, shown in uppercase for readability. Attributes are selected fields, not complete DDL. `PK` marks a primary-key component; `FK` marks a foreign-key component. Solid lines identify a child through its parent key; dashed lines are non-identifying relationships. Both represent enforced foreign keys here; dashed does **not** mean planned. A circle allows zero, a bar means one, and a crow's foot means many. See [Mermaid's notation reference](https://mermaid.js.org/syntax/entityRelationshipDiagram.html).
 
@@ -176,7 +176,7 @@ Private policy notes belong to an account and may be reused across its trips. Se
 
 ## Account ownership and supporting tables
 
-Supabase Auth manages accounts outside this application schema. `owner_id`, `actor_id`, `requested_by`, and similar UUID fields are verified account references used by the service; the repository's migrations through 011 do **not** add SQL foreign keys to `auth.users`. Migration 010 does add an application `account_profiles` table keyed by the verified account UUID; it is not a replacement for Supabase identity. Ownership checks and direct/assistant session rules remain essential. The browser does not read these tables through the Supabase Data API.
+Supabase Auth manages accounts outside this application schema. `owner_id`, `actor_id`, `requested_by`, and similar UUID fields are verified account references used by the service; the repository's migrations through 012 do **not** add SQL foreign keys to `auth.users`. Migration 010 does add an application `account_profiles` table keyed by the verified account UUID; it is not a replacement for Supabase identity. Ownership checks and direct/assistant session rules remain essential. The browser does not read these tables through the Supabase Data API.
 
 Brevo is configured as Supabase Auth's SMTP relay. It adds no application tables or relationships, so these ER diagrams remain unchanged. SMTP credentials live in Supabase configuration; delivery logs live with the providers. Application invitation tokens/memberships remain in the viewer-sharing tables below, separate from account-confirmation emails. See [account email delivery](account-linking.md#account-email-delivery).
 
@@ -233,7 +233,7 @@ erDiagram
 
 Update the relevant ER diagram when an applied migration changes relationships. Keep local/proposed extensions labelled until deployment and acceptance evidence are recorded.
 
-## Changes since the 001–006 ER baseline (007–011)
+## Changes since the 001–006 ER baseline (007–012)
 
 The diagrams above intentionally preserve the relationships visible in the 14 October baseline. Consult the SQL migrations for the authoritative current schema; these extensions are recorded here to avoid mistaking the old viewer-only diagram for the present model.
 
@@ -243,8 +243,10 @@ The diagrams above intentionally preserve the relationships visible in the 14 Oc
 | [008 — anonymous links](../migrations/008_itinerary_view_links.sql) | Adds `account`/`link` access modes and read-only constraints; old invitations remain account-bound. | [Sharing guide](itinerary-sharing.md); no anonymous editor access. |
 | [009 — comments](../migrations/009_itinerary_comments.sql) | Adds `itinerary_comments` with `trip_id`, optional `(item_id, trip_id)` relationship, author ID/label/role, timestamps and soft deletion. | [Discussion guide](itinerary-comments.md), including dated hosted observations. Comments do not authorize itinerary edits. |
 | [010 — profiles](../migrations/010_account_profiles.sql) | Adds `account_profiles`, keyed by external Supabase account UUID, with display name, optional legacy handle, bounded avatar data, revision and timestamp. | [Profile guide](account-profiles.md) documents a 16 October hosted release and recorded schema-version 10 startup; profile names do not grant roles. |
-| [012 — research archive](../migrations/012_decision_archive.sql) | Nullable archive actor/time on decisions, plus protected archive/restore events keyed by decision/revision. Existing research remains active and untouched. | [Semantics and rollback constraints](data-semantics-review.md#research-archive-issue-24); no quota or booking changes. |
 | [011 — lifecycle](../migrations/011_trip_lifecycle.sql) | Archive actor/time, lifecycle review revision, hashed confirmations, deletion/retry guards and independent quota counters. | [Lifecycle guide](trip-lifecycle.md) records retention, migration and acceptance; schema rollback cannot restore deleted content. |
+| [012 — research archive](../migrations/012_decision_archive.sql) | Nullable archive actor/time on decisions, plus protected archive/restore events keyed by decision/revision. Existing research remains active and untouched. | [Semantics and rollback constraints](data-semantics-review.md#research-archive-issue-24); no quota or booking changes. |
+
+Application migrations are applied by [`src/database.ts`](../src/database.ts) and versioned in **`app_schema_migrations`**; the Supabase connector's separate migration history is not necessarily the app's applied migration ledger. Inspect read-only schema metadata if drift is suspected; do not reapply production DDL through the connector without a coordinated approved change. The live Supabase project is not a test database.
 
 Earlier `itinerary_invites` and `itinerary_members` diagram attributes (e.g., “viewer only”) apply to migration 006 **at that time**; read 007–008 for their present constraints. This index does not replace a fresh database schema introspection or claim complete end-to-end acceptance of every workflow.
 

@@ -1,19 +1,21 @@
 # Documentation
 
-Updated 22 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
+Updated 23 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
 
 ## Current guidance
 
 | Document | Purpose |
 | --- | --- |
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
-| [Database ER diagrams](database.md) | Initial ER baseline and migration extensions; newer trip lifecycle is defined by migration 011 |
+| [Database ER diagrams](database.md) | Initial ER baseline and extensions 007–012, including trip lifecycle 011 and research archive 012 |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
 | [Product requirements](prd.md) | PRD v0.7: long-term product scope, completed October flight priority, open roadmap choices and release gates |
 | [Delivery status and acceptance](implementation.md) | Dated deployed capabilities, acceptance evidence and remaining gaps |
 | [Data Semantics Review](data-semantics-review.md) | Domain invariants, proposed decisions and migration gates; not a substitute for applied SQL |
 
-**Planning versus evidence:** requirements define intended behavior; [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) track actionable deliverables; delivery status records code, deployment and actual client acceptance. [Security #3](https://github.com/eddieyang-97/trip-planning-engine/issues/3) and flight [F1 #4](https://github.com/eddieyang-97/trip-planning-engine/issues/4), [F2 #5](https://github.com/eddieyang-97/trip-planning-engine/issues/5) and [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6) are closed; [client interoperability #21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) records completed one-way criteria/metadata and independent Claude read-only acceptance. [Guarded release #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) and [browser E2E #2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) remain open. Read the [current summary](implementation.md#current-state--22-october-2026) before historical sections. Client acceptance remains bounded to the recorded account and operations; it does not prove live one-way fares, Claude writes or a complete hosted new-search journey.
+**Planning versus evidence:** [Product requirements](prd.md) define intended behavior; [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) contain actionable deliverables; [current status](implementation.md#current-state--23-october-2026) records source, CI, deployment and independently observed acceptance. Security [#3](https://github.com/eddieyang-97/trip-planning-engine/issues/3), F1–F3 [#4–#6](https://github.com/eddieyang-97/trip-planning-engine/issues/4), releases [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14), browser regression [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2), research archive [#24](https://github.com/eddieyang-97/trip-planning-engine/issues/24) and manual production smoke [#28](https://github.com/eddieyang-97/trip-planning-engine/issues/28) are closed. The latter three have recorded PR/CI and bounded live acceptance; this does not establish every authenticated user journey or supplier-booking behavior. The next open feature candidates are [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues/7).
+
+**Production connector boundary:** Supabase MCP is for read-only schema/advisor/diagnostic verification by default, not general production database writes, applying migrations or revealing private trip records. Repository migrations tracked by `app_schema_migrations` remain authoritative. See [AGENTS.md](../AGENTS.md#connected-production-service-tools) and [release guidance](releases.md#connected-supabase-production-diagnostics).
 
 ## Feature guides and evidence
 
@@ -28,7 +30,7 @@ Updated 22 October 2026. Use this index to find the authoritative guide for each
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
 | [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker--15-october-2026) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
 | [Hosted flight search](hosted-live-search.md) | Bounded generalized F1/F2 live acceptance, F3 conditional ChatGPT selection/read-back, client gaps, limits and historical pilot evidence |
-| [Guarded releases](releases.md) | CI/branch safeguards, exact-SHA smoke checks, worker draining and staged Render auto-deploy activation |
+| [Guarded releases](releases.md) | CI/branch safeguards, verified manual post-deploy smoke, Supabase connector boundaries, worker draining and Render auto-deploy |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
 | [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | Historical 15 October deployment, hosted smoke checks and acceptance limits |
 | [Apple Calendar export](calendar-export.md) | Deployed individual/all/subset .ics export; saved-trip/native device acceptance pending |
