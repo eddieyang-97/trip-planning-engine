@@ -45,12 +45,12 @@ jobs:
         # apt upgrades/extra font downloads; launch still fails if a library is missing.
         run: npx playwright install --only-shell chromium
         timeout-minutes: 3
-      - name: Built-frontend sharing regression
+      - name: Built-frontend browser regressions
         run: npm run test:e2e
         timeout-minutes: 3
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: isolated-sharing-failure
+          name: isolated-browser-failure
           path: test-results/
           retention-days: 7

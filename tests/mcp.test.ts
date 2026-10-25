@@ -38,7 +38,9 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     assert.equal(reboundStatus, 403);
     assert.equal((await fetch(`${origin}/mcp`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{' })).status, 400);
     await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
-    const tools = await client.listTools(); assert.equal(tools.tools.length, 34);
+    const tools = await client.listTools();
+    for(const name of ['create_stay_decision','list_stay_decisions','get_stay_decision','get_stay_observation','save_stay_candidate','set_stay_disposition','compare_stays','select_stay_candidate','commit_stay_selection'])assert.ok(tools.tools.some(t=>t.name===name),name+' must be discoverable');
+    for(const name of ['create_itinerary_invite','update_shared_itinerary_item'])assert.ok(!tools.tools.some(t=>t.name===name),name+' must stay web-only');
     assert.equal(tools.tools.find(t=>t.name==='delete_trip')!.annotations!.destructiveHint,true);
     assert.equal(tools.tools.find(t=>t.name==='leave_trip')!.annotations!.destructiveHint,true);
     assert.ok(tools.tools.find(t=>t.name==='prepare_trip_action'));

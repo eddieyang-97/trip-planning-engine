@@ -140,7 +140,7 @@ test('pooled PostgreSQL shutdown persists partial results; failed finalization r
   try{
     await admin.query(`create schema ${schema}`);
     db=pooledDatabase(new pg.Pool({connectionString:url.href,max:5,options:`-c search_path=${schema}`,statement_timeout:5000}));
-    for(const file of ['001_initial.sql','002_account_linking.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql']){
+    for(const file of ['001_initial.sql','002_account_linking.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql','013_stay_comparison.sql']){
       const sql=await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8');
       // Use the real OAuth tables/constraints without installing the public Supabase hook.
       await db.execute(file==='002_account_linking.sql'?sql.split('-- Enable this hook separately')[0]!:sql);

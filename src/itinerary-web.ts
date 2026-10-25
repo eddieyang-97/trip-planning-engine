@@ -10,6 +10,7 @@ import {itineraryAccess} from './itinerary.js';
 import {MapPlaces,placeSearchSchema} from './map-places.js';
 import {readTripRoster} from './account-profiles.js';
 import {uuid} from './domain.js';
+import {withStayWebUrls} from './stay-links.js';
 
 export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(header?:string)=>Promise<{userId:string}>;
   supabaseUrl?:string;publishableKey?:string;local?:boolean;mapPlaces?:MapPlaces}) {
@@ -65,7 +66,7 @@ export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(
   });
   router.post('/itinerary-api/:operation',async(req,res)=>{
     const name=req.params.operation as ToolName;
-    try{res.json(await options.core.callFromWeb(name,req.body,res.locals.userId));}
+    try{res.json(withStayWebUrls(await options.core.callFromWeb(name,req.body,res.locals.userId),options.origin));}
     catch(error){const code=error instanceof DomainError?error.code:error instanceof z.ZodError?'VALIDATION_ERROR':'INTERNAL_ERROR';
       res.status(code==='REVISION_CONFLICT'||code==='IDEMPOTENCY_CONFLICT'?409:code==='FORBIDDEN_OR_NOT_FOUND'?404:code==='INTERNAL_ERROR'?500:400)
         .json({code,error:error instanceof DomainError?error.message:error instanceof z.ZodError?error.issues.map(i=>i.message).join('; '):'Unable to save. Retry the same request.'});}

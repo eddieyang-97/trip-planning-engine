@@ -254,3 +254,21 @@ Earlier `itinerary_invites` and `itinerary_members` diagram attributes (e.g., â€
 ## Migration 011 - trip lifecycle
 
 See [011_trip_lifecycle.sql](../migrations/011_trip_lifecycle.sql) and the [feature guide](trip-lifecycle.md). Trips gain nullable archive actor/time and a positive lifecycle revision. Mutation receipts gain indexed trip association for content erasure. Hashed `trip_action_confirmations` are bounded by expiry and tied to an existing trip; `trip_deletions` intentionally retains only trip UUID/time with no trip FK. `live_search_usage` intentionally has no search-run FK so deleting evidence does not reset paid-request allowances. RLS denies browser roles. Parent-before-child application locks and explicit FK-ordered deletes preserve graph integrity; no cascade grants authority.
+
+
+## Migration 013 â€” accommodation comparison (source preparation)
+
+[013_stay_comparison.sql](../migrations/013_stay_comparison.sql) adds typed `flight`/`stay` decisions (existing records default to flight), current candidate rationale, nullable authenticated observation/reconciliation metadata, and a protected `stay_itinerary_links` relationship. It reuses the existing immutable criteria, observation and selection tables. The link retains exact trip/decision/candidate/observation/selection/item identity and approval-time evidence; a selection links at most one item. Composite foreign keys enforce consistent parents, and RLS plus PUBLIC/anon/authenticated revocations preserve service-only access.
+
+```mermaid
+erDiagram
+    TRIPS ||--o{ DECISIONS : owns
+    DECISIONS ||--o{ CANDIDATES : considers
+    CANDIDATES ||--o{ OBSERVATIONS : accumulates
+    OBSERVATIONS ||--o{ SELECTIONS : pins
+    SELECTIONS ||--o| STAY_ITINERARY_LINKS : approved_origin
+    ITINERARY_ITEMS ||--o| STAY_ITINERARY_LINKS : retains
+    TRIPS ||--o{ ITINERARY_ITEMS : contains
+```
+
+Existing flight payloads and manual items are not rewritten. Lodging source evidence remains owner-private; shared itinerary projections omit the link/snapshot. Archive retains research; permanent trip deletion removes the relationship with the graph. See [semantics and forward recovery](data-semantics-review.md#sourced-accommodation-comparison-issue-9-25-october-2026). Deployment/schema-13 verification remains separate from a successful local migration or CI.
