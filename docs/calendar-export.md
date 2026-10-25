@@ -79,42 +79,6 @@ and 16 MB total cached file bytes. Bounds apply to this service process.
 Text is escaped and long lines fold at 75 UTF-8 octets without splitting code
 points, following [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545.html).
 
-## Validation — 15 October 2026
+## Verification boundary
 
-- Type checking and production build passed.
-- Full local suite: 87 passed, 3 external PostgreSQL tests skipped, 0 failures.
-  All seven new calendar tests passed, including the final targeted rerun.
-- Serializer checks cover exact individual/all/subset membership, stable UIDs,
-  cross-zone flights, midnight crossings, DST gaps/overlaps, fractional offsets,
-  checkout boundaries, missing schedules, Unicode folding and property injection.
-- HTTP checks cover direct authentication, cross-account denial, same-origin
-  enforcement, stale revision, foreign selections, private-field exclusion,
-  file MIME/disposition, ticket expiry, session invalidation and view-link
-  revocation. Composition with the actual application router passed.
-- An isolated fictional itinerary in the browser verified all/selected/individual
-  preparation, an empty selection disabling export, unavailable-item explanations
-  and a 390px phone layout with no horizontal overflow. Account-free viewer
-  preparation also passed in the browser. A downloaded three-event
-  file contained the expected meeting/flight UTC fields and hotel checkout date.
-  No browser console errors or warnings were recorded.
-
-The final feature's saved-trip HTTP export, native iPhone/iPad handoff, displayed
-times and repeated-import behavior remain acceptance work. Mac-specific work,
-subscriptions and automatic synchronization are outside this slice.
-
-Release verification against main including member discussion on 15 October: the
-isolated worktree build passed and 90 tests passed, with the same three external
-PostgreSQL checks skipped. Hosted CI and deployment are recorded after release.
-
-## Merge and CI — 15 October 2026
-
-[PR #1](https://github.com/eddieyang-97/trip-planning-engine/pull/1) merged as
-45998a94d324d3f4a0b930826d1e3ee3e1509f4d. The merged file tree matches the
-CI-tested branch. [CI run 38712785769](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712785769)
-passed the build and all 93 tests, with zero skipped, including pooled PostgreSQL.
-
-At merge time, manual deployment was pending Render sign-in. The user later
-deployed the release on 15 October; [hosted release evidence](release-calendar-comments-2026-10-15.md) supersedes
-that earlier status. A subsequent public check returned healthy status, calendar
-controls and the expected unauthenticated/malformed/invalid-ticket responses.
-Saved-trip and native device acceptance remain separate.
+Automated checks cover individual/all/subset selection, calendar UID/UTC/DST/checkout rules, private-field omission, request authentication, stale revisions, share-link revocation and temporary-ticket expiration. Hosted deployment and bounded smoke are recorded in the [15 October release](release-calendar-comments-2026-10-15.md) and the merged calendar PR. Saved-trip native Apple Calendar import, displayed times and repeat-import behavior require separate device-specific acceptance; export is a one-off snapshot, not a subscription.
