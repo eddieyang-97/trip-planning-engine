@@ -1,6 +1,6 @@
-# Browser sharing regression and failure cases
+# Browser regressions and failure cases
 
-## Run the isolated journey
+## Run the isolated journeys
 
 Requires Node.js 24. One-time setup after installing dependencies:
 
@@ -15,13 +15,13 @@ Then run:
 npm run test:e2e
 ```
 
-This command rebuilds the real frontend bundles and backend, then runs one Chromium journey at a 390×844 viewport. There is no separate server to start. Each test owns a new in-memory PGlite database, runs all migrations, seeds fictional identities/trip/item/membership through Core, listens on an ephemeral loopback port, and closes the server/database and browser contexts in teardown. It neither reads `.env` nor uses `DATABASE_URL`, production accounts, Supabase, a worker or a provider adapter.
+This command rebuilds the real frontend bundles and backend, then runs two Chromium journeys at a 390×844 viewport: sharing/retry/revocation and accommodation MCP → web review. There is no separate server to start. Each test owns a new in-memory PGlite database, runs all migrations, seeds fictional identities/trip/item/membership through Core, listens on an ephemeral loopback port, and closes the server/database and browser contexts in teardown. It neither reads `.env` nor uses `DATABASE_URL`, production accounts, Supabase, a worker or a provider adapter.
 
-The fixture imports `dist/src` and serves the actual `dist/web/itinerary.js`, HTML and CSS through the production Express routes. Two independent browser contexts use the existing **local development token** form. The injected Authenticate callback accepts only this test's random owner/viewer tokens; the real API origin, authorization, projection, revision and idempotency checks still run. MCP authentication is disabled in this fixture. No production authentication bypass, runtime environment flag or test endpoint is added.
+The sharing fixture imports `dist/src` and serves the actual `dist/web/itinerary.js`, HTML and CSS through the production Express routes. Two independent browser contexts use the existing **local development token** form. The injected Authenticate callback accepts only this test's random owner/viewer tokens; the real API origin, authorization, projection, revision and idempotency checks still run. MCP authentication is disabled in this fixture. No production authentication bypass, runtime environment flag or test endpoint is added.
 
 All browser network requests outside the fixture origin are denied and fail the final assertion. Live search is disabled; no worker runs; the final database assertion requires zero search runs. Do not repoint this fixture at a hosted service or substitute real trip content/tokens.
 
-## What the single journey proves
+## What the sharing journey proves
 
 1. Organizer and named viewer open the built details view through real HTTP.
 2. Organizer edits a booked item's title and practical notes. The first save reaches the real backend and commits; only its HTTP acknowledgement is deliberately dropped.
@@ -51,3 +51,10 @@ Keep raw private diagnostics, production identities, booking codes and tokens ou
 Local Windows Chromium: `npm run test:e2e` passed (one journey). Build passed as part of the command. Current-head CI evidence is recorded in [PR #26](https://github.com/eddieyang-97/trip-planning-engine/pull/26) and [issue #2](https://github.com/eddieyang-97/trip-planning-engine/issues/2), with the canonical summary in [delivery status](implementation.md). The initial CI attempt passed 173 backend tests with zero skips but timed out installing extra Ubuntu fonts before any browser test ran; the workflow now reuses the runner’s existing Chromium runtime libraries and installs only the browser. This setup correction does not remove or relax a test assertion.
 
 This is one built-app integration test with PGlite and injected local identities. It does **not** prove Supabase email delivery, JWT verification or browser session persistence, hosted OAuth/MCP compatibility, real PostgreSQL pool races, editor onboarding, anonymous view-link behavior, provider identity/availability, Safari/iOS touch behavior or real-user acceptance. Existing focused backend/PostgreSQL tests and separately recorded hosted/device checks cover different boundaries. No hosted account, trip, permission, deployment or provider request is changed by this test.
+
+
+## Accommodation cross-surface regression — 25 October 2026
+
+The second test uses its own isolated PGlite database, random local identity and read/write grant, loopback server and the official MCP SDK. It creates a fictional ten-adult trip and two sourced lodging configurations through actual MCP HTTP, shortlists with rationale, opens the stable trip/decision URL in the compiled web app, manually captures a third option, reviews a selection and explicitly saves one tentative stay. A fresh MCP read verifies identical source/evidence/selection/item IDs, rationale, status and the durable link. The same browser also creates a separate comparison and manual option without MCP data entry, then retrieves it through MCP.
+
+Assertions require one item/event/link for the reviewed selection, zero booking records/search runs and no external browser requests or page errors. Mobile/desktop screenshots use fictional fixtures only and are ignored QA artifacts. The source test is [stay-comparison.spec.mjs](../tests/e2e/stay-comparison.spec.mjs); [accommodation guidance](accommodation-comparison.md) documents semantics and current limits. This verifies local transport/persistence/browser integration, not a normal hosted ChatGPT/Claude conversation or Supabase/OAuth acceptance.

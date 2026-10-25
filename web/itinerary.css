@@ -16,3 +16,29 @@
 .comment-meta,.comment-context{font-size:.82rem;color:var(--muted,#65716d);margin:0 0 8px}
 .comment-context{font-weight:600}.comment-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 12px}
 #comment-form{margin-top:24px}#comment-body{width:100%;box-sizing:border-box}#discussion-dialog{overflow-wrap:anywhere}
+
+/* Private, source-backed lodging research */
+.stay-research{margin:0 0 28px;border:1px solid var(--line);border-radius:12px;background:#f0f3eb;overflow:hidden}
+.stay-research>summary{padding:20px 24px;font-family:Georgia,serif;font-size:26px;cursor:pointer}
+.stay-body{padding:0 24px 24px;min-width:0}.stay-body>p:first-child{margin-top:0}
+.stay-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:18px 0}.stay-toolbar select{flex:1;min-width:170px;width:auto;margin:0}
+.stay-toolbar button,.stay-actions button{font-size:12px;padding:10px 12px}
+.stay-comparison-heading{margin:22px 0}.stay-comparison-heading h3{font-size:18px;margin:0}.stay-comparison-heading a{font-size:12px}
+.stay-table-wrap{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;background:#fff;border:1px solid var(--line);border-radius:8px}
+.stay-comparison-table{border-collapse:collapse;text-align:left;font-size:12px;line-height:1.6;min-width:100%}
+.stay-comparison-table caption{text-align:left;padding:14px;font-weight:600}.stay-comparison-table th,.stay-comparison-table td{border-top:1px solid var(--line);padding:12px;vertical-align:top;min-width:180px;max-width:290px;overflow-wrap:anywhere}
+.stay-comparison-table th:first-child{min-width:135px;max-width:160px;background:#f8faf5;position:sticky;left:0;z-index:1}.stay-comparison-table thead th{background:#edf2e8}
+.stay-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:16px;margin-top:20px;align-items:start}
+.stay-option,.stay-selected{padding:20px;border:1px solid var(--line);background:#fff;border-radius:10px;min-width:0;font-size:12px;line-height:1.6}
+.stay-option h3,.stay-selected h3{font-size:17px;margin:0}.stay-selected{border-color:#bfd4bd;margin:18px 0;background:#f9fff5}.stay-selected>button{margin-top:12px}.stay-option .badge{white-space:normal;margin-bottom:8px}.stay-option ul{padding-left:20px}.stay-option h4{margin-bottom:6px}
+.stay-option-price{font-size:15px;font-weight:600;color:var(--ink);margin-bottom:5px}.stay-option-price+.muted{margin-top:5px}
+.stay-option details,.stay-selected details{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.stay-option summary,.stay-selected summary{cursor:pointer;font-weight:600}
+.stay-facts{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(0,1.2fr);gap:9px 12px;margin:16px 0;font-size:12px;line-height:1.7}
+.stay-facts dt{color:var(--muted);font-weight:500}.stay-facts dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}.stay-actions{display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--line);padding-top:14px;margin-top:16px}
+#stay-option-dialog{width:min(760px,calc(100vw - 28px))}#stay-select-dialog{width:min(680px,calc(100vw - 28px))}
+#stay-option-form fieldset{border:1px solid var(--line);border-radius:8px;padding:14px;margin:18px 0;min-width:0}#stay-option-form legend{font-size:13px;font-weight:600;padding:0 5px}
+.stay-bed-row{border-top:1px dashed var(--line);padding:8px 0 14px;margin:10px 0}.stay-bed-row>button,.stay-unit>button,.stay-fee>button{font-size:11px;margin:5px 5px 0 0;padding:8px 10px}
+.stay-checkbox{display:flex;align-items:flex-start;gap:10px;line-height:1.6}.stay-checkbox input{width:18px;height:18px;flex:0 0 18px;margin:1px 0;accent-color:var(--green)}.stay-checkbox span{color:var(--ink);font-weight:500}
+#stay-option-form>div>details{border:1px solid var(--line);border-radius:8px;padding:15px;margin:20px 0}#stay-option-form summary{cursor:pointer;font-size:14px;font-weight:600}
+@media(max-width:700px){.stay-research>summary{padding:18px 14px;font-size:24px}.stay-body{padding:0 14px 16px}.stay-toolbar{align-items:stretch}.stay-toolbar select{width:100%;flex-basis:100%}.stay-toolbar button{flex:1}.stay-option,.stay-selected{padding:16px;font-size:14px}.stay-option>.muted{font-size:14px}.stay-facts{grid-template-columns:1fr;gap:3px;font-size:14px}.stay-facts dd{margin-bottom:10px}.stay-actions button{flex:1}.stay-comparison-table{font-size:14px}.stay-comparison-table th,.stay-comparison-table td{min-width:200px}.stay-comparison-table th:first-child{min-width:115px}.stay-options{display:block}.stay-option{margin-bottom:16px}#stay-option-form .form-grid{grid-template-columns:1fr}.stay-unit-list{min-width:0}}
+@media print{#stay-research{display:none}}
