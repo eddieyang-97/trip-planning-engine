@@ -3,6 +3,7 @@ import type {Queryable} from './database.js';
 import {DomainError,canonical} from './domain.js';
 import {dispatchItinerary,itineraryItemSchema} from './itinerary.js';
 import {evaluateStay,stayCriteriaSchema,stayObservationSchema,stayReads,type StayToolName,type StayCriteria,type StayObservation} from './stay-domain.js';
+import {sameStayConfiguration,stayListingUrl} from './stay-identity.js';
 
 const fail=(code:string,message:string):never=>{throw new DomainError(code,message);};
 export async function ownedStay(tx:Queryable,decisionId:string,userId:string,lock=false){
@@ -27,7 +28,7 @@ export async function readStayDecision(tx:Queryable,decisionId:string,userId:str
   const candidates:{id:string;disposition:string;rationale:string;observations:Record<string,any>[];latestObservationId:string|null;observationCount:number;[key:string]:any}[]=[];
   for(const candidate of (await tx.query('select id,disposition,rationale,rationale_by,rationale_at from candidates where decision_id=$1 order by id limit 20',[decisionId])).rows){
     const count=(await tx.query('select count(*)::int n from observations where candidate_id=$1',[candidate.id])).rows[0]!.n;
-    const observations=(await tx.query('select id,payload,created_at,created_by,provenance from observations where candidate_id=$1 order by created_at desc,id desc limit 5',[candidate.id])).rows;
+    const observations=(await tx.query('select id,payload,created_at,created_by,identity_review,provenance from observations where candidate_id=$1 order by created_at desc,id desc limit 5',[candidate.id])).rows;
     const observationHistory=(await tx.query(`select id,created_at as "createdAt",payload->'source'->>'observedAt' as "observedAt",payload->'baseTotalMinor' as "baseTotalMinor",payload->>'currency' as currency from observations where candidate_id=$1 order by created_at desc,id desc limit 100`,[candidate.id])).rows;
     candidates.push({...candidate,id:candidate.id,disposition:candidate.disposition,rationale:candidate.rationale,observations,observationHistory,latestObservationId:observations[0]?.id??null,observationCount:count});
   }
@@ -73,18 +74,26 @@ export async function dispatchStay(tx:Queryable,name:StayToolName,a:any,userId:s
   let result:Record<string,any>;
   if(name==='save_stay_candidate'){
     let candidate:any;
-    if(a.candidateId){candidate=(await tx.query('select * from candidates where id=$1 and decision_id=$2',[a.candidateId,decision.id])).rows[0];if(!candidate)fail('FORBIDDEN_OR_NOT_FOUND','Candidate does not belong to this stay decision.');}
-    else{
-      const identity='stay-v1:'+createHash('sha256').update(canonical([a.observation.propertyName.toLowerCase(),a.observation.configurationLabel.toLowerCase(),a.observation.kind])).digest('hex');
-      candidate=(await tx.query('select * from candidates where decision_id=$1 and identity_key=$2',[decision.id,identity])).rows[0];
-      if(!candidate){
-        if((await tx.query('select count(*)::int n from candidates where decision_id=$1',[decision.id])).rows[0]!.n>=20)fail('BUDGET_EXCEEDED','This pilot supports 20 lodging configurations per decision.');
-        const id=randomUUID();await tx.query('insert into candidates(id,decision_id,identity_key) values($1,$2,$3)',[id,decision.id,identity]);candidate={id};
+    if(a.candidateId){
+      candidate=(await tx.query('select * from candidates where id=$1 and decision_id=$2',[a.candidateId,decision.id])).rows[0];if(!candidate)fail('FORBIDDEN_OR_NOT_FOUND','Candidate does not belong to this stay decision.');
+      const prior=(await tx.query('select id,payload from observations where candidate_id=$1 order by created_at desc,id desc limit 1',[candidate.id])).rows[0];
+      if(a.identityReview&&a.identityReview.priorObservationId!==prior?.id)fail('REVISION_CONFLICT','Review the latest candidate observation before reconciling its identity.');
+      if(!prior||!sameStayConfiguration(prior.payload,a.observation)){
+        if(!a.identityReview)fail('IDENTITY_REVIEW_REQUIRED','The listing/configuration identity is missing or differs. Save a separate option, or explicitly reconcile against the latest observation with a reason after human review.');
       }
+    }
+    else{
+      if(a.identityReview)fail('VALIDATION_ERROR','Identity reconciliation requires an existing candidate ID.');
+      if((await tx.query('select count(*)::int n from candidates where decision_id=$1',[decision.id])).rows[0]!.n>=20)fail('BUDGET_EXCEEDED','This pilot supports 20 lodging configurations per decision.');
+      const id=randomUUID(),discriminator=canonical([stayListingUrl(a.observation.source.url),a.observation.kind,a.observation.configurationLabel]);
+      // Add means a distinct option; never infer identity from display labels or
+      // a generic source URL. An append must explicitly target its stable ID.
+      const identity='stay-v2:'+createHash('sha256').update(discriminator).digest('hex')+':'+id;
+      await tx.query('insert into candidates(id,decision_id,identity_key) values($1,$2,$3)',[id,decision.id,identity]);candidate={id};
     }
     if((await tx.query('select count(*)::int n from observations where candidate_id=$1',[candidate.id])).rows[0]!.n>=100)fail('BUDGET_EXCEEDED','This pilot retains up to 100 observations per configuration.');
     const id=randomUUID();
-    await tx.query("insert into observations(id,decision_id,candidate_id,provenance,payload,created_by) values($1,$2,$3,'user_reported',$4,$5)",[id,decision.id,candidate.id,JSON.stringify(a.observation),userId]);
+    await tx.query("insert into observations(id,decision_id,candidate_id,provenance,payload,created_by,identity_review) values($1,$2,$3,'user_reported',$4,$5,$6)",[id,decision.id,candidate.id,JSON.stringify(a.observation),userId,a.identityReview?JSON.stringify(a.identityReview):null]);
     result={candidateId:candidate.id,observationId:id,provenance:'user_reported'};
   }else if(name==='set_stay_disposition'){
     const update=await tx.query('update candidates set disposition=$3,rationale=$4,rationale_by=$5,rationale_at=now() where id=$1 and decision_id=$2 returning id',[a.candidateId,decision.id,a.disposition,a.rationale,userId]);

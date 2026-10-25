@@ -193,3 +193,31 @@ test('ten-adult trip validation leaves flight limits unchanged and stay tables h
     assert.equal(await count(db,'observations'),0);assert.equal(await count(db,'criteria_versions'),1);
   }finally{await db.close();}
 });
+
+test('stay property identity never merges display-name collisions; ambiguous appends require recorded human reconciliation',async()=>{
+  const db=await embedded();try{
+    const {core,owner,decisionId}=await setup(db),first={...stayObservation(),location:{...stayObservation().location,precision:'exact' as const}},second={...stayObservation(),source:{...first.source,url:'https://hotel.example/another-property'},location:{label:'Different fictional village',precision:'exact' as const,latitude:46.3,longitude:7.8}};
+    const a=await core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:1,observation:first},owner);
+    const b=await core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:2,observation:second},owner);
+    assert.notEqual(a.candidateId,b.candidateId,'Same property/configuration display names are not identity');
+    const receipts=await count(db,'mutation_requests');
+    await assert.rejects(core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:3,candidateId:a.candidateId,observation:second},owner),code('IDENTITY_REVIEW_REQUIRED'));
+    assert.equal(await count(db,'observations'),2);assert.equal(await count(db,'mutation_requests'),receipts);assert.equal((await core.call('get_stay_decision',{decisionId},owner)).decision.revision,3);
+    const tracked={...first,propertyName:'FICTIONAL MATTERHORN HOTEL',baseTotalMinor:310000,source:{...first.source,url:first.source.url+'?utm_source=fictional'}};
+    const update=await core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:3,candidateId:a.candidateId,observation:tracked},owner);assert.equal(update.candidateId,a.candidateId);
+    await assert.rejects(core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:4,candidateId:a.candidateId,observation:{...tracked,source:{...tracked.source,url:'https://hotel.example/stay?propertyId=another'}}},owner),code('IDENTITY_REVIEW_REQUIRED'),'Property query parameters must not be stripped as tracking');
+    await assert.rejects(core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:4,candidateId:a.candidateId,observation:{...tracked,source:{...tracked.source,url:'https://hotel.example/stay#/property/another'}}},owner),code('IDENTITY_REVIEW_REQUIRED'),'Hash routes may contain a distinct property identifier');
+    await assert.rejects(core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:4,candidateId:a.candidateId,observation:{...tracked,location:{...tracked.location,latitude:47}}},owner),code('IDENTITY_REVIEW_REQUIRED'),'Conflicting exact coordinates must not silently replace property identity');
+    const manual={...first,source:{...first.source,kind:'manual' as const,url:null},location:{label:'',precision:'unknown' as const,latitude:null,longitude:null}};
+    const m=await core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:4,observation:manual},owner);
+    const duplicate=await core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:5,observation:manual},owner);assert.notEqual(m.candidateId,duplicate.candidateId,'No grounded listing must not guess a match');
+    const args={...key(),decisionId,expectedRevision:6,candidateId:m.candidateId,observation:{...manual,baseTotalMinor:290000}};
+    await assert.rejects(core.call('save_stay_candidate',args,owner),code('IDENTITY_REVIEW_REQUIRED'));
+    await assert.rejects(core.call('save_stay_candidate',{...args,...key(),identityReview:{priorObservationId:a.observationId,confirmedSameConfiguration:true,reason:'Wrong identity anchor'}},owner),code('REVISION_CONFLICT'));
+    const identityReview={priorObservationId:m.observationId,confirmedSameConfiguration:true,reason:'Organizer explicitly checked this is the same fictional room combination.'};
+    const reconciled=await core.call('save_stay_candidate',{...args,...key(),identityReview},owner);assert.equal(reconciled.candidateId,m.candidateId);
+    const saved=await core.call('get_stay_observation',{decisionId,observationId:reconciled.observationId},owner);assert.deepEqual(saved.observation.identity_review,identityReview);assert.equal(saved.observation.created_by,owner.userId);
+    assert.deepEqual((await core.call('get_stay_observation',{decisionId,observationId:m.observationId},owner)).observation.payload,manual);
+    assert.equal(await count(db,'candidates'),4);assert.equal(await count(db,'observations'),6);assert.equal(await count(db,'selections'),0);assert.equal(await count(db,'itinerary_items'),0);
+  }finally{await db.close();}
+});

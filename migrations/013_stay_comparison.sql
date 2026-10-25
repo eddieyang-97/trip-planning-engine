@@ -4,6 +4,7 @@ alter table candidates add column rationale text not null default '';
 alter table candidates add column rationale_by uuid;
 alter table candidates add column rationale_at timestamptz;
 alter table observations add column created_by uuid;
+alter table observations add column identity_review jsonb;
 alter table selections add column selected_by uuid;
 alter table observations add constraint observations_stay_identity unique(id,candidate_id,decision_id);
 alter table selections add constraint selections_stay_identity unique(id,observation_id,decision_id);

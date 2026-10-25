@@ -19,14 +19,17 @@ const test=base.extend({
       const authenticate=async header=>{if(header===`Bearer ${ownerToken}`)return {userId:owner,clientId};throw Error('Unknown fixture identity');};
       await new Promise(resolve=>http.listen(0,'127.0.0.1',resolve));const origin=`http://127.0.0.1:${http.address().port}`;
       http.on('request',createApp({core,publicOrigin:origin,authenticate,itinerary:itineraryRoutes({core,origin,local:true,authenticate})}));
-      await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`),{requestInit:{headers:{authorization:`Bearer ${ownerToken}`}}}));
+      await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/mcp`),{requestInit:{headers:{authorization:`Bearer ${ownerToken}`,'x-forwarded-host':'outside.example'}}}));
       const tool=async(name,args)=>{const result=await client.callTool({name,arguments:args});assert.ok(!result.isError,JSON.stringify(result));return result.structuredContent;};
       const trip=await tool('create_trip',{idempotencyKey:randomUUID(),name:'Fictional Zermatt group stay — MCP to web',destination:'Fictional Zermatt',startDate:'2027-02-11',endDate:'2027-02-14',adults:10});
       const decision=await tool('create_stay_decision',{idempotencyKey:randomUUID(),tripId:trip.tripId,title:'Hotel rooms versus a whole chalet',criteria:stayCriteria()});
+      assert.equal(decision.webUrl,origin+decision.webPath);
+      for(const name of ['get_stay_decision','compare_stays'])assert.equal((await tool(name,{decisionId:decision.decisionId})).webUrl,decision.webUrl);
+      assert.equal((await tool('list_stay_decisions',{tripId:trip.tripId})).decisions[0].webUrl,decision.webUrl);
       const hotel=await tool('save_stay_candidate',{idempotencyKey:randomUUID(),decisionId:decision.decisionId,expectedRevision:1,observation:stayObservation()});
       const home=await tool('save_stay_candidate',{idempotencyKey:randomUUID(),decisionId:decision.decisionId,expectedRevision:2,observation:stayObservation(10,'entire_home')});
       await tool('set_stay_disposition',{idempotencyKey:randomUUID(),decisionId:decision.decisionId,expectedRevision:3,candidateId:home.candidateId,disposition:'saved',rationale:'Fictional group prefers a kitchen and shared lounge.'});
-      await use({db,origin,ownerToken,tool,tripId:trip.tripId,decisionId:decision.decisionId,hotel,home,webPath:decision.webPath});
+      await use({db,origin,ownerToken,tool,tripId:trip.tripId,decisionId:decision.decisionId,hotel,home,webPath:decision.webPath,webUrl:decision.webUrl});
     }finally{await client.close();http.closeAllConnections();await new Promise(resolve=>http.close(resolve));await db.close();}
   },
 });
@@ -36,7 +39,8 @@ test('MCP lodging shortlist opens in the built web app, is reviewed into one ten
   await context.route('**/*',route=>{if(new URL(route.request().url()).origin===app.origin)return route.continue();externalRequests.push(route.request().url());return route.abort('blockedbyclient');});
   const page=await context.newPage();page.on('pageerror',e=>pageErrors.push(e.message));
   try{
-    await page.goto(`${app.origin}${app.webPath}&view=details`);
+    const handoff=new URL(app.webUrl);handoff.searchParams.set('view','details');
+    await page.goto(handoff.href);
     await page.getByLabel('Local development token').fill(app.ownerToken);
     await page.getByRole('button',{name:'Open local trips',exact:true}).click();
     await expect(page.locator('#trip-title')).toHaveText('Fictional Zermatt group stay — MCP to web');
@@ -54,6 +58,7 @@ test('MCP lodging shortlist opens in the built web app, is reviewed into one ten
     await home.getByText('Full stay details and source',{exact:true}).click();
     await expect(home.getByRole('link',{name:'Open source ↗'})).toHaveAttribute('href','https://chalet.example/stay');
     await expect(home).toContainText('Fully refundable until the stated deadline');
+    await expect(home).toContainText('18:00:00+01:00 (recorded offset)');
     await home.getByText('Full stay details and source',{exact:true}).click();
     await page.locator('#stay-research').screenshot({path:testInfo.outputPath('lodging-mobile.png')});
     await page.setViewportSize({width:1280,height:900});
@@ -100,6 +105,8 @@ test('MCP lodging shortlist opens in the built web app, is reviewed into one ten
     expect(plan.items[0].payload.status).toBe('tentative');
     expect(plan.items[0].sourceLink).toMatchObject({decisionId:app.decisionId,candidateId:app.home.candidateId,observationId:app.home.observationId,selectionId:fresh.selection.id});
     expect(plan.items[0].id).toBe(fresh.links[0].itemId);
+    expect(plan.items[0].sourceLink.webUrl).toBe(app.webUrl);
+    expect((await app.tool('get_trip',{tripId:app.tripId})).decisions[0].stay.webUrl).toBe(app.webUrl);
     await expect(page.locator('#timeline')).toContainText('Fictional Alpine Chalet');
     await expect(page.locator('#timeline')).toContainText('Tentative');
     expect((await app.db.query('select count(*)::int n from itinerary_items')).rows[0].n).toBe(1);
@@ -126,6 +133,19 @@ test('MCP lodging shortlist opens in the built web app, is reviewed into one ten
     expect(manuallySaved.candidates).toHaveLength(1);
     expect(manuallySaved.candidates[0].observations[0].payload).toMatchObject({propertyName:'Fictional manual guesthouse',quotedAdults:null,baseTotalMinor:null,source:{kind:'manual',url:null,label:'Fictional organizer note'}});
     expect(manuallySaved.results[0]).toMatchObject({totalMinor:null,sleepingPlaces:null,eligibility:'conditional'});
+    expect((await app.db.query('select count(*)::int n from itinerary_items')).rows[0].n).toBe(1);
+    const manualCard=page.getByRole('article',{name:'Fictional manual guesthouse',exact:true});
+    await manualCard.getByRole('button',{name:'Add new observation',exact:true}).click();
+    await capture.getByLabel('Base price — whole stay, all rooms',{exact:true}).fill('1200');
+    await capture.getByRole('button',{name:'Save observation',exact:true}).click();
+    await expect(capture).toContainText('listing/configuration identity is missing or differs');
+    await capture.getByLabel('I reviewed the identity change and confirm this is the same property and configuration',{exact:true}).check();
+    await capture.getByLabel('Identity reconciliation reason',{exact:true}).fill('Checked the same fictional organizer note; no grounded listing URL exists.');
+    await capture.getByRole('button',{name:'Save observation',exact:true}).click();
+    await expect(capture).not.toBeVisible();
+    const reconciled=await app.tool('get_stay_decision',{decisionId:webDecisionId});
+    expect(reconciled.candidates).toHaveLength(1);expect(reconciled.candidates[0].observations).toHaveLength(2);
+    expect(reconciled.candidates[0].observations[0].identity_review).toMatchObject({priorObservationId:manuallySaved.candidates[0].latestObservationId,confirmedSameConfiguration:true});
     expect((await app.db.query('select count(*)::int n from itinerary_items')).rows[0].n).toBe(1);
     expect(externalRequests).toEqual([]);expect(pageErrors).toEqual([]);
   }finally{await context.close();}
