@@ -18,10 +18,13 @@ export function passkeysEnabled(origin:string, env:NodeJS.ProcessEnv=process.env
   if(!['true','false'].includes(enabled))throw Error('PASSKEYS_ENABLED must be true or false');
   if(enabled==='false')return false;
   const url=new URL(origin),rp=env.PASSKEY_RP_ID;
-  // One exact app hostname during the pilot. Never enroll on Render hostnames.
-  if(!rp||rp!==url.hostname||rp==='onrender.com'||rp.endsWith('.onrender.com')||/^\d+\.\d+\.\d+\.\d+$/.test(rp)||rp.includes(':')||
-    url.protocol!=='https:'&&rp!=='localhost')
-    throw Error('Passkeys require PASSKEY_RP_ID matching the stable public hostname (not onrender.com) and HTTPS or loopback');
+  // One exact app hostname, including its Render service subdomain. The shared
+  // onrender.com public suffix is never an application RP ID.
+  const validHost=rp&&(rp==='localhost'||rp.length<=253&&rp.includes('.')&&
+    rp.split('.').every(label=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)));
+  if(!rp||!validHost||url.origin!==origin||rp!==url.hostname||rp==='onrender.com'||/^\d+\.\d+\.\d+\.\d+$/.test(rp)||rp.includes(':')||
+    url.protocol!=='https:'&&!(url.protocol==='http:'&&rp==='localhost'))
+    throw Error('Passkeys require PASSKEY_RP_ID matching the exact valid public hostname (not bare onrender.com) and HTTPS or localhost');
   if(!env.SUPABASE_PUBLISHABLE_KEY)throw Error('Passkeys require Supabase account sign-in');
   return true;
 }
