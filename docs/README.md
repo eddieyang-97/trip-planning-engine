@@ -1,6 +1,6 @@
 # Documentation
 
-Updated 23 October 2026. Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
+Use this index to find the authoritative guide for each topic. Start with current product requirements and delivery status; use architecture and database references for technical detail. Product decisions and delivery evidence follow. Dated research, observations and reviews retain the facts known at the time.
 
 ## Current guidance
 
@@ -9,17 +9,13 @@ Updated 23 October 2026. Use this index to find the authoritative guide for each
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
 | [Database ER diagrams](database.md) | Initial ER baseline and extensions 007–012, including trip lifecycle 011 and research archive 012 |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
-| [Product requirements](prd.md) | PRD v0.7: long-term product scope, completed October flight priority, open roadmap choices and release gates |
-| [Delivery status and acceptance](implementation.md) | Dated deployed capabilities, acceptance evidence and remaining gaps |
+| [Product requirements](prd.md) | Product requirements, future scope and release gates; current issue priority lives in GitHub |
+| [Delivery status and acceptance](implementation.md) | Concise current delivery/acceptance boundaries with links to evidence |
 | [Data Semantics Review](data-semantics-review.md) | Domain invariants, proposed decisions and migration gates; not a substitute for applied SQL |
 
-**Planning versus evidence:** [Product requirements](prd.md) define intended behavior; [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) contain actionable deliverables; [current status](implementation.md#current-state--23-october-2026) records source, CI, deployment and independently observed acceptance. Security [#3](https://github.com/eddieyang-97/trip-planning-engine/issues/3), F1–F3 [#4–#6](https://github.com/eddieyang-97/trip-planning-engine/issues/4), releases [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14), browser regression [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2), research archive [#24](https://github.com/eddieyang-97/trip-planning-engine/issues/24) and manual production smoke [#28](https://github.com/eddieyang-97/trip-planning-engine/issues/28) are closed. The latter three have recorded PR/CI and bounded live acceptance; this does not establish every authenticated user journey or supplier-booking behavior. The next open feature candidates are [#7–#10](https://github.com/eddieyang-97/trip-planning-engine/issues/7).
+**Where facts live:** [PRD](prd.md) for intended product requirements; [Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) for priority, acceptance and unfinished work; [current delivery](implementation.md) for verified capability boundaries; [architecture](architecture.md) and feature guides for present-day contracts. PR discussions and CI contain implementation history; dated research is retained for context, not treated as shipped behavior.
 
-**Current feature selection — 25 October:** The user selected [#9 accommodation](https://github.com/eddieyang-97/trip-planning-engine/issues/9) as P2/Now; see the [comparison guide](accommodation-comparison.md) and canonical [delivery record](implementation.md). No production schema application or normal connected-client acceptance is implied by source implementation.
-
-**Current scope and deferred research:** Continue the MCP + native web itinerary/research product. [#10 dining](https://github.com/eddieyang-97/trip-planning-engine/issues/10) and [#8 group logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8) remain P2/Next; [#7 legacy import](https://github.com/eddieyang-97/trip-planning-engine/issues/7) is P3/Backlog. A first-party embedded agent [#31](https://github.com/eddieyang-97/trip-planning-engine/issues/31) and [Claude Duet design research #33](https://github.com/eddieyang-97/trip-planning-engine/issues/33) belong to **Deep Backlog**, not approved implementation. Prior [PR #32](https://github.com/eddieyang-97/trip-planning-engine/pull/32) closed unmerged.
-
-**Production connector boundary:** Supabase MCP is for read-only schema/advisor/diagnostic verification by default, not general production database writes, applying migrations or revealing private trip records. Repository migrations tracked by `app_schema_migrations` remain authoritative. See [AGENTS.md](../AGENTS.md#connected-production-service-tools) and [release guidance](releases.md#connected-supabase-production-diagnostics).
+**Production safety:** Connected Supabase and Render refer to the live service; follow [AGENTS.md](../AGENTS.md#connected-production-service-tools) and [release procedures](releases.md). Repository migrations tracked in `app_schema_migrations` are authoritative.
 
 ## Feature guides and evidence
 
@@ -33,7 +29,7 @@ Updated 23 October 2026. Use this index to find the authoritative guide for each
 | [Account profiles and trip members](account-profiles.md) | Editable names, private avatar uploads, accepted-member roster and profile privacy |
 | [Itinerary map](itinerary-map.md) | Current map behavior, pin saving/read-back, presentation, source access and dated map acceptance |
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
-| [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker--15-october-2026) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
+| [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
 | [Accommodation comparison](accommodation-comparison.md) | Typed manual/sourced whole-party lodging evidence, comparison and reviewed tentative-item linkage; source/acceptance boundaries |
 | [Hosted flight search](hosted-live-search.md) | Bounded generalized F1/F2 live acceptance, F3 conditional ChatGPT selection/read-back, client gaps, limits and historical pilot evidence |
 | [Guarded releases](releases.md) | CI/branch safeguards, verified manual post-deploy smoke, Supabase connector boundaries, worker draining and Render auto-deploy |

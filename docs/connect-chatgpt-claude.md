@@ -29,7 +29,7 @@ Claude supports remote custom connectors on Free, Pro and Max plans (Free suppor
 
 Try: **“Using Trip Planning, list the trips I can access and show me the itinerary of one of them.”**
 
-**Verified scope (22 October):** One Claude Free web account completed OAuth, discovered the tools and retrieved an owned fictional trip/one-way decision with a read-only grant. Its loaded schemas support omitted/null return dates. Claude writes, supplier searches, refresh/revocation and other accounts remain unverified. See [client evidence](hosted-live-search.md#authenticated-metadata-and-independent-claude-acceptance). Review identity scopes as well as trip permissions: this setup requested profile/email/phone and refresh access, approved separately by the user. If authorization fails, do not enter API keys or bypass security settings.
+**Verified scope (22 October):** One Claude Free web account completed OAuth, discovered the tools and retrieved an owned fictional trip/one-way decision with a read-only grant. Its loaded schemas support omitted/null return dates. Claude writes, supplier searches, refresh/revocation and other accounts remain unverified. See [client evidence](https://github.com/eddieyang-97/trip-planning-engine/issues/21). Review identity scopes as well as trip permissions: this setup requested profile/email/phone and refresh access, approved separately by the user. If authorization fails, do not enter API keys or bypass security settings.
 
 ## Option B: ChatGPT
 
@@ -42,7 +42,7 @@ Try: **“Using Trip Planning, list the trips I can access and show me the itine
 5. Install/connect the resulting plugin, sign in with your **own Trip Planner account**, and approve the permissions you want.
 6. Start a new chat, type **@**, choose **Trip Planning**, and ask: **“List the trips I can access.”**
 
-ChatGPT sign-in, saved flight retrieval, comparison and a conditional **test selection with fresh rationale/evaluation read-back** have been verified against the deployed integration. That is not a booking or a guarantee of every tool/account. On 22 October, refreshing the existing development-mode connection and opening a new chat allowed an isolated one-way decision to persist `inbound:null`, without a supplier search. Its final summaries failed to render, but independent saved-state reads passed. Authenticated metadata inspection and independent Claude read-only retrieval subsequently passed in [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21); this does not establish live one-way fares or a complete new-search workflow. See [dated evidence and limits](hosted-live-search.md#refreshed-chatgpt-one-way-criteria--22-october-2026).
+ChatGPT sign-in, saved flight retrieval, comparison and a conditional **test selection with fresh rationale/evaluation read-back** have been verified against the deployed integration. That is not a booking or a guarantee of every tool/account. On 22 October, refreshing the existing development-mode connection and opening a new chat allowed an isolated one-way decision to persist `inbound:null`, without a supplier search. Its final summaries failed to render, but independent saved-state reads passed. Authenticated metadata inspection and independent Claude read-only retrieval subsequently passed in [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21); this does not establish live one-way fares or a complete new-search workflow. See [dated evidence and limits](https://github.com/eddieyang-97/trip-planning-engine/issues/21).
 
 ### Refresh changed tool definitions
 
