@@ -1,4 +1,4 @@
-# Itinerary map — 15 October 2026
+# Itinerary map
 
 ## User outcome and scope
 
@@ -26,7 +26,7 @@ list to those items; the existing map stays visible for context. Owners/editors
 have Add map location; viewers have no edit action. There are no guessed
 coordinates, route lines, driving durations or live navigation.
 
-## Saved-pin verification and presentation — 16 October 2026
+## Saved-pin verification and presentation
 
 The previously deployed backend preserves pins when an older MCP client omits `mapLocations`; explicit `[]` clears them. Mutations return `mapLocationCount`, and MCP tool instructions require read-back verification. The web editor now checks the response count and the refreshed saved item's labels/coordinates before showing success. A mismatch leaves a reviewable error rather than claiming the pins saved. A plain location string or maps link still does not create coordinates. This release does not backfill existing real-trip pins.
 
@@ -35,8 +35,6 @@ Public website branding is **Trip Planner**, with the headline **Plan, organize 
 Overview, Details and Map share category meanings: accommodation indigo `#6366F1`, restaurants/bars amber `#F59E0B`, activities green `#16A34A`, and flights/transfers blue `#0284C7`. Notes are neutral slate. Icons, labels and category filter chips provide non-colour cues. The 16 October map simplification removes itinerary numbers and multi-icon pills: a single category icon represents a location, and a neutral place icon represents mixed categories at the same location. Nearby locations cluster into count circles as the map zooms out. Selected pins gain an outline; the corresponding list card highlights. Every activity remains individually accessible through the selected-location card and place list. See the [map guide](itinerary-map.md) for the current interaction.
 
 Booking remains a separate labelled checkmark: **Booked · reported by you/owner**. Neither colour nor a checkmark implies supplier verification or a new reservation.
-
-This material was consolidated from the joint 16 October browser-session/map release. The original CI counts and joint deployment evidence remain under [persistent browser session acceptance](account-linking.md#verification-and-limitations--16-october) and [the joint hosted release](account-linking.md#joint-persistent-session-and-map-deployment--16-october-2026). Later compact-map evidence below supersedes older presentation details where explicitly stated.
 
 ## Data and access
 
@@ -91,113 +89,8 @@ to shared storage before scaling horizontally. Provider failures preserve saved 
 and the accessible item list. Selected OSM-derived place data requires appropriate
 OSM attribution; larger reuse should review ODbL obligations.
 
-## Validation and joint acceptance
+## Validation and client limitations
 
-Local automated coverage checks legacy payloads, coordinate bounds, day spans,
-numbering, provider response filtering/bounds, caching and rate limits, persistence,
-editor booking-field preservation, anonymous nested-field privacy, unauthenticated
-and viewer denial, origin checks and membership revocation. All external requests
-in automated tests are stubbed; no provider quota is consumed by CI.
+PostgreSQL/fixture-browser regressions cover coordinate bounds, pin persistence, omission versus explicit removal, private projections, revocation, provider response limits, map filtering, shared places and keyboard selection. Bounded hosted demo, place-search and pin checks have separate release evidence. Native phone gestures and real-trip/client-specific workflows are not universally verified; consult [current delivery](implementation.md) and the original map PRs.
 
-Browser checks used only isolated fictional data: phone-width map tiles loaded,
-day filtering retained the stay, shared-place popups opened the correct detail,
-and a live explicit `Turin Airport Italy` search produced choices. A chosen airport
-pin survived save and a fresh page/sign-in. At a 390×844 viewport, document width
-and scroll width were both 375px. This is a responsive browser check, not native
-iPhone acceptance. No real trip was edited.
-
-Joint checks after deployment: add the correct Alba venues; switch days and back
-to Details; open the same pins on the friend's anonymous link; check two flight
-endpoints, pin removal and mobile map gestures. These are intentionally pending
-the user's joint testing session. Record deployment and CI evidence separately.
-
-## Hosted release evidence — 15 October 2026
-
-Implementation `d443ce9` and final UI refinement `d7dc2ac` are pushed to GitHub main.
-The [final CI run](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38784581875)
-passed **100 tests, zero skipped**, including all three pooled PostgreSQL checks.
-Local full-suite validation passed 97 with those three external checks skipped;
-the focused map suite and production build also passed after the privacy changes.
-
-[Render deployment](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db8hjdrrjlhs7386nrc0)
-explicitly selected `d7dc2ac0e9d632427e2b00b3eca01388bcc8abf2`. It succeeded in
-42.2 seconds and became live at **19:22 London time**. The live frontend matched
-the tested local bundle SHA-256
-`8e25613ec572ea9fd86766a1d05126a0ec6f59fab6367b6aa7d477f62c70cc58`.
-Health, map configuration and the distributed licence returned 200; anonymous
-place-search returned 401 without a provider request.
-
-The [hosted example map](https://trip-planning-engine.onrender.com/itinerary?demo=1&view=map)
-rendered its grouped pins, loaded four visible tiles at phone width and reported
-no browser errors or warnings. Document width and scroll width were both 375px
-at a 390×844 viewport. Tile image referrer policy was `origin`. The screenshot is
-`itinerary-map-live-2026-10-15.png` in this chat's visualization artifacts.
-
-Real trip pinning, hosted signed-in place lookup/save, friend-link map viewing and
-native phone gestures remain joint acceptance tasks. The real Alba and Flaine
-items were not changed. The temporary release worktree was archived; concurrent
-PRD/calendar document edits were retained byte-for-byte.
-
-## Assistant metadata gap — 15 October 2026
-
-A later read of Alba returned revision 36, 28 items and zero mapLocations. Recent
-assistant edits had saved itinerary text but no coordinates. The connected plugin
-still advertised the older 23-tool inventory and item input without mapLocations;
-the deployed MCP server already advertised the new optional field. This is a
-client discovery gap, not evidence that saved pins failed to render. No real
-itinerary mutation was made during diagnosis.
-
-The official-SDK regression now checks that both add/update discovery include
-mapLocations, writes a pin through MCP and reads it back, checks an old-schema
-update preserves it, then explicitly clears it with `[]`. Omission preserves
-existing pins for both owner and editor updates. Mutation responses include
-mapLocationCount, and add/update descriptions distinguish textual locations from
-saved coordinates and require checking the result before claiming success.
-
-After deployment, directly connected ChatGPT custom MCP apps require a metadata
-refresh in their connection settings, then a new conversation. See
-[OpenAI's refresh instructions](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata).
-Refreshing does not backfill coordinates: the requested places still need to be
-resolved, saved as mapLocations, and read back. This chat's connected tool schema
-must also refresh before it can submit that new field.
-
-## Compact map presentation - 16 October 2026
-
-This refinement replaces the earlier numbered/multi-icon marker presentation.
-No new provider, dependency, API credential, infrastructure or database migration
-is introduced. Browser checks use fictional trips only.
-
-Validation: production build passed. Local suite: 109 tests, 106 passed and three
-external-PostgreSQL checks skipped for CI. The cluster regression checks distinct
-location counts versus repeated activities, cell-boundary proximity, zoom splitting,
-stable grouping and preservation of every stop. Browser acceptance checked category
-and missing-location filters, Enter/Space selection and cluster expansion, every
-activity at a shared location, the maximum-zoom fallback for adjacent entrances,
-selected-place detail handoff, day filtering including a stay's checkout and the
-existing public demo. At requested 390x844 phone width the document and scroll
-width were both 375px; only the category chip strip scrolls horizontally. Native
-phone gesture acceptance remains a joint check.
-
-Automatic approval review blocked creating an anonymous link for the isolated
-fictional test trip, so no link was created. Existing automated anonymous/access
-checks passed; browser checks used the existing public demo instead. No real
-itinerary, coordinates, memberships or sharing settings were changed.
-
-### Compact-map hosted release
-
-Code commit `7b48098b9fbb079c63ad67f3f1c1f8b7ce8060a8` passed [CI run
-38877974839](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38877974839)
-with **109 passed, zero failed and zero skipped**, including PostgreSQL 17.
-The existing Free Render [deployment dep-db8ui6ff3r2c73ffr11g](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db8ui6ff3r2c73ffr11g)
-reached Live in 38.5 seconds on 16 October 2026 (started at 10:06:33 London time).
-Public health returned ok; account/itinerary pages returned 200; an unauthenticated
-profile request returned 401. The four account/itinerary JS/CSS bundles matched
-the tested local build after newline normalization.
-
-The hosted public demo passed phone-width category filtering and Enter selection:
-one selected marker, no itinerary-number badges, six loaded tiles, no browser
-warnings/errors and no horizontal page overflow (375px document/scroll width at
-requested 390x844). Selected-place details appeared below the map. The saved proof
-is `clean-map-live-2026-10-16.png`; the temporary viewport override was reset.
-Real Alba data and sharing were unchanged. Native phone gestures and real-trip
-visual acceptance remain joint checks.
+Some connected assistant clients cache MCP schemas. After the `mapLocations` tool field changes, refresh connection metadata and start a new conversation before expecting to write pins; a metadata refresh does **not** backfill coordinates already absent from itinerary items. Save/read-back `mapLocationCount` and the actual coordinates before claiming success. [ChatGPT connection guidance](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata).
