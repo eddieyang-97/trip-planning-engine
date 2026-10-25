@@ -1,6 +1,8 @@
 import {AccountBoundary,createAccountClient,watchAccount} from './account-session.js';
 import { accountAuthError, signupReceivedMessage } from './account-errors.js';
 import {configureProfile} from './account-profile.js';
+import {configurePasskeys,passkeyError,supportsPasskeys} from './account-passkeys.js';
+import {CredentialGuard} from './account-credentials.js';
 const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getElementById(id) as T;
 const status = (text:string) => { el('status').textContent=text; };
 async function initialize() {
@@ -24,10 +26,16 @@ el<HTMLInputElement>('allow-write').onchange=()=>{
   if(search.disabled)search.checked=false;
 };
 const supabase=createAccountClient(config),boundary=new AccountBoundary();
+const credentials=new CredentialGuard(supabase,boundary);
 let requestId:string|undefined;
 const profileEditor=configureProfile(api);
+const passkeys=configurePasskeys(supabase,boundary,config.passkeys===true,credentials);
+el('passkey-signin').hidden=config.passkeys!==true;
+el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();
+if(!supportsPasskeys())el('passkey-login-hint').textContent='Passkeys are unsupported in this browser or connection. Use email and password to sign in.';
 function clearPrivate(){
   profileEditor.reset();
+  credentials.reset();passkeys.reset();el<HTMLInputElement>('new-password').value='';el<HTMLInputElement>('current-password').value='';
   requestId=undefined;
   for(const id of ['account','connections','consent'])el(id).hidden=true;
   for(const id of ['identity','account-id','connection-list','client-name','client-id','client-redirect','client-scopes'])el(id).replaceChildren();
@@ -50,7 +58,7 @@ async function api(path:string, body?:unknown,photo?:{blob:Blob;revision:number}
 async function busy(button:HTMLButtonElement, work:()=>Promise<void>) {
   const loginButtons=button.closest('#login-form')?.querySelectorAll<HTMLButtonElement>('button')??[];
   for(const control of loginButtons)control.disabled=true;
-  button.disabled=true;status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.disabled=false;for(const control of loginButtons)control.disabled=false;}
+  button.disabled=true;button.setAttribute('aria-busy','true');status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.removeAttribute('aria-busy');button.disabled=false;for(const control of loginButtons)control.disabled=false;el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();}
 }
 function validateEmail(){const field=el<HTMLInputElement>('email');field.value=field.value.trim();if(!field.validity.valid){status('Enter a valid email address above.');field.focus();return false;}return true;}
 function validatePassword(signup:boolean){const field=el<HTMLInputElement>('password');if(!field.value||(signup&&field.value.length<8)||!field.validity.valid){status(signup?'Enter a password of at least eight characters to create an account.':'Enter your password to sign in.');field.focus();return false;}return true;}
@@ -80,6 +88,7 @@ async function render() {
   el('identity').textContent=me.email;el('account-id').textContent=`Account ID: ${me.userId}`;el('mcp-url').textContent=config.mcpUrl;
   for(const id of ['account','connections'])el(id).hidden=false;el('signin').hidden=true;
   await profileEditor.load();
+  await passkeys.load();
   await connections();
   if(authorization){const details=await api('authorization',{authorization_id:authorization});
     if(details.redirectUrl){redirect(details.redirectUrl);return;}
@@ -104,6 +113,33 @@ el<HTMLButtonElement>('resend').onclick=()=>busy(el('resend'),async()=>{
   if(result.error)throw new Error(accountAuthError(result.error,'resend'));
   status('If this address has an unconfirmed account, a confirmation email has been requested. Check your inbox and spam folder. If already confirmed, use Sign in.');
 });
+el<HTMLButtonElement>('passkey-login').onclick=()=>busy(el('passkey-login'),async()=>{
+  if(config.passkeys!==true||!supportsPasskeys())throw Error('Passkeys are unavailable. Use email and password.');
+  status('Follow your device prompt to sign in…');
+  let result;try{result=await supabase.auth.signInWithPasskey();}catch(error){throw Error(passkeyError(error));}
+  if(result.error)throw Error(passkeyError(result.error));
+  await render();
+});
+el<HTMLButtonElement>('reset-password').onclick=()=>busy(el('reset-password'),async()=>{
+  if(!validateEmail())return;
+  try{const {error}=await supabase.auth.resetPasswordForEmail(el<HTMLInputElement>('email').value,{redirectTo:`${location.origin}/account`});if(error)throw error;}
+  catch{throw Error('Unable to request recovery. Check your connection and try again later.');}
+  status('If this email has an account, a password recovery email has been requested. Open it in this browser, then set a new password under Password and recovery.');
+});
+el<HTMLFormElement>('password-form').onsubmit=event=>{
+  event.preventDefault();const button=el('password-form').querySelector<HTMLButtonElement>('button')!;
+  void busy(button,async()=>{
+    const generation=boundary.generation,password=el<HTMLInputElement>('new-password'),current=el<HTMLInputElement>('current-password');
+    const currentPassword=current.value;current.value='';
+    try{
+      const proof=await credentials.authorize(currentPassword,true);boundary.check(generation);
+      const result=await supabase.auth.updateUser({password:password.value,...proof});boundary.check(generation);
+      if(result.error)throw Error('Unable to set your password. Request a new recovery email or sign in again, then retry.');
+      status('Password updated. Keep it safe for recovery.');
+    }catch{throw Error('Unable to set your password. Enter your current password or request a new recovery email, then retry.');}
+    finally{password.value='';}
+  });
+};
 el<HTMLButtonElement>('signout').onclick=()=>busy(el('signout'),async()=>{clearPrivate();const {error}=await supabase.auth.signOut({scope:'local'});if(error)throw Error('Sign-out could not finish. Check your connection and retry sign-out from Your account.');await render();});
 for(const action of ['approve','deny'] as const)el<HTMLButtonElement>(action).onclick=()=>busy(el(action),async()=>{
   if(!requestId)throw new Error('Restart the connection from your assistant.');

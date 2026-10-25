@@ -27,12 +27,12 @@ export class AccountBoundary{
   update(userId:string|null){if(userId===this.userId)return false;this.userId=userId;this.generation++;return true;}
   check(generation:number){if(generation!==this.generation)throw Error('Your account changed. Reload to continue.');}
 }
-export function createAccountClient(config:{supabaseUrl:string;publishableKey:string}){
+export function createAccountClient(config:{supabaseUrl:string;publishableKey:string;passkeys?:boolean}){
   let storage:Store;
   try{storage=prepareAccountStorage(localStorage,sessionStorage);}catch{throw Error('Allow this site to store sign-in data in your browser, then reload.');}
   return createClient(config.supabaseUrl,config.publishableKey,{
     global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.any([AbortSignal.timeout(20_000),...(init?.signal?[init.signal]:[])])})},
-    auth:{storage,storageKey:accountStorageKey,flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},
+    auth:{storage,storageKey:accountStorageKey,flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,experimental:{passkey:config.passkeys===true}},
   });
 }
 export function watchAccount(client:SupabaseClient,boundary:AccountBoundary,clear:()=>void){

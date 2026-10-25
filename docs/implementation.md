@@ -2,6 +2,12 @@
 
 Updated 25 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). **Read the current-state summary first**; later dated sections preserve what was known at the time and may describe then-pending steps that have since completed.
 
+## Optional passkeys prepared — 25 October 2026
+
+Issue [#35](https://github.com/eddieyang-97/trip-planning-engine/issues/35) adds optional account sign-in, enrollment/list/removal and confirmed-email password recovery. The passkey flag defaults off, rejects temporary `onrender.com` RP IDs and requires the exact configured public hostname. The shared Supabase session and backend account/grant authorization remain intact; no schema or production configuration changes. Local typecheck/build passed; backend suite **186 passed, 0 failed, 6 optional PostgreSQL skips**; built-web Chromium **3/3 passed**. [Feature and evidence guide](passkeys.md) describes isolated virtual-authenticator coverage and the outstanding domain/RP decision, actual Supabase/device/email recovery and connected-client acceptance. This is local implementation, not deployed or hosted/user-accepted delivery.
+
+[PR #37](https://github.com/eddieyang-97/trip-planning-engine/pull/37) passed initial CI at `9a04fd2` with **192 backend tests and 3/3 Chromium tests**. Review fixes add fresh per-action password confirmation and single-use, five-minute recovery approval. Read-only production inspection found secure/current-password-change enforcement and provider passkeys disabled; those settings remain unchanged. See the [credential policy inspection and rollout limits](passkeys.md#credential-reauthentication--pr-37-review). The application flag controls UI availability, not provider endpoint access or credential revocation. Issue #35 stays open for the domain/RP decision and separately authorized provider/device/recovery/client acceptance.
+
 <a id="current-state--23-october-2026"></a>
 
 ## Current state — 25 October 2026

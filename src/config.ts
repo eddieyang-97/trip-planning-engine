@@ -13,6 +13,19 @@ export function databaseConnection(env: NodeJS.ProcessEnv = process.env): string
   return database.toString();
 }
 
+export function passkeysEnabled(origin:string, env:NodeJS.ProcessEnv=process.env):boolean {
+  const enabled=env.PASSKEYS_ENABLED??'false';
+  if(!['true','false'].includes(enabled))throw Error('PASSKEYS_ENABLED must be true or false');
+  if(enabled==='false')return false;
+  const url=new URL(origin),rp=env.PASSKEY_RP_ID;
+  // One exact app hostname during the pilot. Never enroll on Render hostnames.
+  if(!rp||rp!==url.hostname||rp==='onrender.com'||rp.endsWith('.onrender.com')||/^\d+\.\d+\.\d+\.\d+$/.test(rp)||rp.includes(':')||
+    url.protocol!=='https:'&&rp!=='localhost')
+    throw Error('Passkeys require PASSKEY_RP_ID matching the stable public hostname (not onrender.com) and HTTPS or loopback');
+  if(!env.SUPABASE_PUBLISHABLE_KEY)throw Error('Passkeys require Supabase account sign-in');
+  return true;
+}
+
 export function configuration(env: NodeJS.ProcessEnv = process.env) {
   const mode = env.APP_MODE ?? 'local';
   if (mode !== 'local' && mode !== 'hosted') throw new Error('APP_MODE must be local or hosted');
@@ -32,7 +45,9 @@ export function configuration(env: NodeJS.ProcessEnv = process.env) {
   if(!['true','false'].includes(liveSearch))throw new Error('LIVE_SEARCH_ENABLED must be true or false');
   if(liveSearch==='true'&&!env.SERPAPI_API_KEY?.trim())throw new Error('Live search requires SERPAPI_API_KEY');
   if (env.SUPABASE_PUBLISHABLE_KEY && !/^sb_publishable_[A-Za-z0-9_-]+$/.test(env.SUPABASE_PUBLISHABLE_KEY)) throw new Error('Use a Supabase publishable key, never a secret/service-role key');
-  return { mode, local, port, origin, migrateOnStart: migrateOnStart === 'true',liveSearch:liveSearch==='true',
+  const passkeys=passkeysEnabled(origin,env);
+  if(passkeys&&local)throw Error('Passkeys require hosted account mode');
+  return { mode, local, port, origin, passkeys, migrateOnStart: migrateOnStart === 'true',liveSearch:liveSearch==='true',
     databaseUrl, databaseCaFile: env.DATABASE_CA_FILE,
     publishableKey: env.SUPABASE_PUBLISHABLE_KEY,
     issuer: local ? undefined : required('SUPABASE_AUTH_ISSUER'),

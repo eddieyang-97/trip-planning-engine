@@ -16,9 +16,10 @@ test('account management accepts only verified direct sessions, never assistant 
   const provider=supabaseAccounts(issuer,'sb_publishable_test',createLocalJWKSet({keys:[jwk]}),async()=>{calls++;return Response.json({id:userId,email:'test@example.com',email_confirmed_at:'2026-10-09T00:00:00Z'});});
   const make=(claims:Record<string,unknown>={})=>new SignJWT({sub:userId,iss:issuer,aud:'authenticated',role:'authenticated',session_id:randomUUID(),iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+60,...claims}).setProtectedHeader({alg:'ES256',kid:'account'}).sign(privateKey);
   assert.equal((await provider.authenticate(`Bearer ${await make()}`)).userId,userId);
-  assert.equal(calls,1);
+  assert.equal((await provider.authenticate(`Bearer ${await make({amr:[{method:'passkey',timestamp:Math.floor(Date.now()/1000)}]})}`)).userId,userId);
+  assert.equal(calls,2);
   for(const claims of [{client_id:randomUUID()},{aud:'https://travel.example/mcp'},{role:'service_role'},{is_anonymous:true},{session_id:undefined},{iss:'https://other.example'},{exp:1}])await assert.rejects(provider.authenticate(`Bearer ${await make(claims)}`));
-  assert.equal(calls,1,'invalid tokens must not reach the identity provider');
+  assert.equal(calls,2,'invalid tokens must not reach the identity provider');
 });
 
 test('consent binds account, client and permissions; denial/revocation/reconnection fail closed',async()=>{
@@ -66,6 +67,7 @@ test('consent binds account, client and permissions; denial/revocation/reconnect
     assert.equal((await post('consent',{requestId:failed.requestId,action:'approve',permissions:['read','write','search']})).status,400);
     assert.equal(approvalCalls,beforeSearch,'disabled search cannot approve upstream or create a grant');
     assert.equal((await (await fetch(`${origin}/account/config`)).json()).liveSearch,false);
+    assert.equal((await (await fetch(`${origin}/account/config`)).json()).passkeys,false);
     const approve=async()=>{const p=await (await post('authorization',{authorization_id:'auth-test'})).json();const r=await post('consent',{requestId:p.requestId,action:'approve',permissions:['read']});assert.equal(r.status,200);return p;};
     const approved=await approve();assert.equal((await post('consent',{requestId:approved.requestId,action:'approve',permissions:['read']})).status,409);
     const hook=async(user=owner)=> (await db.query(`select travel_access_token_hook($1::jsonb) as result`,[JSON.stringify({user_id:user,client_id:client,claims:{sub:user,client_id:client,aud:'authenticated',role:'authenticated'}})])).rows[0]!.result.claims;
