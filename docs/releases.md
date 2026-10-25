@@ -1,30 +1,30 @@
 # Guarded releases
 
-Updated 23 October 2026. The existing Blueprint-managed Free Render web service and Supabase remain the only deployment. [Issue #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) tracks activation and observed platform evidence; source configuration is not proof of applied settings.
+The existing Blueprint-managed Free Render web service and Supabase remain the only deployment. Service-level auto-deploy after required green CI is active; Blueprint Auto Sync is off. Source configuration is not proof of applied settings. Historical rollout evidence lives in [Issues #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) and [#28](https://github.com/eddieyang-97/trip-planning-engine/issues/28).
 
-## Before enabling automatic deployment
+## Check release safeguards before deployment
 
 1. Verify active `main` protection: PR required, GitHub Actions `test` required with an up-to-date branch, no bypass actors, force pushes/deletion blocked. Zero formal approvals supports the sole maintainer; human review remains the working practice. Require review conversations to be resolved. Recheck the actual rule through GitHub after saving it.
-2. Keep `autoDeployTrigger: "off"` until a controlled release and read-only checks pass. Confirm the exact commit in Render's live deployment, successful build/startup and database readiness. Current CI runs unconditional `test` jobs on PRs and every `main` push: install, build/type compilation and tests with disposable PostgreSQL. Inspect latest-commit logs for zero failures/skips; neither an old green PR nor a neutral/skipped job proves execution.
+2. Verify the existing service-level `autoDeployTrigger: "checksPass"` and passing CI before release; pause it for incompatible configuration/schema work. Confirm the exact commit in Render's live deployment, successful build/startup and database readiness. Current CI runs unconditional `test` jobs on PRs and every `main` push: install, build/type compilation and tests with disposable PostgreSQL. Inspect latest-commit logs for zero failures/skips; neither an old green PR nor a neutral/skipped job proves execution.
 3. Confirm worker/migration compatibility. Current startup migrations finish before listening; startup fails if the required schema is absent. Readiness checks the database. Review every new migration for compatibility with both old/new processes during Render's rolling overlap. Ordinary releases must preserve admission locks, leases and attempt-before-dispatch journals.
-4. Verify the applied platform shutdown window. The current Free service rejects `maxShutdownDelaySeconds`; do not configure it or assume a 180-second drain. The default 30-second window can interrupt a multi-request live run. The interruptible worker strategy below must be reviewed, manually deployed and smoke-checked before activation. No plan upgrade is needed.
+4. Verify the applied platform shutdown window. The current Free service rejects `maxShutdownDelaySeconds`; do not configure it or assume a 180-second drain. The default 30-second window can interrupt a multi-request live run. Use the existing interruptible worker strategy and recovery rules below; do not assume platform shutdown prevents uncertain supplier outcomes. No plan upgrade is needed.
 5. Run public and permitted authenticated smoke checks. Use the existing authorized MCP connection for a read; do not create a grant or trip solely for public readiness. The interactive `acceptance-hosted.ts` default establishes OAuth/client authorization and must use an authorized account; `--live` is not a deployment smoke check.
 
 Independent ChatGPT/Claude feature acceptance stays in F3; it is not a reason to keep a safely tested build undeployed. Existing bounded F1/F2 live evidence can be reused. This procedure authorizes no supplier call, booking, payment or real-trip mutation.
 
-## Activation and verification
+## CI-gated deployment and verification
 
-After the prerequisites are observed, request `autoDeployTrigger: checksPass` in `render.yaml` and verify the Blueprint sync plus Render's actual **After CI Checks Pass** setting after green main CI. Keep the same service, branch, plan and secrets. Never use `commit` as a fallback. Confirm service/workspace failure notifications are enabled.
+Keep `autoDeployTrigger: checksPass` in `render.yaml` consistent with Render's actual **After CI Checks Pass** setting; read back any approved change after green main CI. Keep the same service, branch, plan and secrets. Never use `commit` as a fallback. Confirm service/workspace failure notifications are enabled.
 
 Keep Blueprint **Auto Sync = No**. [Blueprint synchronization is a separate configuration deployment path](https://render.com/docs/infrastructure-as-code#disabling-automatic-sync), not proof of the linked-commit CI gate. After merging a `render.yaml` change, inspect that exact main commit's successful CI before manually syncing the Blueprint. Review the proposed resource changes first. Ordinary application commits still auto-deploy through service-level `checksPass`; do not enable Blueprint auto-sync as a shortcut. If a release depends on new environment/build/start configuration, pause service auto-deploy before merging; after green main CI, manually sync the coordinated config and verify `checksPass` is restored. Pausing Blueprint sync alone does not hold code deployments. Manual Dashboard deploys/restarts remain explicit operator actions, not CI-gated evidence.
 
 Render [accepts success, neutral and skipped GitHub checks](https://render.com/docs/deploys#integrating-with-ci), so keep the required workflow unconditional and do not use path filters or skip phrases for required release checks. Zero checks or a failed check prevents auto-deploy. Do not add a CI check that waits for the same commit's Render deployment: it could become a circular dependency in the deployment gate.
 
-Use one harmless green merge to record: full `main` SHA, successful `main` CI finish time, Render automatic trigger/start time after CI, deployed SHA, startup and smoke outcomes. Prove failed CI prevents deployment using controlled non-production or Render event evidence; never deliberately break production `main`. Until actual evidence exists, record the failed-CI demonstration as pending, not passed merely from vendor documentation.
+For meaningful releases, verify the full deployed SHA, required CI, startup and bounded smoke outcomes. An untested failed-CI nondeployment guarantee must not be described as independently demonstrated merely from vendor documentation.
 
 ## Read-only smoke command
 
-After this release's metadata support is deployed:
+For an approved release:
 
 ```sh
 node --import tsx scripts/smoke-release.ts https://trip-planning-engine.onrender.com FULL_EXPECTED_40_CHARACTER_SHA
@@ -46,13 +46,9 @@ Separately verify an authenticated read through an already approved client/sessi
 
 The job uses no production secrets, authentication, browser account, trip data, supplier calls, bookings, payments or write endpoints. No Render deployment, rollback, permission change or automated schedule is triggered. The check does **not** prove authenticated MCP tool discovery (including ChatGPT's plugin action cache), real-user sign-in, Web UI browser journeys, supplier correctness or booking availability.
 
-**Later, only if needed:** consider a scheduled independent check or a separately triggered external release monitor with bounded propagation/supersession handling. Do not add a schedule that blindly assumes `HEAD(main)` is live; do not add a CI-to-Render-to-CI circular gate. This lightweight step is deliberately subordinate to itinerary import, accommodation and dining development.
+## Connected Supabase production diagnostics
 
-## Verified manual production smoke — 23 October 2026
 
-[PR #29](https://github.com/eddieyang-97/trip-planning-engine/pull/29) merged at `8d675d72b0ed0a9b6446002efc6b069f716888cb`. Render auto-deployed that exact SHA (deployment `dep-dbdro76k1f9s73egnt0g`, Live 19:57:57 UTC). The first [manual Production smoke run 40015680713](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/40015680713) passed, with exact expected/served SHA match, schema **12**, `/health` 200, unauthenticated `/mcp` 401, `/account` 200 and hosted `/itinerary/config` 200 in **one attempt**. A distinct pre-merge required CI run passed 190/190 backend/tests and one compiled-frontend browser journey. [Issue #28](https://github.com/eddieyang-97/trip-planning-engine/issues/28) is closed with detailed evidence. This validates public deploy readiness, **not** signed-in flows or supplier results.
-
-### Connected Supabase production diagnostics
 
 The Supabase connector points at the **live** project. Use it primarily to inspect read-only metadata, effective schema, RLS/grants, limited aggregated logs and advisors. A connection alone does not authorize SQL writes/DDL, migration application, Auth changes, branch/project creation or inspection of private trip/traveler records. Obtain separate approval and disclose potential branch costs before such actions; never install production credentials into GitHub smoke jobs.
 
@@ -66,36 +62,6 @@ Application schema authority is `migrations/` plus `src/database.ts` / `app_sche
 - A new instance can overlap the old one during a rolling deploy; the database's single-live-job admission remains authoritative. No local timer or shutdown flag replaces that coordination.
 - Rollback code only to a schema/plan-compatible reader/worker, with auto-deploy paused. Prefer a forward fix after additive migrations. Rolling back code does not undo schema/data changes; disabling live search does not reverse an already sent request. Preserve attempt journals and immutable research; never reset uncertain runs to queued or replay them to make a smoke check pass.
 
-## Verified baseline — 22 October 2026
+## Historical evidence
 
-GitHub ruleset `main-ci-release` (25630562) is **active**, explicitly targets `refs/heads/main`, has an empty bypass list, requires PRs and resolved review threads, binds the strict/up-to-date `test` check to GitHub Actions (integration 15368), and blocks force pushes/deletion. The branch API independently returned `protected:true`. Zero formal approvals is deliberate for the sole maintainer, not a claim of an independently enforced approval gate.
-
-Render's deployment view showed a **manual Dashboard** release of `266ffc2d9dfc67228b7c3a8151eba434a1a15f65`, with successful build, hosted/live-enabled startup and Live status (startup 10:03:39 UTC, Live 10:03:42 UTC). [Main CI run 39758284290](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/39758284290) passed before this release. Public read-only checks returned health 200 (`ok`, live search enabled), unauthenticated MCP 401, account 200 and hosted config 200. An existing authorized MCP `list_trips` read succeeded; no trip contents were published. Render Auto-Deploy was **Off**, and service notifications inherited **Only failure notifications** from the workspace. No supplier request or trip write was made. At that baseline, commit/schema health metadata, the proposed extended shutdown allowance and automatic deployment were not verified in production. The later observation below supersedes those pending items. This observation does not retrospectively establish active-run drain status for the user's manual release.
-
-## Deployed safeguards and Free-plan blocker — 22 October 2026
-
-The user merged PR #16 and manually deployed `a29f491b3301741b173622e0f1517148fc7190eb`. [Main CI 39765023820](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/39765023820) completed successfully at 10:44:51 UTC. Render showed a manual Dashboard trigger, successful build, startup at 10:51:10 UTC and Live at 10:51:19 UTC. The exact-SHA smoke command passed: commit matched, schema 11, health 200, unauthenticated MCP 401, account 200 and hosted web mode. An existing authorized MCP `list_trips` read succeeded without publishing contents. No supplier request or trip write was made.
-
-The Blueprint page then reported `services[0].maxShutdownDelaySeconds: max shutdown delay is not supported for free tier services`. Thus the 180-second allowance in PR #16 was **rejected, not applied**, despite the successful manual code deployment. Remove the unsupported field and retain `autoDeployTrigger: "off"`; verify a subsequent Blueprint sync separately. No plan upgrade or new service is authorized by this correction. The current worker still preserves conservative unknown-outcome recovery after forced termination; that prevents unsafe replay but does not guarantee a useful completed search during a deploy. Applied extended draining, unattended green deployment and failed-CI prevention remain unverified.
-
-## Interruptible worker increment - 22 October 2026
-
-PR #17 merged at `538aee88d6d06aab7c9b1a96e8d796c765c50143`, removing the rejected Blueprint field. The focused follow-up propagates a process-local abort signal through `runOneLiveJob` into SerpApi discovery. Tests cover pre-claim, preflight, reserved intent before dispatch, requests 1-3, body waits, between queries, partial one-way/return observations, late acknowledgements and stalled HTTP/DB cleanup. A disposable PostgreSQL test injects an acknowledgement/finalization outage and verifies lease recovery without re-dispatch. No migration, quota change, new persistent status, plan upgrade or service is needed. Existing saved plans and terminal runs remain compatible; old interrupted workers still recover conservatively.
-
-Keep `checksPass` off for this PR. After review/merge, manually deploy the exact worker-fix SHA, verify Blueprint sync and exact-SHA public/authenticated read smoke, then activate CI gating in its own small change. Free sleep/restart can still interrupt work; durable conservative recovery, rather than uninterrupted execution or exactly-once supplier effects, is the accepted guarantee. No live supplier request is required for this operational acceptance.
-
-## Worker manual rollout and activation preparation - 22 October 2026
-
-Reviewed PR #18 merged at `4bd870eee724a416b03374c439e5cacdff37cceb`. [Main CI 39780188878](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/39780188878) passed build and 173/173 tests with zero failures/skips, finishing at 12:42:33 UTC. The exact commit was manually deployed via Render Dashboard: build successful, startup 12:44:09 UTC, Live 12:44:11 UTC. Exact-SHA smoke passed (schema 11, health 200, unauthenticated MCP 401, account 200, hosted web mode), plus an existing authenticated MCP read.
-
-The user explicitly approved one service restart; Render Events recorded it at 12:45 UTC. The same SHA/schema/public checks and authenticated MCP read passed afterward. No supplier search was submitted, and active/queued global run counts were not inspected. This is service restart/recovery evidence, not a measured SIGTERM-to-exit time or acceptance of an interrupted live supplier request. The prior rejected Blueprint override is absent; a no-change manual sync did not establish a new applied-sync record.
-
-Blueprint Auto Sync was changed from Yes to **No** and independently read back, preventing YAML configuration sync from racing main CI. This activation change requests service-level `checksPass`; actual application and observed automatic green-merge deployment are tracked in #14 after merge. Failed-CI prevention remains pending platform/non-production evidence; vendor documentation or an old PR failure while auto-deploy was off is insufficient. No new service, plan upgrade, secret change, provider quota or real-trip write.
-
-## Applied CI gate - 22 October 2026
-
-PR #19 merged at `00155ef3d104abd091d26145a14c6566728359a3`. [Main CI 39782643667](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/39782643667) passed build and 173/173 tests (zero failures/skips), finishing at 13:00:32 UTC. After that gate, manual Blueprint sync `exe-dbd0ia0473hc73af3jag` proposed only the existing web service's auto-deploy trigger change to `checksPass`; it was approved and showed green completion. A separate service Settings read-back confirmed **After CI Checks Pass** selected. Blueprint Auto Sync remains **No**; failure notifications inherit the workspace's **Only failure notifications**. Notification delivery was not induced/tested.
-
-PR #19 CI attempt 1 aborted in native V8/WASM while running the itinerary tests. The unchanged-source attempt 2 passed all 173 tests without disabling assertions. This follows an earlier dated native-runtime crash; it is retained as CI evidence, not attributed to the configuration change.
-
-This documentation-only follow-up supplies the harmless merge for the automatic-deploy acceptance check. Record its main CI finish time, automatic Render trigger, full deployed SHA and public/authenticated smoke in #14 after observing them; this text does not pre-claim that result. Failed-CI prevention remains pending permitted platform/non-production evidence.
+CI-gate installation, initial manual release, worker rollout, Render/Blueprint platform limitations and the first successful production smoke are documented in [Issue #14](https://github.com/eddieyang-97/trip-planning-engine/issues/14), [Issue #28](https://github.com/eddieyang-97/trip-planning-engine/issues/28), their merged PRs and CI runs. These are historical evidence; the operational instructions above describe the current procedure.

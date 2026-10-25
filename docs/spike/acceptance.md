@@ -1,6 +1,6 @@
 # Flaine acceptance checklist
 
-Updated 13 October 2026. The original scenario remains the acceptance target; statuses below distinguish automated checks, recorded hosted proof and outstanding product requirements. See [current delivery status](../implementation.md), [PRD v0.4](../prd.md), [hosted flight acceptance](../hosted-live-search.md#real-hosted-acceptance--13-october-2026) and [itinerary evidence](../itinerary-web.md#hosted-verification--13-october-2026).
+Updated 13 October 2026. The original scenario remains the acceptance target; statuses below distinguish automated checks, recorded hosted proof and outstanding product requirements. See [current delivery status](../implementation.md), [PRD v0.4](../prd.md), [hosted flight acceptance](https://github.com/eddieyang-97/trip-planning-engine/blob/5137a2e6dfb1c17cc24f9704516991b0785e068f/docs/hosted-live-search.md#real-hosted-acceptance--13-october-2026) and [itinerary evidence](https://github.com/eddieyang-97/trip-planning-engine/blob/5137a2e6dfb1c17cc24f9704516991b0785e068f/docs/itinerary-web.md#hosted-verification--13-october-2026).
 
 ## Confirmed inputs and pilot scope
 
