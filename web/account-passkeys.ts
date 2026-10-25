@@ -1,5 +1,6 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {AccountBoundary} from './account-session.js';
+import type {CredentialGuard} from './account-credentials.js';
 
 export function supportsPasskeys(){
   return globalThis.isSecureContext===true&&typeof PublicKeyCredential!=='undefined'&&
@@ -19,16 +20,14 @@ export function passkeyError(error:unknown):string {
   return 'Unable to complete the passkey request. Check your connection, then reload passkeys before retrying. Email and password sign-in remains available.';
 }
 
-export function configurePasskeys(client:SupabaseClient,boundary:AccountBoundary,enabled:boolean){
+export function configurePasskeys(client:SupabaseClient,boundary:AccountBoundary,enabled:boolean,credentials:CredentialGuard){
   const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
   const panel=el('passkey-settings'),list=el('passkey-list'),message=el('passkey-status');
   const supported=supportsPasskeys();let pending=false,controller:AbortController|undefined;
-  function reset(){controller?.abort();panel.hidden=true;list.replaceChildren();message.textContent='';}
+  function reset(){controller?.abort();panel.hidden=true;list.replaceChildren();message.textContent='';el<HTMLInputElement>('passkey-password').value='';}
   async function confirmed(generation:number){
-    let result;try{result=await client.auth.getUser();}catch(error){throw Error(passkeyError(error));}
-    const {data,error}=result;boundary.check(generation);
-    if(error||!data.user?.email_confirmed_at||data.user.is_anonymous||data.user.id!==boundary.userId)
-      throw Error('Sign in with your confirmed email account before managing passkeys.');
+    const input=el<HTMLInputElement>('passkey-password'),password=input.value;input.value='';
+    await credentials.authorize(password);boundary.check(generation);
   }
   async function load(){
     if(!enabled||!boundary.userId)return;

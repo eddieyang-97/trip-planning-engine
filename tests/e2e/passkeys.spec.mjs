@@ -21,12 +21,13 @@ async function fixture(enabled=true){
     email_confirmed_at:name==='unconfirmed'?null:'2026-10-25T00:00:00Z',aud:'authenticated',role:'authenticated',
     created_at:'2026-10-25T00:00:00Z',is_anonymous:false,app_metadata:{},user_metadata:{}}));
   const sessions=new Map(),keys=new Map(),challenges=new Map(),client=randomUUID();
-  let refreshes=0,registrations=0,deletions=0,recoveries=0,passwordUpdates=0,failOptions=null;
+  let refreshes=0,registrations=0,deletions=0,recoveries=0,passwordUpdates=0,registrationOptions=0,failOptions=null;
   let recovery;
   const issue=async(user,method='password')=>{
     const token=await new SignJWT({sub:user.id,role:'authenticated',session_id:randomUUID(),amr:[{method}]})
       .setProtectedHeader({alg:'ES256',kid:'fixture'}).setIssuer(issuer).setAudience('authenticated').setIssuedAt().setExpirationTime('1h').sign(privateKey);
-    sessions.set(token,user);return {access_token:token,refresh_token:`fixture-${user.id}`,expires_in:3600,token_type:'bearer',user};
+    sessions.set(token,user);
+    return {access_token:token,refresh_token:`fixture-${user.id}`,expires_in:3600,token_type:'bearer',user};
   };
   const auth=express.Router();auth.use(express.json());
   auth.use((req,res,next)=>{res.setHeader('X-Supabase-Api-Version','2024-01-01');next();});
@@ -41,7 +42,7 @@ async function fixture(enabled=true){
     else user=users.find(u=>u.email===req.body.email&&req.body.password==='Fictional-password-123');
     if(!user)return res.status(400).json({code:'invalid_credentials',msg:'Invalid fixture credentials'});
     if(!user.email_confirmed_at)return res.status(400).json({code:'email_not_confirmed',msg:'Confirm email'});
-    res.json(await issue(user));
+    res.json(await issue(user,req.query.grant_type==='pkce'?'recovery':req.query.grant_type==='refresh_token'?'refresh':'password'));
   });
   auth.get('/user',(req,res)=>{const user=current(req);res.status(user?200:401).json(user??{msg:'No fixture session'});});
   auth.put('/user',(req,res)=>{if(!current(req))return res.sendStatus(401);passwordUpdates++;res.json(current(req));});
@@ -52,6 +53,7 @@ async function fixture(enabled=true){
   auth.post('/passkeys/:action/options',(req,res)=>{
     if(failOptions)return res.status(400).json({code:failOptions,msg:'Fictional failure'});
     const user=current(req),registration=req.params.action==='registration';
+    if(registration)registrationOptions++;
     if(registration&&!user?.email_confirmed_at)return res.status(400).json({code:'email_not_confirmed',msg:'Confirm email'});
     const challenge=randomBytes(32).toString('base64url'),id=randomUUID();challenges.set(id,{challenge,user,registration});
     res.json({challenge_id:id,expires_at:Math.floor(Date.now()/1000)+60,options:registration?{
@@ -86,7 +88,8 @@ async function fixture(enabled=true){
     itinerary:itineraryRoutes({core,origin,authenticate:provider.authenticate,supabaseUrl:origin,publishableKey:'sb_publishable_fixture'}),
   }));http.on('request',app);
   return {origin,db,core,tripId,users,client,keys,
-    counts:()=>({refreshes,registrations,deletions,recoveries,passwordUpdates}),fail:code=>{failOptions=code;},
+    counts:()=>({refreshes,registrations,deletions,recoveries,passwordUpdates,registrationOptions}),fail:code=>{failOptions=code;},
+    ageSessions:()=>{for(const user of sessions.values())user.last_sign_in_at=new Date(Date.now()-48*60*60_000).toISOString();},
     close:async()=>{http.closeAllConnections();await new Promise(resolve=>http.close(resolve));await db.close();}};
 }
 
@@ -104,10 +107,30 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
     await login('unconfirmed@example.test');await expect(page.locator('#status')).toContainText('Confirm');
     await expect(page.locator('#passkey-settings')).toBeHidden();expect(app.counts().registrations).toBe(0);
     await login();await expect(page.locator('#identity')).toHaveText('owner@example.test');
+    // A valid long-lived/restored session alone must not send credential writes,
+    // even though this fake provider deliberately permits them without step-up.
+    app.ageSessions();await page.reload();await expect(page.locator('#identity')).toHaveText('owner@example.test');
+    await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
+    await expect(page.locator('#passkey-status')).toContainText('current password');expect(app.counts().registrationOptions).toBe(0);
+    await page.getByLabel('Current password for passkey changes',{exact:true}).fill('Wrong-fictional-password');
+    await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
+    await expect(page.locator('#passkey-status')).toContainText('could not be confirmed');expect(app.counts().registrationOptions).toBe(0);
+    await expect(page.locator('#passkey-password')).toHaveValue('');
+    await page.getByText('Password and recovery',{exact:true}).click();
+    await page.getByLabel('New password',{exact:true}).fill('Fictional-blocked-password');
+    await page.getByRole('button',{name:'Set new password',exact:true}).click();
+    await expect(page.locator('#status')).toContainText('Enter your current password');expect(app.counts().passwordUpdates).toBe(0);
+    await page.getByLabel('Current password',{exact:true}).fill('Wrong-fictional-password');
+    await page.getByLabel('New password',{exact:true}).fill('Fictional-blocked-password');
+    await page.getByRole('button',{name:'Set new password',exact:true}).click();
+    await expect(page.locator('#status')).toContainText('Enter your current password');expect(app.counts().passwordUpdates).toBe(0);
+    await expect(page.locator('#current-password')).toHaveValue('');
+    await page.getByText('Password and recovery',{exact:true}).click();
     await page.evaluate(()=>{
       window.fixtureCreate=navigator.credentials.create.bind(navigator.credentials);
       navigator.credentials.create=()=>Promise.reject(new DOMException('Fictional cancellation','NotAllowedError'));
     });
+    await page.getByLabel('Current password for passkey changes',{exact:true}).fill('Fictional-password-123');
     await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
     await expect(page.locator('#passkey-status')).toContainText('cancelled or timed out');expect(app.counts().registrations).toBe(0);
     await page.evaluate(()=>{navigator.credentials.create=window.fixtureCreate;delete window.fixtureCreate;});
@@ -115,6 +138,7 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
     await page.route('**/auth/v1/passkeys',route=>route.fulfill({status:503,json:{msg:'Fictional network failure'}}));
     await page.getByRole('button',{name:'Reload passkeys'}).click();await expect(page.locator('#passkey-status')).toContainText('Check your connection');
     await expect(page.locator('#account')).toBeVisible();await page.unroute('**/auth/v1/passkeys');
+    await page.getByLabel('Current password for passkey changes',{exact:true}).fill('Fictional-password-123');
     await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
     await expect(page.locator('#passkey-status')).toContainText('Passkey registered');expect(app.counts().registrations).toBe(1);
     await page.getByRole('button',{name:'Sign out / switch account'}).click();
@@ -156,8 +180,12 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
     // Cancelled removal sends no mutation; confirmed removal is read back.
     page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('button',{name:'Remove Fictional security key'}).click();expect(app.counts().deletions).toBe(0);
     page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Remove Fictional security key'}).click();
+    await expect(page.locator('#passkey-status')).toContainText('current password');expect(app.counts().deletions).toBe(0);expect(app.keys.size).toBe(1);
+    await page.getByLabel('Current password for passkey changes',{exact:true}).fill('Fictional-password-123');
+    page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Remove Fictional security key'}).click();
     await expect(page.locator('#passkey-status')).toContainText('Passkey removed');expect(app.counts().deletions).toBe(1);expect(app.keys.size).toBe(0);
     await page.getByText('Password and recovery',{exact:true}).click();await page.getByLabel('New password',{exact:true}).fill('Fictional-new-password');
+    await page.getByLabel('Current password',{exact:true}).fill('Fictional-password-123');
     await page.getByRole('button',{name:'Set new password',exact:true}).click();await expect(page.locator('#status')).toContainText('Password updated');expect(app.counts().passwordUpdates).toBe(1);
     const second=await context.newPage();await second.goto(`${app.origin}/account`);await expect(second.locator('#identity')).toHaveText('owner@example.test');
     await page.getByRole('button',{name:'Sign out / switch account'}).click();await expect(second.locator('#account')).toBeHidden();await second.close();
@@ -167,6 +195,11 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
     await expect(page.locator('#identity')).toHaveText('owner@example.test');
     await page.getByText('Password and recovery',{exact:true}).click();await page.getByLabel('New password',{exact:true}).fill('Fictional-recovered-password');
     await page.getByRole('button',{name:'Set new password',exact:true}).click();await expect(page.locator('#status')).toContainText('Password updated');expect(app.counts().passwordUpdates).toBe(2);
+    // The recovered persisted session cannot reuse the one-time recovery proof.
+    await page.reload();await expect(page.locator('#identity')).toHaveText('owner@example.test');
+    await page.getByText('Password and recovery',{exact:true}).click();await page.getByLabel('New password',{exact:true}).fill('Fictional-blocked-password');
+    await page.getByRole('button',{name:'Set new password',exact:true}).click();
+    await expect(page.locator('#status')).toContainText('Enter your current password');expect(app.counts().passwordUpdates).toBe(2);
     await page.getByRole('button',{name:'Sign out / switch account'}).click();await expect(page.locator('#signin')).toBeVisible();
     for(const code of ['webauthn_challenge_expired','webauthn_credential_not_found','passkey_disabled']){
       app.fail(code);await page.getByRole('button',{name:'Continue with passkey'}).click();

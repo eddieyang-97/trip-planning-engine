@@ -2,6 +2,7 @@ import {AccountBoundary,createAccountClient,watchAccount} from './account-sessio
 import { accountAuthError, signupReceivedMessage } from './account-errors.js';
 import {configureProfile} from './account-profile.js';
 import {configurePasskeys,passkeyError,supportsPasskeys} from './account-passkeys.js';
+import {CredentialGuard} from './account-credentials.js';
 const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getElementById(id) as T;
 const status = (text:string) => { el('status').textContent=text; };
 async function initialize() {
@@ -25,15 +26,16 @@ el<HTMLInputElement>('allow-write').onchange=()=>{
   if(search.disabled)search.checked=false;
 };
 const supabase=createAccountClient(config),boundary=new AccountBoundary();
+const credentials=new CredentialGuard(supabase,boundary);
 let requestId:string|undefined;
 const profileEditor=configureProfile(api);
-const passkeys=configurePasskeys(supabase,boundary,config.passkeys===true);
+const passkeys=configurePasskeys(supabase,boundary,config.passkeys===true,credentials);
 el('passkey-signin').hidden=config.passkeys!==true;
 el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();
 if(!supportsPasskeys())el('passkey-login-hint').textContent='Passkeys are unsupported in this browser or connection. Use email and password to sign in.';
 function clearPrivate(){
   profileEditor.reset();
-  passkeys.reset();el<HTMLInputElement>('new-password').value='';
+  credentials.reset();passkeys.reset();el<HTMLInputElement>('new-password').value='';el<HTMLInputElement>('current-password').value='';
   requestId=undefined;
   for(const id of ['account','connections','consent'])el(id).hidden=true;
   for(const id of ['identity','account-id','connection-list','client-name','client-id','client-redirect','client-scopes'])el(id).replaceChildren();
@@ -127,14 +129,14 @@ el<HTMLButtonElement>('reset-password').onclick=()=>busy(el('reset-password'),as
 el<HTMLFormElement>('password-form').onsubmit=event=>{
   event.preventDefault();const button=el('password-form').querySelector<HTMLButtonElement>('button')!;
   void busy(button,async()=>{
-    const generation=boundary.generation,password=el<HTMLInputElement>('new-password');
+    const generation=boundary.generation,password=el<HTMLInputElement>('new-password'),current=el<HTMLInputElement>('current-password');
+    const currentPassword=current.value;current.value='';
     try{
-      const {data,error}=await supabase.auth.getUser();boundary.check(generation);
-      if(error||!data.user?.email_confirmed_at||data.user.is_anonymous||data.user.id!==boundary.userId)throw Error('Sign in with your confirmed email account first.');
-      const result=await supabase.auth.updateUser({password:password.value});boundary.check(generation);
+      const proof=await credentials.authorize(currentPassword,true);boundary.check(generation);
+      const result=await supabase.auth.updateUser({password:password.value,...proof});boundary.check(generation);
       if(result.error)throw Error('Unable to set your password. Request a new recovery email or sign in again, then retry.');
       status('Password updated. Keep it safe for recovery.');
-    }catch{throw Error('Unable to set your password. Request a new recovery email or sign in again, then retry.');}
+    }catch{throw Error('Unable to set your password. Enter your current password or request a new recovery email, then retry.');}
     finally{password.value='';}
   });
 };
