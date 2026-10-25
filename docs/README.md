@@ -29,7 +29,7 @@ Use this index to find the authoritative guide for each topic. Start with curren
 | [Account profiles and trip members](account-profiles.md) | Editable names, private avatar uploads, accepted-member roster and profile privacy |
 | [Itinerary map](itinerary-map.md) | Current map behavior, pin saving/read-back, presentation, source access and dated map acceptance |
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
-| [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker--15-october-2026) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
+| [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
 | [Accommodation comparison](accommodation-comparison.md) | Typed manual/sourced whole-party lodging evidence, comparison and reviewed tentative-item linkage; source/acceptance boundaries |
 | [Hosted flight search](hosted-live-search.md) | Bounded generalized F1/F2 live acceptance, F3 conditional ChatGPT selection/read-back, client gaps, limits and historical pilot evidence |
 | [Guarded releases](releases.md) | CI/branch safeguards, verified manual post-deploy smoke, Supabase connector boundaries, worker draining and Render auto-deploy |
