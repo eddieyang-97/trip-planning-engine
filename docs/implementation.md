@@ -1,5 +1,9 @@
 # Delivery status and acceptance
 
+## Optional passkeys prepared — 25 October 2026
+
+Issue [#35](https://github.com/eddieyang-97/trip-planning-engine/issues/35) adds optional account sign-in, enrollment/list/removal and confirmed-email password recovery. The passkey flag defaults off, rejects temporary `onrender.com` RP IDs and requires the exact configured public hostname. The shared Supabase session and backend account/grant authorization remain intact; no schema or production configuration changes. Local typecheck/build passed; backend suite **186 passed, 0 failed, 6 optional PostgreSQL skips**; built-web Chromium **3/3 passed**. [Feature and evidence guide](passkeys.md) describes isolated virtual-authenticator coverage and the outstanding domain/RP decision, actual Supabase/device/email recovery and connected-client acceptance. This is local implementation, not deployed or hosted/user-accepted delivery.
+
 Updated 23 October 2026. Current decisions are in the [architecture](architecture.md) and [current PRD](prd.md). **Read the current-state summary first**; later dated sections preserve what was known at the time and may describe then-pending steps that have since completed.
 
 ## Current state — 23 October 2026

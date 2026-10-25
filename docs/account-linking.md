@@ -1,5 +1,7 @@
 # Account linking pilot
 
+Optional passkeys and confirmed-email password recovery are prepared behind a default-off passkey flag; see the [passkey guide](passkeys.md) for configuration, recovery and acceptance limits. A stable custom domain/RP ID and separate hosted acceptance are required before enabling enrollment. Existing password sign-in and independent assistant grants remain available.
+
 The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. The [bounded live flight pilot](hosted-live-search.md) completed its first real authenticated hosted search on 13 October 2026 through the official MCP SDK; generalized multi-airport return discovery and connected ChatGPT conditional selection/read-back followed. **Client update — 22 October 2026:** a refreshed ChatGPT connection persisted one-way criteria (`inbound:null`), authenticated server tool discovery passed, and an independently authorized Claude Free client completed OAuth, tool discovery and exactly two read-only fictional trip/decision retrievals. These checks do **not** verify live one-way fares, Claude writes/search, refresh/revocation, or a full single hosted new-search-to-selection workflow. See [client evidence](hosted-live-search.md#refreshed-chatgpt-one-way-criteria--22-october-2026) and [delivery status](implementation.md#current-state--22-october-2026). Booking is unavailable.
 
 ## Deployment and Supabase configuration

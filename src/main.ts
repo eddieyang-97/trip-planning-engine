@@ -48,7 +48,7 @@ const app = createApp({ core, authenticate, publicOrigin: origin, issuer,
   itinerary:itineraryRoutes({core,origin,local,authenticate:local?authenticate:accounts?.authenticate,
     supabaseUrl:issuer?new URL(issuer).origin:undefined,publishableKey:config.publishableKey}),
   accounts: !local && config.publishableKey ? accountRoutes({ db, origin, issuer:issuer!, publishableKey:config.publishableKey,
-    provider:accounts!, liveSearch:config.liveSearch }) : undefined,
+    provider:accounts!, liveSearch:config.liveSearch, passkeys:config.passkeys }) : undefined,
   ready: async () => { await db.query('select 1'); } });
 const server = app.listen(port, local ? '127.0.0.1' : '0.0.0.0', () => {
   console.log(`Travel decision MCP listening at ${origin}/mcp (${mode}; live pilot ${config.liveSearch?'enabled':'disabled'})`);

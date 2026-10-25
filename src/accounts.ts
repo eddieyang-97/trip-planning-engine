@@ -46,7 +46,7 @@ function redirectURL(value: unknown, expected?: string): string {
   if (expected) { const base = new URL(expected); if (base.origin !== url.origin || base.pathname !== url.pathname) throw new Error('Redirect mismatch'); }
   return url.href;
 }
-export function accountRoutes(options: { db: Database; provider: AccountProvider; origin: string; issuer: string; publishableKey: string; liveSearch?: boolean }) {
+export function accountRoutes(options: { db: Database; provider: AccountProvider; origin: string; issuer: string; publishableKey: string; liveSearch?: boolean; passkeys?:boolean }) {
   const router = Router(), { db, provider, origin } = options;
   router.use((_req, res, next) => {
     res.setHeader('Content-Security-Policy', `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${new URL(options.issuer).origin}; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`);
@@ -56,7 +56,7 @@ export function accountRoutes(options: { db: Database; provider: AccountProvider
   router.get(['/','/account','/oauth/consent'], async (_req,res) => res.type('html').send(await readFile(new URL('../web/account.html',import.meta.url),'utf8')));
   router.get('/assets/account.js', async (_req,res) => res.type('application/javascript').send(await readFile(resolve('dist/web/account.js'),'utf8')));
   router.get('/assets/account.css', async (_req,res) => res.type('text/css').send(await readFile(new URL('../web/account.css',import.meta.url),'utf8')));
-  router.get('/account/config', (_req,res) => res.json({ supabaseUrl: new URL(options.issuer).origin, publishableKey: options.publishableKey, mcpUrl: `${origin}/mcp`, liveSearch: options.liveSearch === true }));
+  router.get('/account/config', (_req,res) => res.json({ supabaseUrl: new URL(options.issuer).origin, publishableKey: options.publishableKey, mcpUrl: `${origin}/mcp`, liveSearch: options.liveSearch === true, passkeys:options.passkeys===true }));
   router.use('/account/api', async (req,res,next) => {
     // No cookie authentication: a caller needs a direct-session bearer token.
     // Cross-origin writes are forbidden even if a caller supplies credentials.

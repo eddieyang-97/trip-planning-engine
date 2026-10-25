@@ -1,0 +1,36 @@
+# Optional passkey pilot — issue #35
+
+Prepared 25 October 2026. Passkey sign-in and account management are implemented behind a **default-off application flag**. No production Auth setting, domain, user, grant or database migration is changed. No permanent production RP ID/domain has been selected or approved. Hosted/device acceptance remains pending; keep issue #35 open for that evidence.
+
+## Configuration and rollout gate
+
+Before enabling for real users, agree on a permanent custom HTTPS domain and its exact bare hostname as RP ID. Changing an RP ID makes existing passkeys unusable. The application rejects `onrender.com` and its subdomains even with the flag set. The initial pilot supports one exact application hostname, rather than parent-domain/subdomain RP sharing. For isolated browser fixtures use `localhost`; IP-address RP IDs are rejected.
+
+1. Separately approve a non-production Supabase Auth environment, fictional confirmed accounts and the stable domain/origin. Verify project feature availability and beta limitations against the current [passkey guide](https://supabase.com/docs/guides/auth/passkeys) and [beta changelog](https://supabase.com/changelog/46458-passkeys-for-supabase-auth-beta).
+2. In that environment configure Supabase Authentication → Passkeys with the approved display name, RP ID and exact HTTPS origin. Keep email/password sign-in, email confirmation, SMTP and the exact `/account` confirmation/recovery redirect available. Do not infer provider configuration from the application flag.
+3. Set `PASSKEYS_ENABLED=true` and `PASSKEY_RP_ID=<exact application hostname>` alongside the existing hosted account settings and `PUBLIC_ORIGIN`. Missing/mismatched RP IDs fail startup. Both settings are operator configuration; neither silently enables Supabase's server feature. Defaults remain off in this repository and the Render Blueprint.
+4. Complete separately authorized hosted fictional-account acceptance below. Only then approve a controlled production rollout against the stable domain. Do not enroll on temporary preview hosts. Recheck the guide, SDK and changelog when upgrading this beta feature.
+
+Preflight inspected pinned `@supabase/supabase-js` **2.117.3** and its installed Auth SDK. Signatures match `signInWithPasskey()`, `registerPasskey()`, `auth.passkey.list()` and `auth.passkey.delete({passkeyId})`. The public guide still shows `auth.experimental.passkey: true`; the installed SDK marks that flag deprecated/ignored because its API is enabled by default. We retain the documented opt-in for compatibility, and enforce rollout through our own server-provided flag plus Supabase project configuration. Feature detection requires a secure context, `PublicKeyCredential` and credential create/get methods; it does not promise every device or credential manager works.
+
+## Account, fallback and recovery
+
+`Continue with passkey` uses the same persisted Supabase client, refresh behavior and `travel-account` storage as email/password sign-in. It does not create or merge an account, add permissions or alter MCP tokens. The backend still verifies signed direct-session JWTs and the current confirmed email user. Assistant grants, resource audience, read/write/search permissions and revocation stay separate.
+
+Signed-in users can register, reload and remove passkeys under Your account. Registration/deletion recheck the current confirmed, non-anonymous identity. Removal requires confirmation reminding the user to retain password/email recovery, including when removing the last key. Successful writes are checked against a fresh key list; errors or lost acknowledgements require reloading before retrying. Names are rendered as plain text. Credential material is managed by Supabase and the authenticator; the app adds no credential tables or logging.
+
+- **Lost device/missing key:** use email/password. If the password is forgotten, enter the existing email and select Forgot password. Open the recovery email in the requesting browser, then set a new password under Password and recovery. The exact `/account` callback uses the existing PKCE session flow. Losing access to both credentials and the confirmed email requires a separately approved identity/recovery process; do not create a duplicate account to recover trips.
+- **Unsupported browser:** password sign-in remains enabled. Existing keys can still be listed/removed from an authenticated session when creation is unavailable. Try a current browser/platform with WebAuthn support on the configured HTTPS origin.
+- **Cancel/timeout/expired request:** restart explicitly or use password sign-in. No automatic ceremony replay. Network failures may have happened after a successful enrollment/removal; reload keys before retrying.
+- **Changed domain:** continue with password/email recovery on the approved new origin, remove unusable keys and enroll again only after the RP/origin rollout is approved. Keep the old RP stable where possible; disabling the UI flag does not revoke existing Supabase credentials.
+- **Unconfirmed account:** confirm the email first. Anonymous sessions and assistant OAuth tokens cannot manage this application's account settings.
+
+## Local evidence and remaining acceptance
+
+The new built-web Chromium regression uses an isolated PGlite database, a fake Supabase HTTP protocol service, signed fixture JWTs and a virtual discoverable WebAuthn authenticator. It exercises password sign-in, cancelled registration, list failure, registration, sign-out/passkey sign-in, same-account/trip read-back, refresh, consent redirect, read-only grant enforcement/revocation, deletion confirmation and read-back, recovery request/PKCE return/password update, cross-tab sign-out, another-account isolation, expired/missing credentials, disabled feature and unsupported-browser fallback. Browser requests are restricted to the fixture origin. The fake Auth service checks ceremony challenge/origin and credential identity but **does not implement Supabase's signature/attestation verification**. Fixture success is not production provider acceptance.
+
+Focused unit/backend coverage checks flag/RP rejection, sanitized recoverable messages, direct passkey-session acceptance and existing session isolation, consent/reconnect/revocation. Existing backend tests retain the independent OAuth client, grant-version and read/write/search boundaries.
+
+Local verification on 25 October: `npm run check` and `npm run build` passed; `npm test` reported **186 passed, 0 failed, 6 skipped** (optional external PostgreSQL tests; no test PostgreSQL URL supplied). `npm run test:e2e` passed **3/3** built-web Chromium tests, including the existing sharing regression and two passkey tests. No CI or deployment result is claimed for this branch.
+
+Pending before enablement: approved domain/RP and Supabase availability/settings; real fictional-account enrollment and same-trip read-back on actual target devices; actual SMTP recovery delivery and password update; provider challenge/cancel/failure behavior; and a connected assistant's authorization-code/PKCE exchange, refresh, reconnect/revocation and authorized web/MCP read-back. The fixture consent callback does not prove an external assistant's PKCE exchange. No hosted acceptance, deployment or production setting change is claimed.
