@@ -1,6 +1,6 @@
 # User flow diagrams
 
-Updated 22 October 2026 for the flight-research entry point; other diagrams retain their original dated release scope unless marked **work in progress** or **target flow**. Implementation does not imply every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [current delivery evidence](implementation.md#current-state--22-october-2026).
+Updated 22 October 2026 for the flight-research entry point; other diagrams retain their original dated release scope unless marked **work in progress** or **target flow**. Implementation does not imply every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [current delivery evidence](implementation.md#current-state--25-october-2026).
 
 ## Sign in and connect an assistant
 
@@ -128,7 +128,7 @@ flowchart TB
     Revoke --> Block[Later shared reads are denied]
 ```
 
-An invitation URL is a route to authenticated membership, not anonymous publication. It does not grant access to the owner's account-private research or assistant connections. Source: [sharing implementation](../src/itinerary-sharing.ts) and [ER extension](database.md#viewer-sharing-extension--deployed).
+An invitation URL is a route to authenticated membership, not anonymous publication. It does not grant access to the owner's account-private research or assistant connections. Source: [sharing implementation](../src/itinerary-sharing.ts) and [ER extension](database.md#viewer-sharing-extension--14-october-2026-baseline).
 
 The organizer shares the invitation URL manually; the application does not email it through Brevo. Confirmation proves account control, while accepting the invitation separately creates trip membership. A delivery failure leaves onboarding incomplete. Resends remain subject to Supabase and Brevo limits; see [account email delivery](account-linking.md#account-email-delivery).
 
