@@ -83,7 +83,7 @@ One return run is ≤3 metered requests; one repeat ≤3 more (6/trip research c
 4. With explicit approval for a particular live test and ≤3 search requests, use a verified user/client with read/write/search grants and an isolated general-route decision. Submit current revision/version and poll its run. A second run or second client search needs its own approved scope/budget.
 5. Verify durable attempts, provider provenance and incomplete price/equipment coverage. Retry the identical mutation and confirm there is no second run or additional search.
 
-The itinerary web app provides manual organization and the deployed saved-research view. It does not yet provide flight search controls. Hosted OAuth and initial ChatGPT linking have succeeded; each new client still needs explicit authorization, and wider assistant/security acceptance remains separate. See [itinerary evidence](itinerary-web.md#hosted-verification--13-october-2026).
+The itinerary web app provides manual organization and the deployed saved-research view. It does not yet provide flight search controls. Hosted OAuth and initial ChatGPT linking have succeeded; each new client still needs explicit authorization, and wider assistant/security acceptance remains separate. See [itinerary evidence](itinerary-web.md#verification-and-history).
 
 Rollback: set `LIVE_SEARCH_ENABLED=false` and restart/deploy. Evidence and ledgers stay in Postgres. Disabling admission does not cancel a supplier request already in flight; idle running records recover conservatively after lease expiry when the runner is enabled again.
 
