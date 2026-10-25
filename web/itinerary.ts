@@ -15,8 +15,9 @@ import {configureMap} from './itinerary-map.js';
 import {configureMapEditor} from './itinerary-map-editor.js';
 import {configureMembers} from './itinerary-members.js';
 import {configureTripLifecycle} from './trip-lifecycle.js';
+import {configureStayComparison} from './stay-comparison.js';
 
-type Row={id:string;payload:ItineraryItem;position:number};
+type Row={id:string;payload:ItineraryItem;position:number;sourceLink?:{decisionId:string;webPath:string}};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';archived_at?:string|null;lifecycle_revision?:number;payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
 type Plan={trip:Trip;role?:'owner'|'viewer'|'editor';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -32,6 +33,7 @@ function clearPrivate(){
   if(anonymousView)return;
   trips=[];plan=null;editing=null;removing=null;pending=null;collapsed.clear();
   tripLifecycle.reset();
+  stayComparison.reset();
   tripStatus='active';$<HTMLSelectElement>('trip-filter').value='active';
   for(const dialog of document.querySelectorAll<HTMLDialogElement>('dialog'))if(dialog.open)dialog.close();
   for(const form of document.querySelectorAll<HTMLFormElement>('dialog form'))form.reset();
@@ -146,6 +148,7 @@ async function loadPlan(id:string){
     if(anonymousView){trips=[{...plan!.trip,role:'viewer'}];$('shared-unavailable').hidden=true;}
     const url=new URL(location.href);url.searchParams.set('trip',plan!.trip.id);history.replaceState(null,'',url);
     render();message('');
+    if(!demo&&!anonymousView&&plan!.role!=='viewer'&&plan!.role!=='editor')await stayComparison.refresh();
   }catch(error){plan=null;
     if(anonymousView){trips=[];$('shared-unavailable').hidden=false;}
     if(error&&typeof error==='object'&&'code' in error&&error.code==='FORBIDDEN_OR_NOT_FOUND')trips=trips.filter(t=>t.id!==id);
@@ -161,6 +164,7 @@ function allDates(){
 }
 const discussion=configureDiscussion({context:()=>plan?{tripId:plan.trip.id,allowed:!anonymousView&&!demo}:null,api});
 const members=configureMembers($('trip-members'),api);
+const stayComparison=configureStayComparison($('stay-research'),{api,mutate,reload:loadPlan,message});
 const tripLifecycle=configureTripLifecycle(mutate,async(action,id)=>{
   plan=null;const url=new URL(location.href);url.searchParams.delete('trip');history.replaceState(null,'',url);render();
   if(action==='archive'||action==='restore')tripStatus='active';$<HTMLSelectElement>('trip-filter').value=tripStatus;
@@ -185,6 +189,7 @@ function render(){
   members.reset();
   discussion.reset();
   calendarExport.reset();
+  stayComparison.update(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor'?{tripId:plan.trip.id,revision:plan.revision,name:plan.trip.payload.name,checkIn:plan.trip.payload.startDate,checkOut:plan.trip.payload.endDate,adults:plan.trip.payload.adults}:null);
   $('trip-filter').parentElement!.hidden=demo||anonymousView;
   tripLifecycle.update(plan&&!demo&&!anonymousView?{id:plan.trip.id,name:plan.trip.payload.name,archived:!!plan.trip.archived_at,revision:plan.trip.lifecycle_revision??1,role:plan.role??'owner'}:null,!!plan?.trip.archived_at);
   $('trip-list').replaceChildren(...trips.map(t=>{
@@ -254,6 +259,7 @@ function card(row:Row,index:number,count:number){
   if(item.endDate)detail.append(node('p',`Until ${date(item.endDate)}${item.endTime?` at ${item.endTime} · ${item.endTimeZone??'time zone not set'}`:''}`));
   if(item.location)detail.append(node('p',item.location));if(item.notes)detail.append(node('p',item.notes,'notes'));
   if(item.bookingNote)detail.append(node('p',`Booking note: ${item.bookingNote}`,'notes'));
+  if(row.sourceLink){const source=node('a','Review saved lodging evidence');source.href=row.sourceLink.webPath;detail.append(source);}
   if(item.openQuestion)detail.append(node('p',item.openQuestion,'question'));el.append(detail);
   const actions=node('div','','item-actions');
   if(!anonymousView&&!demo)actions.append(button('Comments',()=>void discussion.open(row.id)));

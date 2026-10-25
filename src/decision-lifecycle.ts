@@ -8,7 +8,8 @@ export const decisionLifecycleSchemas={
 };
 export async function changeDecisionArchive(tx:Queryable,decision:any,archived:boolean,actorId:string){
   if(!!decision.archived_at===archived)throw new DomainError('REVISION_CONFLICT','The decision status changed. Reload it before changing it.');
-  if(archived&&(await tx.query('select b.id from booking_records b join selections s on s.id=b.selection_id where s.decision_id=$1 limit 1',[decision.id])).rows.length)
+  if(archived&&(await tx.query(`select b.id from booking_records b join selections s on s.id=b.selection_id where s.decision_id=$1
+    union all select i.id from stay_itinerary_links l join itinerary_items i on i.id=l.item_id where l.decision_id=$1 and i.payload->>'status'='user_reported_booked' limit 1`,[decision.id])).rows.length)
     throw new DomainError('BOOKING_LINKED','This decision has a booking report and cannot be archived.');
   const row=(await tx.query('update decisions set archived_at=case when $2 then now() else null end,archived_by=case when $2 then $3::uuid else null end,revision=revision+1 where id=$1 returning *',[decision.id,archived,actorId])).rows[0]!;
   await tx.query('insert into decision_lifecycle_events(decision_id,revision,actor_id,action) values($1,$2,$3,$4)',[decision.id,row.revision,actorId,archived?'archive':'restore']);

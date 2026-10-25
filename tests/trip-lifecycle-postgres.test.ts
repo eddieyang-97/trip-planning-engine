@@ -14,7 +14,7 @@ test('pooled PostgreSQL deletion serializes an already-started editor save and p
   const schema='test_'+randomUUID().replaceAll('-',''),admin=new pg.Pool({connectionString:url.href,max:1});let db:Database|undefined;
   try{
     await admin.query(`create schema ${schema}`);db=pooledDatabase(new pg.Pool({connectionString:url.href,max:4,options:`-c search_path=${schema}`,statement_timeout:10000}));
-    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
+    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql','013_stay_comparison.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
     const core=new Core(db,false),owner=randomUUID(),editor=randomUUID(),tripId=(await core.callFromWeb('create_trip',{...flaineTrip,...key()},owner)).tripId;
     const invite=await core.callFromWeb('create_itinerary_invite',{...key(),tripId,label:'Editor',role:'editor'},owner);
     await core.callFromWeb('accept_itinerary_invite',{...key(),token:invite.token,displayName:'Friend'},editor);

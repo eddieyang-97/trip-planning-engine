@@ -15,7 +15,7 @@ export interface ItineraryResearch {decisions:ItineraryResearchDecision[]; trunc
 // Called only after trip ownership is established, within the same repeatable-read snapshot.
 // Return presentation data, never provider tokens, OAuth grants or the supplier request ledger.
 export async function itineraryResearch(tx:Queryable,tripId:string):Promise<ItineraryResearch> {
-  const decisions=(await tx.query('select d.id,d.title,d.revision,exists(select 1 from booking_records b join selections s on s.id=b.selection_id where s.decision_id=d.id) as booking_linked from decisions d where trip_id=$1 and archived_at is null order by title,id limit 6',[tripId])).rows;
+  const decisions=(await tx.query('select d.id,d.title,d.revision,exists(select 1 from booking_records b join selections s on s.id=b.selection_id where s.decision_id=d.id) as booking_linked from decisions d where trip_id=$1 and kind=\'flight\' and archived_at is null order by title,id limit 6',[tripId])).rows;
   const result:ItineraryResearchDecision[]=[];
   for(const decision of decisions.slice(0,5)) {
     const criteria=(await tx.query('select version,payload from criteria_versions where decision_id=$1 order by version desc limit 1',[decision.id])).rows[0]!;

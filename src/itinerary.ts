@@ -5,6 +5,7 @@ import type { Queryable } from './database.js';
 import {itineraryResearch} from './itinerary-research.js';
 import {activeMember} from './itinerary-sharing.js';
 import {sharedItinerary} from './itinerary-public.js';
+import {listStayDecisions,stayItemSourceLinks} from './stays.js';
 
 const localTime=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable();
 const zone=z.string().max(80).refine(value=>{try{new Intl.DateTimeFormat('en',{timeZone:value});return true;}catch{return false;}},'Use a valid time zone').nullable();
@@ -65,9 +66,11 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
   if(read){
     const items=(await tx.query('select * from itinerary_items where trip_id=$1 and removed_at is null order by position,id',[a.tripId])).rows;
     if(!owner)return sharedItinerary(trip,items,role);
+    const stayLinks=await stayItemSourceLinks(tx,a.tripId);
+    for(const item of items){const sourceLink=stayLinks.find(link=>link.itemId===item.id);if(sourceLink)item.sourceLink=sourceLink;}
     return {trip,role,revision:trip.itinerary_revision,items,
       history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows,
-      research:await itineraryResearch(tx,a.tripId)};
+      research:await itineraryResearch(tx,a.tripId),stayResearch:await listStayDecisions(tx,a.tripId,userId)};
   }
   if(a.expectedRevision!==trip.itinerary_revision)fail('REVISION_CONFLICT','The plan changed. Reload it before saving your edit.');
   let before:any=null,after:any=null,itemId=a.itemId,action='';

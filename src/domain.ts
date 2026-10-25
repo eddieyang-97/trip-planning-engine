@@ -8,7 +8,7 @@ const airport = z.string().regex(/^[A-Z]{3}$/);
 export const mutation = { idempotencyKey: z.string().min(8).max(128) };
 export const tripInput = z.strictObject({
   ...mutation, name: z.string().min(1).max(120), destination: z.string().min(1).max(120),
-  startDate: date, endDate: date, adults: z.number().int().min(1).max(9),
+  startDate: date, endDate: date, adults: z.number().int().min(1).max(10),
 }).refine(x => x.endDate >= x.startDate, 'End date precedes start date');
 export const criteriaSchema = z.strictObject({
   origins: z.array(airport).min(1).max(6).refine(x => new Set(x).size === x.length, 'Duplicate airport'),

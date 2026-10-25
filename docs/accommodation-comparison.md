@@ -1,0 +1,47 @@
+# Accommodation comparison — Issue #9
+
+Prepared 25 October 2026. This guide describes the source implementation; [delivery status](implementation.md) records the checks actually completed. Deployment and a normal connected ChatGPT/Claude-to-web acceptance run are separate gates.
+
+## Organizer journey
+
+1. Create or open a trip in the web app, then create a lodging comparison for exact check-in/out dates, whole-trip adult party size and currency. Trips and lodging support up to ten adults; flight discovery still supports at most nine.
+2. Add manually researched options, or ask an authorized assistant to save a bounded sourced shortlist through the lodging MCP tools. A candidate describes a hotel room combination or an entire home. Give different configurations distinct labels. Use its stable candidate ID when appending new evidence.
+3. Review the same saved comparison in the web app using its returned `webPath`. Compare the whole-party stay cost, units and actual sleeping places, separate refundable deposit, source/time, location precision, check-in and cancellation terms. A source link records evidence; the service does not fetch it or verify availability.
+4. Save a shortlist/rejection and its own rationale, independently of selecting an option. New prices append observations; earlier evidence remains available, including an older selected observation.
+5. Review the exact observation, enter selection rationale and acknowledge unresolved conditions where allowed. Incompatible dates, party, currency or known insufficient capacity cannot be selected. A selection does not make a reservation.
+6. Explicitly save the reviewed selection to the itinerary. This creates one **tentative accommodation item**, linked to the exact decision, candidate, observation and selection. Refresh through web or MCP to recover the same IDs and evidence. Later prices, selection changes or manual edits do not rewrite the original research link or mark the item booked.
+
+This slice compares the whole trip party; subgroup allocations and children remain separate work. Criteria are fixed for the comparison; create a new comparison to deliberately change the stay basis. The normal read includes the five latest full observations per candidate, retained historical IDs and the selected evidence; exact older evidence is fetched on demand. Limits are twenty stay decisions per trip, twenty configurations per decision and one hundred observations per configuration.
+
+The web form is a complete fallback: no assistant, supplier account, API key or live hotel integration is required. Friends continue to see the permitted shared itinerary, including its reviewed listing URL and practical details. Research origin IDs, source timestamps, comparison rationale and selection history remain owner-private.
+
+## Cost and fit rules
+
+- The base price is the **entire stay for all units and all quoted adults**, in integer minor units. A nightly/per-room headline must be converted and checked manually before entering it as that base.
+- Mandatory taxes, cleaning, linen and other fees record an amount and whether already included. Included fees are not added twice. An unknown amount or inclusion, incomplete mandatory-fee coverage, excluded/unpriced charges or missing base makes the complete total unknown. A known subtotal is only a lower bound, not a cheapest-total result. If that same-party/date/currency lower bound already exceeds the budget, the option fails the budget even with additional fees unknown.
+- Refundable deposits are separate cash exposure. A null deposit is unknown; an explicitly recorded zero means no deposit reported. Neither deposits nor bookings create expense/payment records.
+- Bed types do not imply capacity: record actual sleepable places per bed. Multiply by bed count and unit count. Missing layouts/capacity remain unknown, even if a listing headline says “sleeps ten.” A sofa bed is not silently a double bed.
+- Only exact-date, same-currency, whole-party comparable complete costs can be ordered by price. Do not compare different currencies through an implicit exchange rate. Unknown fit/availability stays conditional; a known failure is ineligible.
+- Manual/sourced observations are user-reported evidence. `reported_available` is a dated source assertion, never supplier verification or guaranteed inventory. Cancellation text and an optional offset-aware deadline remain as reported.
+
+## Web and MCP contract
+
+Both surfaces use `create_stay_decision`, `list_stay_decisions`, `get_stay_decision`, `get_stay_observation`, `save_stay_candidate`, `set_stay_disposition`, `compare_stays`, `select_stay_candidate` and `commit_stay_selection`. Reads require the trip owner and, on MCP, a current read grant; writes additionally require write permission. Research does not require search consent and performs no metered supplier operation. Shared members do not gain research authority from their itinerary role.
+
+Mutations use the existing idempotency receipts and trip-before-decision lock order. Changed research requires its current decision revision; itinerary commit also checks the current itinerary revision. A lost response can be retried with the identical payload/key. A stale edit must be reloaded and reviewed. A unique selection link additionally prevents a fresh key from duplicating the same selected stay. Removed linked items are not silently recreated by replay.
+
+The assistant should return a concise shortlist with the stable web link, preserve evidence and unknowns, and leave the explicit review/save step to the organizer. Do not copy a long chat transcript into a candidate or claim a successful tool response proves a usable connected-client handoff.
+
+## Persistence and compatibility
+
+Migration [013](../migrations/013_stay_comparison.sql) extends the existing research graph with a typed decision kind and candidate rationale, and adds a protected selected-stay-to-itinerary relationship. Existing decisions default to flight; observations, selections, booking reports and IDs are preserved. There is no backfill of lodging from flight JSON or inference from manual itinerary text.
+
+Application migrations remain authoritative through `src/database.ts` and `app_schema_migrations`; this work does not apply production DDL through the Supabase connector. RLS and explicit PUBLIC/browser-role revocations protect the new relation; the privileged service still enforces owner checks. Retention follows the existing trip: archive preserves it, permanent trip deletion removes it. A research decision linked to a reported-booked stay item cannot be archived; a removed item still retains its booking report. Use factual summaries/source links rather than copied private confirmations or raw supplier pages.
+
+Older server versions do not understand stay criteria or linked evidence. After stay records exist, prefer a forward fix; an old-code rollback must first prevent incompatible research reads/writes and preserve the new records. Code rollback does not undo migration or saved evidence.
+
+## Verification boundary
+
+Use fictional Zermatt-like 8- and 10-adult configurations and reserved example domains in tests. The regression suite covers cost/capacity/unknowns, immutable evidence, revisions/retries, ownership/privacy and selected-item continuity. The pooled PostgreSQL test exercises a real competing commit; the built Chromium journey exercises local MCP persistence followed by web review and fresh read-back.
+
+Local fake authentication/PGlite and CI PostgreSQL/browser passes cannot establish hosted Supabase/OAuth sessions, current ChatGPT/Claude tool catalogs, phone behavior or real Zermatt inventory. A normal authorized assistant conversation → stable saved web comparison → reviewed tentative item → independent web/MCP read remains an explicitly approved fictional hosted acceptance step. Record organizer interventions/client limits; do not treat prose or fixtures as supplier evidence.
