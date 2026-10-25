@@ -53,7 +53,8 @@ export function accountRoutes(options: { db: Database; provider: AccountProvider
     res.setHeader('Cache-Control','no-store');res.setHeader('X-Robots-Tag','noindex, nofollow');
     res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Content-Type-Options', 'nosniff'); next();
   });
-  router.get(['/','/account','/oauth/consent'], async (_req,res) => res.type('html').send(await readFile(new URL('../web/account.html',import.meta.url),'utf8')));
+  router.get('/', (_req,res) => res.redirect(302,'/itinerary'));
+  router.get(['/account','/oauth/consent'], async (_req,res) => res.type('html').send(await readFile(new URL('../web/account.html',import.meta.url),'utf8')));
   router.get('/assets/account.js', async (_req,res) => res.type('application/javascript').send(await readFile(resolve('dist/web/account.js'),'utf8')));
   router.get('/assets/account.css', async (_req,res) => res.type('text/css').send(await readFile(new URL('../web/account.css',import.meta.url),'utf8')));
   router.get('/account/config', (_req,res) => res.json({ supabaseUrl: new URL(options.issuer).origin, publishableKey: options.publishableKey, mcpUrl: `${origin}/mcp`, liveSearch: options.liveSearch === true, passkeys:options.passkeys===true }));
