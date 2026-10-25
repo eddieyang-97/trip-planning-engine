@@ -77,7 +77,7 @@ test('new manual prices append evidence while selected observations, independent
     await core.call('set_stay_disposition',{...key(),decisionId,expectedRevision:2,candidateId:saved.candidateId,disposition:'saved',rationale:'PRIVATE-FIXTURE-ONLY shortlist reasoning'},owner);
     const selected=await core.call('select_stay_candidate',{...key(),decisionId,expectedRevision:3,observationId:saved.observationId,rationale:'PRIVATE-FIXTURE-ONLY selected evidence'},owner);
     const commit=await core.callFromWeb('commit_stay_selection',{...key(),decisionId,expectedRevision:4,expectedItineraryRevision:1,selectionId:selected.selectionId},owner.userId);
-    let plan=await core.call('get_itinerary',{tripId},owner);assert.equal(plan.items[0].payload.status,'tentative');assert.equal(plan.items[0].payload.bookingNote,'');assert.equal(plan.items[0].sourceLink.observationId,saved.observationId);
+    let plan=await core.call('get_itinerary',{tripId},owner);assert.equal(plan.items[0].payload.status,'tentative');assert.equal(plan.items[0].payload.bookingNote,'');assert.equal(plan.items[0].payload.notes,'Hotel room combination: 5 twin rooms.','Mutable booking status belongs in the status field, not frozen practical notes');assert.equal(plan.items[0].sourceLink.observationId,saved.observationId);
     const booked={...plan.items[0].payload,status:'user_reported_booked',bookingNote:'PRIVATE-FIXTURE-ONLY externally booked report'};
     await core.call('update_itinerary_item',{...key(),tripId,itemId:commit.itemId,expectedRevision:plan.revision,item:booked},owner);
     const frozenItem=(await db.query('select * from itinerary_items where id=$1',[commit.itemId])).rows[0];

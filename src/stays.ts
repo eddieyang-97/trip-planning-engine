@@ -108,7 +108,7 @@ export async function dispatchStay(tx:Queryable,name:StayToolName,a:any,userId:s
     const row=await observation(tx,decision.id,selected.observation_id),o=row.payload;
     // Research rationale and evidence remain owner-private in the link/selection, outside shared notes.
     const item=itineraryItemSchema.parse({type:'accommodation',title:o.propertyName,startDate:o.checkIn,startTime:null,endDate:o.checkOut,endTime:null,timeZone:null,endTimeZone:null,
-      location:o.location.label,url:o.source.url,notes:`Tentative ${o.kind==='entire_home'?'entire home':'hotel rooms'}: ${o.configurationLabel}. Not booked.`,openQuestion:'Confirm availability, final terms and any unresolved costs before booking.',status:'tentative',bookingNote:'',
+      location:o.location.label,url:o.source.url,notes:`${o.kind==='entire_home'?'Entire home':'Hotel room combination'}: ${o.configurationLabel}.`,openQuestion:'Confirm availability, final terms and any unresolved costs before booking.',status:'tentative',bookingNote:'',
       ...(o.location.precision==='exact'&&o.location.latitude!==null?{mapLocations:[{label:o.location.label||o.propertyName,latitude:o.location.latitude,longitude:o.location.longitude}]}:{})});
     const saved=await dispatchItinerary(tx,'add_itinerary_item',{tripId:trip.id,expectedRevision:trip.itinerary_revision,item},userId);
     if(!('itemId' in saved))throw new DomainError('INTERNAL_ERROR','Unable to save this stay item. Retry the same request.');
