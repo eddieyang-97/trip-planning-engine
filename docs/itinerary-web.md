@@ -1,6 +1,6 @@
 # Itinerary web app — organizer slice
 
-Updated 15 October 2026. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. Manual organization, saved-research review and private viewer invitations are deployed. Hosted creation/save, second-account joining and revocation passed; broader organizer editing and automatic research reconciliation remain incomplete. See [current architecture](architecture.md) and [delivery status](implementation.md).
+Updated 25 October 2026 for hosted landing-page navigation; dated feature and acceptance details below retain their original scope. The same Node service serves `/itinerary`; no additional host, framework or backend service is required. Manual organization, saved-research review and private viewer invitations are deployed. Hosted creation/save, second-account joining and revocation passed; broader organizer editing and automatic research reconciliation remain incomplete. See [current architecture](architecture.md) and [delivery status](implementation.md).
 
 ## Research archive/restore — Issue #24 (prepared)
 
