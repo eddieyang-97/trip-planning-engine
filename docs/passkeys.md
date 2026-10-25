@@ -6,6 +6,8 @@ Updated 25 October 2026 after authorized production activation and the owner's r
 
 After explicit user authorization, production passkey and password-change settings were applied to the single existing Supabase project and Render service. The accepted service hostname is the RP ID; changing the RP ID later invalidates existing passkeys, so users would need to enroll again.
 
+**Configuration invariants:** The configured RP ID must match the effective HTTPS public-origin hostname exactly. The app allows the exact Render service hostname, not bare `onrender.com` (a public suffix), other sibling/parent domains, IP addresses, HTTP public origins or invalid DNS labels; `localhost` is reserved for isolated fixtures. The repository/Blueprint example remains default-off even though production is explicitly enabled. The app flag alone does not enable Supabase's provider feature; both must be configured. Never enroll on an unrelated preview host.
+
 | Setting | Read-back value |
 | --- | --- |
 | Supabase Passkey authentication | Enabled |
@@ -69,3 +71,5 @@ PR #37 merged as `bfd8e5f`; its earlier custom-domain-only rollout condition is 
 
 
 Production activation occurred later on 25 October 2026; the status and read-back above supersede the pre-activation snapshot recorded in the Render-hostname follow-up.
+
+**Historical pre-activation preflight:** Before enablement, a read-only hosted `/account/config` check returned `passkeys:false` and the same `/mcp` origin; the service URL was resolved from effective runtime configuration, not guessed. The pinned `@supabase/supabase-js` 2.117.3 SDK supported `signInWithPasskey()`, `registerPasskey()`, `auth.passkey.list()` and `auth.passkey.delete({passkeyId})`. Its experimental client opt-in was already deprecated/ignored by the installed SDK; operational enablement relies on the application flag **and** Supabase Auth configuration. This is dated preparation evidence, not the current production state.
