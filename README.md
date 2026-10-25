@@ -1,45 +1,22 @@
 # Trip Planning Workspace
 
-A shared trip planning product with two first-class surfaces: a web app for researching, organizing and collaborating on trips, and a hosted MCP interface for working on those same trips through an assistant. Both use the same accounts, saved plans, decisions and evidence.
+A shared trip-planning workspace with two interfaces to the **same accounts, trips, decisions and saved evidence**: a web app for itinerary review/collaboration and an authorized hosted MCP service for ChatGPT/Claude. Users can compare sourced choices, preserve reasoning and carry tentative selections into an itinerary. **A selection is not a booking**; external bookings are reported separately.
 
-The product helps people compare travel choices, retain their reasoning and turn decisions into a clear itinerary that replaces a separate Google Doc. Research uses explicit constraints, dated source evidence and repeatable searches. Bookings happen externally and are recorded separately from selected plans.
+- **Web:** [Itinerary](https://trip-planning-engine.onrender.com/itinerary) and [account](https://trip-planning-engine.onrender.com/account) pages; manual trip organization, sharing, comments, maps, profiles, calendar export and saved research. See [web guide](docs/itinerary-web.md).
+- **MCP:** authenticated trip, itinerary, research and bounded flight-search tools with separate grants, revision checks and persisted state. See [hosted search](docs/hosted-live-search.md) and [account linking](docs/account-linking.md).
+- **Target cross-surface journey:** an authorized assistant saves a sourced stay/dining shortlist in a durable trip; the web app reviews, selects and tentatively places it on the itinerary; a fresh web/MCP read sees the same result. Feature scope and verified progress remain distinct; see [delivery status](docs/implementation.md).
 
-“Trip Planning Workspace” is the working product name. The repository, package and deployment identifiers remain `trip-planning-engine`.
+## Current delivery and priorities
 
-## Product surfaces
+[Delivery status](docs/implementation.md) is the **single current capability/acceptance summary**. [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) are the only actionable backlog and priority source; [PRD](docs/prd.md) describes intended product behavior. Current work emphasizes accommodation comparison [#9](https://github.com/eddieyang-97/trip-planning-engine/issues/9), then dining [#10](https://github.com/eddieyang-97/trip-planning-engine/issues/10) and logistics [#8](https://github.com/eddieyang-97/trip-planning-engine/issues/8). An embedded model-backed planner is not part of the approved implementation.
 
-| Surface | Product role | Current slice |
-| --- | --- | --- |
-| Web app | Use the trip directly: review saved research, organize an itinerary and collaborate without an assistant account | Deployed manual organizer, shared viewing/editor access, signed-in comments, map pins, profiles, calendar export and saved-flight drafts; fuller research controls and remaining real-device/account acceptance are separate increments |
-| MCP | Let a connected assistant retrieve and update the same trip, research options, explain trade-offs and manage the plan | Deployed generalized, cost-bounded flight search, comparisons and conditional selections, plus itinerary and private policy tools; authenticated ChatGPT selection/read-back, refreshed one-way criteria, current tool metadata and one-account Claude read-only retrieval verified; broader client and supplier workflows retain separate acceptance |
+The hosted service uses **Render + Supabase PostgreSQL/Auth**. Protected `main` runs build, PostgreSQL tests and browser CI; deployment and authenticated acceptance are separately verified. The connected Supabase project is **production**, not a sandbox; review [AGENTS.md](AGENTS.md) before any live operation. Pilot source coverage, missing costs, booking status and client interoperability must not be inferred from a green test or an accessible endpoint.
 
-Both surfaces are core to the product. **Target core journey:** ask an authorized ChatGPT/Claude client to research a bounded travel decision, save sourced options and rationale in Trip Planning, open the same structured comparison in the web app, review/select an option and carry a tentative plan into the shared itinerary. Users can also create/edit decisions directly in web. This cross-surface accommodation/dining journey is **not yet verified as shipped**; [#9](https://github.com/eddieyang-97/trip-planning-engine/issues/9) and [#10](https://github.com/eddieyang-97/trip-planning-engine/issues/10) track delivery. Both interfaces retain the same permissions, facts and revision rules. Delivery proceeds in independently verified increments. Existing invitations and comments are implemented; advanced proposals remain conditional. The [PRD](docs/prd.md) defines target behavior and current priorities; [implementation notes](docs/implementation.md) track delivered behavior and acceptance gaps.
-
-**Recorded 14 October pilot release:** the [web app](https://trip-planning-engine.onrender.com/itinerary), accounts, MCP, saved flight research and [itinerary sharing](docs/itinerary-sharing.md) are deployed on Free Render + Supabase. Release `1444ac8` passed all **81 CI tests** and deployed successfully after Render's outage. View links open without an account, support optional expiry and can be revoked; two hosted visitors and revocation passed on a fictional test trip. Editors still sign in. Overview and sticky detailed day navigation are included. Later comment, map, calendar and profile releases are documented in the [current delivery record](docs/implementation.md) and dated feature guides; this paragraph is the **14 October snapshot**, not a claim of current release status.
-
-Start with the [high-level architecture](docs/architecture.md#high-level-architecture), [database ER diagrams](docs/database.md) and [user flows](docs/user-flows.md). The [documentation index](docs/README.md) also links product requirements, delivery evidence and historical research.
-
-Account-confirmation emails use Supabase Auth with [Brevo custom SMTP](docs/account-linking.md#account-email-delivery). A second account received and confirmed its email, signed in and joined a view-only itinerary; organizer revocation then removed access. Organizers share trip invitation links manually. This is pilot acceptance, not a guarantee of delivery to every mailbox.
-
-## Current delivery and priorities (25 October 2026)
-
-The [PRD](docs/prd.md) defines the intended product, [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) are the sole actionable queue, and [delivery status](docs/implementation.md) distinguishes implemented, deployed and actually accepted behavior.
-
-- **Completed/closed:** database security bootstrap audit [#3](https://github.com/eddieyang-97/trip-planning-engine/issues/3); bounded generalized flight discovery [F1 #4](https://github.com/eddieyang-97/trip-planning-engine/issues/4), multi-airport coverage [F2 #5](https://github.com/eddieyang-97/trip-planning-engine/issues/5), and ChatGPT conditional selection/read-back [F3 #6](https://github.com/eddieyang-97/trip-planning-engine/issues/6). Flight amounts remain research evidence, not confirmed whole-party bookable totals; F3 closure does not establish a single complete hosted new-search journey.
-- **Completed since 22 October:** research decision archive/restore [#24](https://github.com/eddieyang-97/trip-planning-engine/issues/24), compiled-frontend Chromium sharing regression [#2](https://github.com/eddieyang-97/trip-planning-engine/issues/2), and manual post-deploy smoke [#28](https://github.com/eddieyang-97/trip-planning-engine/issues/28), all merged and closed. The hosted fictional archive/restore read-back passed; production smoke passed at live `8d675d72` with schema 12. These tests do not establish real-user/device or supplier-booking acceptance.
-- **Operations:** protected `main` and disposable-PostgreSQL/Chromium CI, guarded Render service auto-deploy (`checksPass`), Blueprint Auto Sync off, plus a separately dispatched **non-required** exact-SHA [production smoke](docs/releases.md#manual-production-smoke-workflow--23-october-2026). Failed-CI nondeployment remains an accepted unverified edge.
-- **Client acceptance:** [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) records one-way metadata/criteria and independent Claude read-only retrieval. The refreshed ChatGPT connection exposes **34 MCP actions**, including research archive/restore, but no complete single-session hosted new-search-to-selection journey or live one-way fares have been verified.
-- **MCP + web focus:** Continue the shared trip/itinerary/research product with ChatGPT/Claude as optional authorized MCP clients, not an embedded agent. User-selected **P2/Now: [#9 accommodation](https://github.com/eddieyang-97/trip-planning-engine/issues/9)**, with the [manual/sourced comparison contract](docs/accommodation-comparison.md). [#10 dining](https://github.com/eddieyang-97/trip-planning-engine/issues/10) and [#8 participant logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8) remain P2/Next; [#7 legacy import](https://github.com/eddieyang-97/trip-planning-engine/issues/7) is P3/Backlog. Accommodation implementation and automated/hosted acceptance are tracked separately in the delivery record. Future agentic architecture is preserved in [Deep Backlog #33](https://github.com/eddieyang-97/trip-planning-engine/issues/33) and [#31](https://github.com/eddieyang-97/trip-planning-engine/issues/31), without implementation approval. [Current delivery status](docs/implementation.md#current-state--23-october-2026) is authoritative.
-
-**Development and production data:** the connected Supabase tool points to the live PostgreSQL/Auth project. Use metadata and diagnostics read-only by default, not ad hoc production SQL or private trip enumeration; the repository's `migrations/` / `app_schema_migrations` control application schema. See [AGENTS.md](AGENTS.md#connected-production-service-tools) and [release guidance](docs/releases.md#connected-supabase-production-diagnostics).
+Start with the [documentation index](docs/README.md), [architecture](docs/architecture.md), [database reference](docs/database.md) and [user flows](docs/user-flows.md).
 
 ## Run locally
 
-**Using ChatGPT or Claude?** See the [friend-friendly connection guide](docs/connect-chatgpt-claude.md) for account setup, supported plans and permissions.
-
-The [itinerary web app](docs/itinerary-web.md) provides the organizer and saved research at `/itinerary`, using the same persistent trip state as MCP. On the hosted service, the root `/` redirects to `/itinerary` as the default landing page. Open `/itinerary?demo=1` for a labelled, editable Flaine preview; example data resets on reload. Hosted users sign in or manage their profile and passkeys through `/account`; assistant authorization remains at `/oauth/consent`. No MCP client or assistant account is required. Real sign-in and research viewing passed. Account-free view links and signed-in editor invitations are deployed. Hosted anonymous read/revocation passed; discussion and broader hosted edit continuity remain later work.
-
-Requires Node.js 24 and npm. No provider account or database installation is needed.
+Requires **Node.js 24** and npm. No external provider account is needed for synthetic development.
 
 ```sh
 npm ci
@@ -47,105 +24,37 @@ npm run demo
 npm run dev
 ```
 
-`demo` uses a temporary in-memory PostgreSQL database, runs the Flaine example and prints the comparison. `dev` starts a persistent database in `.data/postgres` and serves MCP at `http://127.0.0.1:3000/mcp`. Settings are in `.env.example`; copy it to `.env` if needed. A local bearer token is generated in `.data/local-token` unless `LOCAL_TOKEN` is set. Configure a compatible **local HTTP MCP client** to send `Authorization: Bearer <that token>`. The token is never printed to service logs. This endpoint is reachable only on this computer; a cloud chat client cannot reach it.
-
-The job runners use the same process. `start_search` returns a run ID; use `get_search_run` to poll. Synthetic fixtures are labelled and use example.com links. `provider: live` requires explicit `LIVE_SEARCH_ENABLED=true`, a backend `SERPAPI_API_KEY`, an authorized search and the existing quota. The deployed generalized adapter supports bounded searches for future dates, economy/GBP, one destination, 1–6 origin airports and 1–9 adults: round trips use a combined outbound query and at most two return expansions; one-way runs query up to three origins separately. A run reserves at most three provider requests. Coverage is explicitly partial, and provider-reported prices do not establish a verified whole-party total or booking availability. See [hosted flight search](docs/hosted-live-search.md) for client/schema limitations and precise evidence.
+`npm run demo` uses synthetic flight fixtures; `npm run dev` serves a local MCP endpoint at `http://127.0.0.1:3000/mcp` with a bearer token in `.data/local-token` unless `LOCAL_TOKEN` is supplied. Settings are in `.env.example`. Local MCP cannot be reached by a cloud client without separate networking.
 
 ```sh
+npm run build
 npm test
 npm run check
-npm run build
-npm start
+npm run test:e2e
 ```
 
-`npm start` uses the compiled app with the same mode and data path. Stop the dev process first; only one process should open a given embedded database. Tests use isolated databases and do not contact flight suppliers, Supabase or other external APIs.
+For the browser suite, first install Chromium with `npx playwright install --only-shell chromium`; the [browser guide](docs/browser-testing.md) explains coverage. Tests use isolated fictional accounts/data. Live supplier queries are separately opt-in, authorized, metered and bounded; never run them as part of routine verification.
 
-The built-frontend browser check is separate: install Chromium once with `npx playwright install --only-shell chromium`, then run `npm run test:e2e`. It uses fictional local identities and a fresh in-memory database. See [browser tests and failure regressions](docs/browser-testing.md) for the exact checks, CI gate and hosted-account limits.
+For end users connecting ChatGPT or Claude, follow [the connection guide](docs/connect-chatgpt-claude.md).
 
 ## The Flaine acceptance case
 
-Confirmed inputs: **18–20 December 2026, four travelers, snowboard, all London airports**: LHR, LGW, LTN, STN, LCY and SEN.
-
-Working assumptions: four adults, one snowboard for the party, Geneva gateway, economy examples, maximum two stops and demonstration score weights. Ages, equipment dimensions/weight, transfer arrangements, budget and departure restrictions remain unconfirmed. The fixture covers LGW only and explicitly reports the other five airports as unknown coverage. The synthetic comparison yields:
-
-| Example | Flight price for party | Snowboard fee | Comparable total | Result |
-| --- | ---: | ---: | ---: | --- |
-| TEST101 | £480 | Unknown | Unknown | Conditional |
-| TEST102 | £620 | £90 for one board, both directions | £710 | Meets the modeled flight constraints |
-| TEST103 | £150 with unknown price basis | Unknown | Unknown | Conditional |
-
-These are invented test cases, not researched fares. Even the complete example does not establish transfer feasibility or overall trip suitability. Selection and booking reports are separate records; synthetic evidence cannot be recorded as booked. Manually supplied evidence and booking reports remain unverified and labelled `user_reported`.
+The synthetic example models four travelers going to Flaine via Geneva, **18–20 December 2026**, with snowboard equipment and London-origin constraints. The fixture does **not** represent actual fares, full airport coverage or confirmed equipment charges. See [`src/acceptance.ts`](src/acceptance.ts) and the [flight evidence/limitations](docs/hosted-live-search.md) instead of treating the example as bookable inventory.
 
 ## Shared model
 
-The web app and MCP call one shared service. Hosted state lives in Supabase Postgres; persisted jobs run inside the existing Node process. Local development uses embedded PostgreSQL and synthetic fixtures. See the [current architecture](docs/architecture.md#service-boundaries) for the service diagram and accepted boundaries.
-
-`Trip → Decision → CriteriaVersion / Candidate / SearchRun → Observation`. A candidate identifies a flight itinerary; observations preserve separate dated prices and evidence. Runs reference immutable criteria versions. Selections snapshot the evaluation and rationale. Booking records capture only the user's report of an external booking.
-
-Hard constraints produce pass/fail/unknown verdicts before preference scoring. Utility uses fixed cost and duration anchors, so adding a candidate does not change existing scores. Missing costs produce score intervals, never zero-priced equipment. Comparisons list eligible options before conditional and ineligible ones, then order by the lower score bound. Overlapping intervals do not establish a winner. Repeated searches compare like-for-like fare bases; changed criteria suppress price deltas. Missing results are never labelled sold out.
-
-The [architecture-review corrections](docs/correctness-fixes.md) make known over-budget costs fail even when equipment costs are missing, derive flight-local times from a reviewed airport-zone catalogue, and return Core reads from one database snapshot. Historical evidence remains intact. Broader airport coverage and remaining product/security acceptance are tracked in [delivery status](docs/implementation.md).
-
-Mutations require an idempotency key. Mutable decision/itinerary updates also require the last observed revision. Retrying identical input returns the original result; reusing the key with different input fails. Operations check the authenticated owner; MCP additionally checks the stored client grant/version. Supplier/user text is treated as evidence, not instructions.
+`Trip → Decision → CriteriaVersion / Candidate / SearchRun → Observation`. Criteria versions and dated offer observations retain provenance; a selection pins its evidence and rationale; a later user-reported booking is a separate fact. Missing prices and source coverage remain **unknown**, never free or sold out. Trip/research writes use ownership checks, revisions and idempotency. Web and MCP share the same domain rules but have distinct authentication/grants. Details: [architecture](docs/architecture.md), [semantics](docs/data-semantics-review.md) and [correctness](docs/correctness-fixes.md).
 
 ## MCP tools
 
-| Purpose | Tools |
-| --- | --- |
-| Trips and evidence | `list_trips`, `create_trip`, `get_trip`, `get_decision` |
-| Research lifecycle | `list_decisions`, `archive_decision`, `restore_decision` (owner-only, revisioned, reversible) |
-| Manual itinerary | `get_itinerary`, `add_itinerary_item`, `update_itinerary_item`, `remove_itinerary_item`, `move_itinerary_item` |
-| Private policy notes | `create_policy_note`, `update_policy_note`, `get_policy_note`, `list_policy_notes` |
-| Decision criteria | `create_decision`, `update_decision_criteria` |
-| Search | `start_search`, `get_search_run` |
-| Research | `save_candidate`, `compare_candidates`, `compare_search_runs` |
-| Outcomes | `set_candidate_disposition`, `select_candidate`, `record_booking` |
-
-The HTTP transport is stateless; application data is persistent. There is no SSE subscription or server session to recover. Clients poll saved runs. Tool errors are structured, with `isError: true`; transport authentication failures are HTTP 401.
-
-[Private policy notes](docs/policy-notes.md) retain manually curated airline rules with sources, applicability and review dates. Updates append versions; comparisons and selections can reference an exact version. Notes are reusable across the owner's trips and remain separate from quote totals and availability. The four tools are included in the hosted release; a dedicated real-account note workflow has not been recorded.
+Representative operations: `list_trips`, `create_trip`, `get_trip`, `create_decision`, `update_decision_criteria`, `start_search`, `get_search_run`, `save_candidate`, `compare_candidates`, `select_candidate`, `record_booking`, itinerary operations and private policy notes. Exposed schemas and authorized client scope are authoritative; the list here is not a complete or guaranteed client catalogue. Background searches return durable run IDs for polling, not a reservation.
 
 ## Repository
 
-```text
-src/
-  app.ts           MCP adapter and HTTP protections
-  auth.ts          Local token / hosted JWT verification
-  accounts.ts      Direct-session sign-in verification, consent and revocation
-  itinerary.ts     Shared manual itinerary validation, persistence and history
-  itinerary-research.ts Bounded saved-research projection for the organizer
-  itinerary-web.ts Direct-session web API and itinerary asset routes
-  core.ts          Ownership, persistence, tools, fixture jobs
-  domain.ts        Runtime TypeScript schemas and scoring
-  database.ts      Embedded / external PostgreSQL adapters
-  providers.ts     Provider boundary and synthetic examples
-  live-provider.ts Narrow SerpApi normalization and scope validation
-  live-search.ts   Durable attempts, allowance admission and safe live recovery
-  policies.ts      Private, versioned policy notes and review reminders
-  acceptance.ts    Confirmed Flaine inputs and assumptions
-  main.ts          Configuration and process lifecycle
-migrations/        Executable scaffold database schema
-web/               Itinerary app, account and OAuth consent pages
-tests/             Domain, persistence, authorization and MCP tests
-scripts/           Demo, migration and build asset scripts
-docs/README.md     Documentation index
-docs/prd.md        Product requirements
-docs/architecture.md Accepted decisions and current architecture
-docs/database.md   Database ER diagrams and migration relationships
-docs/user-flows.md Current journeys and labelled target flows
-docs/implementation.md Current delivery status and acceptance
-docs/spike/        Historical research and design proposals
-docs/history/      Earlier implementation records
-```
+- `src/`: HTTP/MCP adapters, authorization, trip/itinerary/research domain, database access and provider boundaries.
+- `web/`: browser itinerary/account/consent experiences.
+- `migrations/`: versioned application schema; `app_schema_migrations` is authoritative.
+- `tests/`: domain, PostgreSQL and built-browser regressions.
+- `docs/`: [current guidance](docs/README.md), product requirements, feature contracts, operations and separately identified historical research.
 
-The executable schema normalizes relationships and versions while storing validated criteria and offer payloads in JSONB. The larger schema in `docs/spike/design` is a design proposal, not the applied migration. No application code was copied from the reviewed trip-planning projects. Dependency licenses remain their respective owners' licenses; no license has yet been chosen for this repository.
-
-## Product direction and next increments
-
-The current product remains the **shared itinerary and sourced research through web and MCP**, not an all-purpose autonomous agent. Follow-on work covers [stays](https://github.com/eddieyang-97/trip-planning-engine/issues/9), [dining](https://github.com/eddieyang-97/trip-planning-engine/issues/10) and [group logistics](https://github.com/eddieyang-97/trip-planning-engine/issues/8), with [legacy import](https://github.com/eddieyang-97/trip-planning-engine/issues/7) optional. [Browser E2E #2](https://github.com/eddieyang-97/trip-planning-engine/issues/2) is closed; native agent ideas belong to [Deep Backlog](https://github.com/eddieyang-97/trip-planning-engine/issues/33). Consult the [priority rationale](docs/prd.md#12-incremental-roadmap-and-execution-backlog) and [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues) for the executable queue. No live supplier calls or production changes are authorized by these priorities.
-
-The standalone [flight](docs/flight-probe.md) and [accommodation](docs/accommodation-probe.md) diagnostics ran live on 11 October; their [dated results](docs/spike/live-probe-results-2026-10-11.md) preserve source checks and unresolved costs. They remain separate from hosted search and do not enable accommodation tools. `npm run probe:places` prints a zero-network plan; recorded public Overpass trials failed. Connected Booking.com access does not grant reusable backend API access.
-
-See [account linking](docs/account-linking.md) for completed OAuth/retrieval proof and remaining refresh/revocation, second-account and other-assistant checks. Shared state and permissions are acceptance requirements for both surfaces.
-
-The deployed [Blueprint](render.yaml) uses Free compute and applies migrations at startup. Service auto-deploy is configured for `checksPass` on the protected `main` branch; **Blueprint Auto Sync stays off** and configuration changes are manually coordinated. Release gate acceptance is tracked separately in [#14](https://github.com/eddieyang-97/trip-planning-engine/issues/14) and the [release guide](docs/releases.md). The service checks database availability on `/health` and refuses local mode on Render. GitHub Actions runs the build and tests.
+[Release procedures](docs/releases.md) describe the guarded deployment workflow and its limits. [AGENTS.md](AGENTS.md) sets engineering and documentation conventions.
