@@ -48,6 +48,7 @@ test('MCP lodging shortlist opens in the built web app, is reviewed into one ten
     await expect(page.locator('body')).toContainText('Fictional Matterhorn Hotel');
     await expect(page.locator('body')).toContainText('Fictional Alpine Chalet');
     await expect(page.locator('body')).toContainText('Fictional group prefers a kitchen and shared lounge.');
+    await expect(page.locator('#stay-research summary').first()).toContainText('Hotel rooms versus a whole chalet · 2 options · 1 shortlisted');
     const comparison=page.getByRole('table',{name:'Whole-party lodging alternatives — reported evidence'});
     await expect(comparison).toContainText('2027-02-11 → 2027-02-14 · 10 adults');
     await expect(comparison).toContainText('10 beds / 10 places');

@@ -30,8 +30,31 @@ test('built itinerary: lost edit acknowledgement, viewer privacy, revoke and den
       events: (await app.db.query('select * from itinerary_events where trip_id=$1 order by revision', [app.tripId])).rows,
       edits: (await app.db.query("select * from mutation_requests where trip_id=$1 and operation='update_itinerary_item'", [app.tripId])).rows,
     });
+    const stayList=owner.waitForResponse(r=>r.url().endsWith('/itinerary-api/list_stay_decisions'));
+    const diningList=owner.waitForResponse(r=>r.url().endsWith('/itinerary-api/list_dining_decisions'));
     await signIn(owner, app.ownerToken);
+    expect((await stayList).ok()).toBeTruthy();expect((await diningList).ok()).toBeTruthy();
+    await expect(owner.locator('#stay-research')).toBeHidden();
+    await expect(owner.locator('#dining-research')).toBeHidden();
+    await owner.locator('#add-research summary').click();
+    await owner.getByRole('button',{name:'Accommodation',exact:true}).click();
+    const stayDialog=owner.locator('#stay-decision-dialog');
+    await stayDialog.getByLabel('Comparison title',{exact:true}).fill('Fictional accommodation');
+    await stayDialog.getByRole('button',{name:'Create lodging comparison',exact:true}).click();
+    await expect(stayDialog).not.toBeVisible();
+    await expect(owner.locator('#stay-research summary').first()).toContainText('Fictional accommodation · 0 options · 0 shortlisted');
+    await expect(owner.locator('#dining-research')).toBeHidden();
+    await owner.locator('#add-research summary').click();
+    await owner.getByRole('button',{name:'Dining',exact:true}).click();
+    const diningDialog=owner.locator('#dining-decision-dialog');
+    await diningDialog.getByLabel('Comparison title',{exact:true}).fill('Fictional dinner');
+    await diningDialog.getByRole('button',{name:'Create dining comparison',exact:true}).click();
+    await expect(diningDialog).not.toBeVisible();
+    await expect(owner.locator('#dining-research summary').first()).toContainText('Fictional dinner · 0 options · 0 shortlisted');
     await signIn(viewer, app.viewerToken);
+    await expect(viewer.locator('#add-research')).toBeHidden();
+    await expect(viewer.locator('#stay-research')).toBeHidden();
+    await expect(viewer.locator('#dining-research')).toBeHidden();
     const card = owner.locator(`#item-${app.itemId}`);
     await expect(card).toContainText(privateNote);
     await expect(owner.locator('#research')).toContainText(privateResearch);
