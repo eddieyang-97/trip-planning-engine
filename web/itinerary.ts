@@ -187,10 +187,14 @@ const mapEditor=configureMapEditor($('map-place-editor'),async query=>{
 });
 $('item-dialog').addEventListener('close',()=>mapEditor.cancel());
 $('trip-discussion').onclick=()=>void discussion.open();
+$('add-stay-research').onclick=()=>{($('add-research') as HTMLDetailsElement).open=false;stayComparison.openCreate();};
+$('add-dining-research').onclick=()=>{($('add-research') as HTMLDetailsElement).open=false;diningComparison.openCreate();};
 function render(){
   members.reset();
   discussion.reset();
   calendarExport.reset();
+  $('add-research').hidden=!(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor');
+  if($('add-research').hidden)($('add-research') as HTMLDetailsElement).open=false;
   diningComparison.update(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor'?{tripId:plan.trip.id,revision:plan.revision,name:plan.trip.payload.name,checkIn:plan.trip.payload.startDate,checkOut:plan.trip.payload.endDate,adults:plan.trip.payload.adults}:null);
   stayComparison.update(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor'?{tripId:plan.trip.id,revision:plan.revision,name:plan.trip.payload.name,checkIn:plan.trip.payload.startDate,checkOut:plan.trip.payload.endDate,adults:plan.trip.payload.adults}:null);
   $('trip-filter').parentElement!.hidden=demo||anonymousView;
