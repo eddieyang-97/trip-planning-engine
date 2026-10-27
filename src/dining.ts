@@ -103,7 +103,6 @@ export async function dispatchDining(tx:Queryable,name:DiningToolName,a:any,user
   }else if(name==='select_dining_candidate'){
     const row=await observation(tx,decision.id,a.observationId),assessment=evaluateDining(row.payload,criteria);
     if(assessment.eligibility==='ineligible')fail('VALIDATION_ERROR','This restaurant fails a known constraint. Review the dates, party, dietary fit, currency or budget.');
-    if(assessment.eligibility==='conditional'&&!a.acknowledgeUnknowns)fail('VALIDATION_ERROR','Review and explicitly acknowledge the unresolved dining conditions before selecting.');
     await tx.query('update selections set superseded_at=now() where decision_id=$1 and superseded_at is null',[decision.id]);
     const id=randomUUID();
     await tx.query('insert into selections(id,decision_id,observation_id,criteria_version,rationale,evaluation,selected_by) values($1,$2,$3,1,$4,$5,$6)',[id,decision.id,row.id,a.rationale,JSON.stringify(assessment),userId]);
