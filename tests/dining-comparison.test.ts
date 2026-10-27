@@ -32,6 +32,18 @@ test('dining compares explicit per-person/group estimates without inventing mand
   assert.equal(diningObservationSchema.safeParse({...o,reservation:{...o.reservation,url:'javascript:alert(1)'}}).success,false);
 });
 
+test('dining check details match complete and incomplete evidence',()=>{
+  const c=diningCriteria(),o=diningObservation();
+  const complete=evaluateDining(o,c);
+  assert.deepEqual(complete.checks.find(check=>check.name==='total'),{name:'total',status:'pass',detail:'Expected whole-party meal cost includes recorded mandatory service and fees'});
+  assert.deepEqual(complete.checks.find(check=>check.name==='menu'),{name:'menu',status:'pass',detail:'Menu and its observation time are recorded'});
+  const incomplete=evaluateDining({...o,mandatoryChargesComplete:false,menu:{summary:'',url:null,observedAt:null}},c);
+  for(const name of ['total','menu']){
+    const check=incomplete.checks.find(value=>value.name===name);
+    assert.equal(check?.status,'unknown');assert.ok(check&&incomplete.unknowns.includes(check.detail));
+  }
+});
+
 test('whole-party dining shortlist keeps dated menu, reservation provenance, rejected rationale and pinned selection across rereads',async()=>{
   const db=await embedded();try{
     const {core,owner,tripId,decisionId}=await setup(db),o=diningObservation();
