@@ -272,3 +272,19 @@ erDiagram
 ```
 
 Existing flight payloads and manual items are not rewritten. Lodging source evidence remains owner-private; shared itinerary projections omit the link/snapshot. Archive retains research; permanent trip deletion removes the relationship with the graph. See [semantics and forward recovery](data-semantics-review.md#sourced-accommodation-comparison-issue-9-25-october-2026). PR #36 was merged and deployed, and hosted fictional accommodation writes/read-back exercised this storage path ([Issue #9](https://github.com/eddieyang-97/trip-planning-engine/issues/9)). This is not supplier inventory verification, nor evidence that any future migration is deployed merely because it passes CI.
+
+## Dining extension — migration 014 (source, deployment pending)
+
+Adds explicit dining decision kind and the service-only RLS-protected relation below, reusing 013 observation/candidate/decision and selection/observation/decision composite keys. Unique item and selection IDs prevent duplicate linked commits; every foreign key cascades within the trip graph. No flight/stay backfill or rewrite.
+
+```mermaid
+erDiagram
+    TRIPS ||--o{ DINING_ITINERARY_LINKS : owns
+    DECISIONS ||--o{ DINING_ITINERARY_LINKS : dining_origin
+    CANDIDATES ||--o{ DINING_ITINERARY_LINKS : restaurant
+    OBSERVATIONS ||--o{ DINING_ITINERARY_LINKS : exact_evidence
+    SELECTIONS ||--o| DINING_ITINERARY_LINKS : reviewed_choice
+    ITINERARY_ITEMS ||--o| DINING_ITINERARY_LINKS : tentative_meal
+```
+
+See [domain semantics](data-semantics-review.md#sourced-dining-comparison-issue-10-27-october-2026), [migration](../migrations/014_dining_comparison.sql) and [delivery status](implementation.md).

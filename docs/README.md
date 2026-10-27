@@ -7,7 +7,7 @@ Use this index to find the authoritative guide for each topic. Start with curren
 | Document | Purpose |
 | --- | --- |
 | [High-level architecture](architecture.md#high-level-architecture) | Main system diagram, core data overview and accepted service/identity/execution decisions |
-| [Database ER diagrams](database.md) | Initial ER baseline and extensions 007–012, including trip lifecycle 011 and research archive 012 |
+| [Database ER diagrams](database.md) | Initial ER baseline and extensions 007–014, including lifecycle/archive, deployed stays and the source dining extension |
 | [User flow diagrams](user-flows.md) | Sign-in, flight research, itinerary editing, viewer invitations, deployed calendar export and planned proposal approval |
 | [Product requirements](prd.md) | Product requirements, future scope and release gates; current issue priority lives in GitHub |
 | [Delivery status and acceptance](implementation.md) | Concise current delivery/acceptance boundaries with links to evidence |
@@ -30,6 +30,7 @@ Use this index to find the authoritative guide for each topic. Start with curren
 | [Itinerary map](itinerary-map.md) | Current map behavior, pin saving/read-back, presentation, source access and dated map acceptance |
 | [Itinerary discussion](itinerary-comments.md) | Signed-in member comments, privacy, permissions and release evidence |
 | [Itinerary timezone picker](itinerary-web.md#itinerary-timezone-picker) | Picker semantics, iPhone touch regression and dated test evidence (consolidated into itinerary guide) |
+| [Dining comparison](dining-comparison.md) | Manual/sourced restaurant shortlist, cost/menu/group fit and reported reservation pages; reviewed tentative meal and acceptance boundaries |
 | [Accommodation comparison](accommodation-comparison.md) | Typed manual/sourced whole-party lodging evidence, comparison and reviewed tentative-item linkage; source/acceptance boundaries |
 | [Hosted flight search](hosted-live-search.md) | Bounded generalized F1/F2 live acceptance, F3 conditional ChatGPT selection/read-back, client gaps, limits and historical pilot evidence |
 | [Guarded releases](releases.md) | CI/branch safeguards, verified manual post-deploy smoke, Supabase connector boundaries, worker draining and Render auto-deploy |
