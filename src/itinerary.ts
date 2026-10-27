@@ -5,6 +5,7 @@ import type { Queryable } from './database.js';
 import {itineraryResearch} from './itinerary-research.js';
 import {activeMember} from './itinerary-sharing.js';
 import {sharedItinerary} from './itinerary-public.js';
+import {listDiningDecisions,diningItemSourceLinks} from './dining.js';
 import {listStayDecisions,stayItemSourceLinks} from './stays.js';
 
 const localTime=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable();
@@ -66,11 +67,11 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
   if(read){
     const items=(await tx.query('select * from itinerary_items where trip_id=$1 and removed_at is null order by position,id',[a.tripId])).rows;
     if(!owner)return sharedItinerary(trip,items,role);
-    const stayLinks=await stayItemSourceLinks(tx,a.tripId);
+    const stayLinks=[...await stayItemSourceLinks(tx,a.tripId),...await diningItemSourceLinks(tx,a.tripId)];
     for(const item of items){const sourceLink=stayLinks.find(link=>link.itemId===item.id);if(sourceLink)item.sourceLink=sourceLink;}
     return {trip,role,revision:trip.itinerary_revision,items,
       history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows,
-      research:await itineraryResearch(tx,a.tripId),stayResearch:await listStayDecisions(tx,a.tripId,userId)};
+      research:await itineraryResearch(tx,a.tripId),stayResearch:await listStayDecisions(tx,a.tripId,userId),diningResearch:await listDiningDecisions(tx,a.tripId,userId)};
   }
   if(a.expectedRevision!==trip.itinerary_revision)fail('REVISION_CONFLICT','The plan changed. Reload it before saving your edit.');
   let before:any=null,after:any=null,itemId=a.itemId,action='';

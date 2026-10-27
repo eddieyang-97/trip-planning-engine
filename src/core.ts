@@ -14,12 +14,15 @@ import {dispatchLifecycle,lifecycleSchemas,lockDecisionTrip} from './trip-lifecy
 import {activeMember} from './itinerary-sharing.js';
 
 import {decisionLifecycleSchemas,changeDecisionArchive} from './decision-lifecycle.js';
+import {diningSchemas,diningReads} from './dining-domain.js';
+import {dispatchDining,ownedDining,readDiningDecision,readDiningSummary} from './dining.js';
 import {staySchemas,stayReads} from './stay-domain.js';
 import {dispatchStay,ownedStay,readStayDecision,readStaySummary} from './stays.js';
 
 const edit = { ...mutation, decisionId: uuid, expectedRevision: z.number().int().positive() };
 export const schemas = {
   ...staySchemas,
+  ...diningSchemas,
   ...lifecycleSchemas,
   ...decisionLifecycleSchemas,
   ...itinerarySchemas,
@@ -43,7 +46,7 @@ export const schemas = {
   record_booking: z.strictObject({ ...edit, selectionId: uuid, bookedAt: z.iso.datetime({ offset: true }), note: z.string().min(1).max(1000) }),
 };
 export type ToolName = keyof typeof schemas;
-const reads = new Set<ToolName>([...stayReads,'list_decisions','list_itinerary_comments','get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
+const reads = new Set<ToolName>([...diningReads,...stayReads,'list_decisions','list_itinerary_comments','get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
 export const isRead = (name: ToolName) => reads.has(name);
 function fail(code: string, message: string): never { throw new DomainError(code, message); }
 
@@ -121,7 +124,7 @@ export class Core {
   }
   // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
   async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
-    if(!['list_trips','create_trip',...Object.keys(staySchemas),...Object.keys(decisionLifecycleSchemas),...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    if(!['list_trips','create_trip',...Object.keys(staySchemas),...Object.keys(diningSchemas),...Object.keys(decisionLifecycleSchemas),...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
     return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
   }
   private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
@@ -157,6 +160,10 @@ export class Core {
         if(Object.hasOwn(lifecycleSchemas,name)){
           if(scopedTrip?.owner_id!==actor.userId&&!(name==='prepare_trip_action'&&args.action==='leave'&&await activeMember(tx,tripId!,actor.userId)))fail('FORBIDDEN_OR_NOT_FOUND','This trip action is unavailable.');
           if((name==='archive_trip'||name==='restore_trip')&&!!scopedTrip.archived_at!==(name==='archive_trip'))fail('REVISION_CONFLICT','The trip status changed after this request. Refresh it.');
+        }
+        if(Object.hasOwn(diningSchemas,name)){
+          if(args.decisionId)await ownedDining(tx,args.decisionId,actor.userId);else await ownedTrip(tx,actor,args.tripId);
+          if(name==='commit_dining_selection'&&old.response?.itemId){const item=(await tx.query('select removed_at from itinerary_items where id=$1',[old.response.itemId])).rows[0];if(!item||item.removed_at)fail('REVISION_CONFLICT','This selected meal item was removed. Review the plan; retrying cannot restore it.');}
         }
         if(Object.hasOwn(staySchemas,name)){
           if(args.decisionId)await ownedStay(tx,args.decisionId,actor.userId);
@@ -198,6 +205,7 @@ export class Core {
       ...(coverage?.queries?.find((q:any)=>q.attempt===a.attempt)?{query:coverage.queries.find((q:any)=>q.attempt===a.attempt)}:{})})) };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor,fromWeb:boolean): Promise<Record<string, any>> {
+    if(Object.hasOwn(diningSchemas,name))return dispatchDining(tx,name as keyof typeof diningSchemas,a,actor.userId);
     if(Object.hasOwn(staySchemas,name))return dispatchStay(tx,name as keyof typeof staySchemas,a,actor.userId);
     if(Object.hasOwn(lifecycleSchemas,name))return dispatchLifecycle(tx,name as keyof typeof lifecycleSchemas,a,actor);
     if(Object.hasOwn(commentSchemas,name))return dispatchComments(tx,name as keyof typeof commentSchemas,a,actor.userId,fromWeb);
@@ -217,7 +225,7 @@ export class Core {
     }
     if(name==='list_decisions'){
       await ownedTrip(tx,actor,a.tripId);
-      const rows=(await tx.query(`select d.*,(exists(select 1 from booking_records b join selections s on s.id=b.selection_id where s.decision_id=d.id) or exists(select 1 from stay_itinerary_links l join itinerary_items i on i.id=l.item_id where l.decision_id=d.id and i.payload->>'status'='user_reported_booked')) as booking_linked from decisions d where trip_id=$1
+      const rows=(await tx.query(`select d.*,(exists(select 1 from booking_records b join selections s on s.id=b.selection_id where s.decision_id=d.id) or exists(select 1 from dining_itinerary_links dl join itinerary_items di on di.id=dl.item_id where dl.decision_id=d.id and di.payload->>'status'='user_reported_booked') or exists(select 1 from stay_itinerary_links l join itinerary_items i on i.id=l.item_id where l.decision_id=d.id and i.payload->>'status'='user_reported_booked')) as booking_linked from decisions d where trip_id=$1
         and ($2='all' or ($2='archived' and archived_at is not null) or ($2='active' and archived_at is null)) order by title,id limit $3 offset $4`,[a.tripId,a.status,a.limit+1,a.offset])).rows;
       return {decisions:rows.slice(0,a.limit),pagination:{limit:a.limit,offset:a.offset,hasMore:rows.length>a.limit}};
     }
@@ -225,6 +233,7 @@ export class Core {
       const trip = await ownedTrip(tx, actor, a.tripId);
       const decisions = (await tx.query('select * from decisions where trip_id=$1 and archived_at is null order by id', [a.tripId])).rows;
       for (const d of decisions) {
+        if(d.kind==='dining'){d.dining=await readDiningSummary(tx,d.id,actor.userId);continue;}
         if(d.kind==='stay'){d.stay=await readStaySummary(tx,d.id,actor.userId);continue;}
         d.criteria = await criteria(tx, d.id);
         d.selections = await currentSelections(tx, actor, d.id, d.criteria.version);
@@ -264,6 +273,7 @@ export class Core {
         warning: 'Not seen is not sold out. Synthetic runs do not establish market price changes.' };
     }
     const decision = await ownedDecision(tx, actor, a.decisionId, !isRead(name));
+    if(name==='get_decision'&&decision.kind==='dining')return readDiningDecision(tx,decision.id,actor.userId);
     if(name==='get_decision'&&decision.kind==='stay')return readStayDecision(tx,decision.id,actor.userId);
     const active = await criteria(tx, decision.id);
     if (name === 'get_decision') return { decision, archived:!!decision.archived_at, criteria: active,
@@ -275,7 +285,7 @@ export class Core {
       recentRuns: (await tx.query('select * from search_runs where decision_id=$1 order by created_at desc,id limit 20', [decision.id])).rows };
     if (!isRead(name) && a.expectedRevision !== decision.revision) fail('REVISION_CONFLICT', 'Reload the decision before changing it');
     if(name==='archive_decision'||name==='restore_decision')return changeDecisionArchive(tx,decision,name==='archive_decision',actor.userId);
-    if(decision.kind!=='flight')fail('VALIDATION_ERROR','Use the typed stay research tools for an accommodation decision.');
+    if(decision.kind!=='flight')fail('VALIDATION_ERROR','Use the typed stay/dining research tools for a non-flight decision.');
     if(!isRead(name)&&decision.archived_at)fail('DECISION_ARCHIVED','Restore this decision before changing research or starting another search.');
     if (name === 'compare_candidates') {
       const version = await criteria(tx, decision.id, a.criteriaVersion);

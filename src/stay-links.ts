@@ -9,8 +9,9 @@ export function withStayWebUrls<T extends Record<string,any>>(result:T,publicOri
     if(url.origin===origin.origin&&url.pathname==='/itinerary')value.webUrl=url.href;
   };
   link(result);
-  for(const decision of result.decisions??[]){link(decision);link(decision.stay);}
+  for(const decision of result.decisions??[]){link(decision);link(decision.stay);link(decision.dining);}
   for(const decision of result.stayResearch?.decisions??[])link(decision);
+  for(const decision of result.diningResearch?.decisions??[])link(decision);
   for(const item of result.items??[])link(item.sourceLink);
   return result;
 }
