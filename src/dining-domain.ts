@@ -41,7 +41,7 @@ export const diningSchemas={
   list_dining_decisions:z.strictObject({tripId:uuid}),get_dining_decision:z.strictObject({decisionId:uuid}),get_dining_observation:z.strictObject({decisionId:uuid,observationId:uuid}),
   save_dining_candidate:z.strictObject({...edit,candidateId:uuid.optional(),observation:diningObservationSchema,identityReview:z.strictObject({priorObservationId:uuid,confirmedSameRestaurant:z.literal(true),reason:text(1000).min(1)}).optional()}),
   set_dining_disposition:z.strictObject({...edit,candidateId:uuid,disposition:z.enum(['neutral','saved','rejected']),rationale:text(2000)}),
-  compare_dining:z.strictObject({decisionId:uuid}),select_dining_candidate:z.strictObject({...edit,observationId:uuid,rationale:text(2000).min(1),acknowledgeUnknowns:z.boolean().default(false)}),
+  compare_dining:z.strictObject({decisionId:uuid}),select_dining_candidate:z.strictObject({...edit,observationId:uuid,rationale:text(2000).default(''),acknowledgeUnknowns:z.boolean().optional()}),
   commit_dining_selection:z.strictObject({...edit,expectedItineraryRevision:z.number().int().positive(),selectionId:uuid}),
 };
 export type DiningToolName=keyof typeof diningSchemas;

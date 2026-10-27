@@ -51,7 +51,6 @@ test('whole-party dining shortlist keeps dated menu, reservation provenance, rej
     const second=await core.callFromWeb('save_dining_candidate',{...key(),decisionId,expectedRevision:2,observation:diningObservation(10,'tavern')},owner.userId);
     await core.call('set_dining_disposition',{...key(),decisionId,expectedRevision:3,candidateId:second.candidateId,disposition:'rejected',rationale:'Unknown cover charge and no reported booking route'},owner);
     const comparison=await core.call('compare_dining',{decisionId},owner);assert.equal(comparison.results[0].candidateId,first.candidateId);assert.equal(comparison.results[1].totalMinor,null);assert.deepEqual(await core.callFromWeb('get_dining_decision',{decisionId},owner.userId),comparison);
-    const receipts=await count(db,'mutation_requests');await assert.rejects(core.call('select_dining_candidate',{...key(),decisionId,expectedRevision:4,observationId:first.observationId,rationale:'Needs acknowledgement'},owner),code('VALIDATION_ERROR'));assert.equal(await count(db,'selections'),0);assert.equal(await count(db,'mutation_requests'),receipts);
     const selected=await core.call('select_dining_candidate',{...key(),decisionId,expectedRevision:4,observationId:first.observationId,rationale:'Preferred menu; table needs confirmation',acknowledgeUnknowns:true},owner);
     const committed=await core.call('commit_dining_selection',{...key(),decisionId,expectedRevision:5,expectedItineraryRevision:1,selectionId:selected.selectionId},owner);
     for(let i=0;i<6;i++)await core.call('save_dining_candidate',{...key(),decisionId,expectedRevision:6+i,candidateId:first.candidateId,observation:{...o,price:{...o.price,amountMinor:6000+i}}},owner);
@@ -59,6 +58,21 @@ test('whole-party dining shortlist keeps dated menu, reservation provenance, rej
     assert.deepEqual((await core.call('get_dining_observation',{decisionId,observationId:first.observationId},owner)).observation.payload,o);
     assert.equal((await core.call('get_decision',{decisionId},owner)).selection.id,selected.selectionId);assert.equal((await core.call('get_trip',{tripId},owner)).decisions[0].dining.selection.id,selected.selectionId);
     const plan=await core.call('get_itinerary',{tripId},owner);assert.equal(plan.items[0].id,committed.itemId);assert.equal(plan.items[0].payload.type,'restaurant');assert.equal(plan.items[0].payload.status,'tentative');assert.equal(plan.items[0].payload.startTime,'19:30');assert.equal(plan.items[0].payload.timeZone,'Europe/Rome');assert.equal(plan.items[0].sourceLink.observationId,first.observationId);assert.equal(await count(db,'booking_records'),0);assert.equal(await count(db,'search_runs'),0);
+  }finally{await db.close();}
+});
+
+test('conditional dining selection accepts no rationale or acknowledgement, preserves unknowns and rejects known failures',async()=>{
+  const db=await embedded();try{
+    const {core,owner,decisionId}=await setup(db),o=diningObservation();
+    const first=await core.call('save_dining_candidate',{...key(),decisionId,expectedRevision:1,observation:o},owner);
+    const bad=await core.call('save_dining_candidate',{...key(),decisionId,expectedRevision:2,observation:{...o,availability:'unavailable',availabilityDetails:'Fictional unavailable report'}},owner);
+    await assert.rejects(core.call('select_dining_candidate',{...key(),decisionId,expectedRevision:3,observationId:bad.observationId},owner),code('VALIDATION_ERROR'));
+    assert.equal(await count(db,'selections'),0);
+    const selected=await core.call('select_dining_candidate',{...key(),decisionId,expectedRevision:3,observationId:first.observationId},owner);
+    const read=await core.call('get_dining_decision',{decisionId},owner);
+    assert.equal(read.selection.id,selected.selectionId);assert.equal(read.selection.rationale,'');assert.equal(read.selection.evaluation.eligibility,'conditional');
+    assert.ok(read.selection.evaluation.unknowns.some((value:string)=>value.includes('Table availability')));
+    assert.equal(await count(db,'selections'),1);assert.equal(await count(db,'itinerary_items'),0);assert.equal(await count(db,'booking_records'),0);
   }finally{await db.close();}
 });
 
