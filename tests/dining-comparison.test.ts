@@ -158,4 +158,3 @@ test('dining research archive preserves linked tentative evidence and permanent 
     await assert.rejects(core.call('commit_dining_selection',args,owner),code('FORBIDDEN_OR_NOT_FOUND'));assert.equal(await count(db,'itinerary_items'),0);
   }finally{await db.close();}
 });
-

@@ -57,4 +57,3 @@ test('MCP dining shortlist opens the same web comparison, reviews a tentative me
     for(const table of ['dining_itinerary_links','itinerary_items','itinerary_events'])expect((await app.db.query('select count(*)::int n from '+table)).rows[0].n).toBe(1);for(const table of ['booking_records','search_runs'])expect((await app.db.query('select count(*)::int n from '+table)).rows[0].n).toBe(0);expect(external).toEqual([]);expect(errors).toEqual([]);
   }finally{await context.close();}
 });
-
