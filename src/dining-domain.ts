@@ -57,11 +57,11 @@ export function evaluateDining(o:DiningObservation,c:DiningCriteria):DiningAsses
   const knownSubtotalMinor=parts.length?parts.reduce((sum,n)=>sum+n,0):null;
   const complete=base!==null&&o.mandatoryChargesComplete&&!o.excludedCharges.length&&o.charges.every(f=>f.includedInBase===true||f.includedInBase===false&&whole(f.amountMinor,f.basis)!==null);
   const totalMinor=complete&&sameDate&&sameParty&&sameCurrency?knownSubtotalMinor:null;
-  add('total',totalMinor===null?null:true,'Expected whole-party meal cost, including mandatory service and fees, is incomplete');
+  add('total',totalMinor===null?null:true,totalMinor===null?'Expected whole-party meal cost, including mandatory service and fees, is incomplete':'Expected whole-party meal cost includes recorded mandatory service and fees');
   if(c.maximumTotalMinor!==null){const over=sameDate&&sameParty&&sameCurrency&&knownSubtotalMinor!==null&&knownSubtotalMinor>c.maximumTotalMinor;add('budget',over?false:totalMinor===null?null:totalMinor<=c.maximumTotalMinor,over?'Known group costs exceed the budget':totalMinor===null?'Budget fit is unknown until mandatory group costs are complete':'Reported group estimate is within budget');}
   add('group_fit',o.groupSuitability.status==='unsuitable'?false:o.groupSuitability.status==='unknown'||!o.groupSuitability.details?null:true,'Group seating/suitability is a dated report; unknown fit needs review');
   for(const requirement of c.dietaryRequirements){const match=o.dietary.find(d=>d.requirement.toLowerCase()===requirement.toLowerCase());add('dietary',match?.status==='unsupported'?false:!match||match.status==='unknown'||!match.details?null:true,`Dietary requirement: ${requirement} — confirm directly with the restaurant; this is not a safety guarantee`);}
-  add('menu',o.menu.summary&&o.menu.observedAt?true:null,'Menu and its observation time are unknown');
+  add('menu',o.menu.summary&&o.menu.observedAt?true:null,o.menu.summary&&o.menu.observedAt?'Menu and its observation time are recorded':'Menu summary or its observation time is unknown');
   add('availability',o.availability==='unknown'?null:o.availability==='reported_available','Table availability is unverified; a reservation page does not prove a table exists');
   if(o.reservation.kind!=='reservation_page')unknowns.push('No reported reservation page; homepage/unknown links do not establish a booking route');
   if(!c.localTime)unknowns.push('Meal time is not set');if(c.localTime&&!c.timeZone)unknowns.push('Meal time zone is not set');
