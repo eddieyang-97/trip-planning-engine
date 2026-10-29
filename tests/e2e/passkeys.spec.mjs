@@ -231,6 +231,7 @@ test('stale itinerary clears on cross-tab sign-out and cannot return from an in-
     await page.goto(`${app.origin}/itinerary`);
     await expect(page.locator('#trip-title')).toHaveText('Owner fictional passkey trip');
     await page.route('**/itinerary-api/get_itinerary',route=>route.fulfill({status:503,json:{error:'Temporary failure'}}));
+    await page.locator('#plan-more > summary').click();
     await page.locator('#refresh').click();
     await expect(page.locator('#plan-recovery-title')).toHaveText('Showing your last-loaded itinerary');
     await page.unroute('**/itinerary-api/get_itinerary');

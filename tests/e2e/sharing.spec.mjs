@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {openDisclosure} from './navigation.mjs';
 import {test, expect, privateNote, privateResearch, originalTitle, editedTitle, editedNotes} from './fixture.mjs';
 
 test('built itinerary: lost edit acknowledgement, viewer privacy, revoke and deny', async ({browser, app}) => {
@@ -36,6 +37,7 @@ test('built itinerary: lost edit acknowledgement, viewer privacy, revoke and den
     expect((await stayList).ok()).toBeTruthy();expect((await diningList).ok()).toBeTruthy();
     await expect(owner.locator('#stay-research')).toBeHidden();
     await expect(owner.locator('#dining-research')).toBeHidden();
+    await openDisclosure(owner,'research-panel');
     await owner.locator('#add-research summary').click();
     await owner.getByRole('button',{name:'Accommodation',exact:true}).click();
     const stayDialog=owner.locator('#stay-decision-dialog');
@@ -104,6 +106,7 @@ test('built itinerary: lost edit acknowledgement, viewer privacy, revoke and den
     await expect(owner.locator('#history')).toContainText(`Edited: ${editedTitle}`);
 
     const viewResponse = viewer.waitForResponse(r => r.url().endsWith('/itinerary-api/get_itinerary'));
+    await openDisclosure(viewer,'plan-more');
     await viewer.getByRole('button', {name: 'Refresh', exact: true}).click();
     const projection = await (await viewResponse).json();
     expect(projection.role).toBe('viewer');
@@ -133,6 +136,7 @@ test('built itinerary: lost edit acknowledgement, viewer privacy, revoke and den
     await expect(sharing.locator('#access-list')).toContainText('Revoked');
 
     const deniedResponse = viewer.waitForResponse(r => r.url().endsWith('/itinerary-api/get_itinerary'));
+    await openDisclosure(viewer,'plan-more');
     await viewer.getByRole('button', {name: 'Refresh', exact: true}).click();
     const denied = await deniedResponse;
     expect(denied.status()).toBe(404);
