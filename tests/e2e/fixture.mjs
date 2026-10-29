@@ -64,7 +64,7 @@ export const test = base.extend({
       }));
       // A fixed-origin deny rule catches accidental maps/auth/provider traffic.
       // Every allowed browser request still reaches the real local HTTP server.
-      await use({db, origin, tripId, itemId, inviteId, owner, ownerToken, viewerToken});
+      await use({db, origin, tripId, itemId, inviteId, owner, viewer, ownerToken, viewerToken});
     } finally {
       http.closeAllConnections();
       await new Promise(resolve => http.close(resolve));

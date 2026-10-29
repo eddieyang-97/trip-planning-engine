@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {openDisclosure} from './navigation.mjs';
 import {test,expect,originalTitle,privateNote,privateResearch} from './fixture.mjs';
 
 async function signIn(page,app,token=app.ownerToken,tripId=app.tripId){
@@ -93,6 +94,7 @@ for(const status of [403,404]){
       return route.fulfill({status,contentType:'text/html',body:'Access denied'});
     });
     await page.route('**/itinerary-api/create_trip',route=>{creates.push(route.request().postDataJSON());return route.continue();});
+    await openDisclosure(page,'trip-switcher');
     await page.locator('#new-trip').click();
     const dialog=page.locator('#trip-dialog');
     await dialog.getByLabel('Trip name',{exact:true}).fill('New fictional trip');
@@ -148,10 +150,12 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
     await expect(page.locator('#dining-research')).toBeHidden();
     for(const kind of ['network','server']){
       failure=kind;
+      await openDisclosure(page,'plan-more');
       await page.getByRole('button',{name:'Refresh',exact:true}).click();
       await expect(page.locator('#plan-recovery-title')).toHaveText('Showing your last-loaded itinerary');
       await expect(page.locator('#plan-recovery-detail')).toContainText('Last loaded at');
       await expect(page.locator(`#item-${app.itemId}`)).toContainText(originalTitle);
+      await openDisclosure(page,'plan-more');
       await expect(page.locator('#refresh')).toBeVisible();
       failure='';
       await page.locator('#retry-plan').click();
@@ -175,6 +179,7 @@ test('switching trips never presents the previous trip as a failed-load snapshot
   await expect(page.locator('#refresh')).toBeEnabled();
   let fail=true;
   await page.route('**/itinerary-api/get_itinerary',route=>fail?route.fulfill({status:503,json:{error:'Temporary failure'}}):route.continue());
+  await openDisclosure(page,'trip-switcher');
   await page.locator('#trip-list').getByRole('button',{name:/Second fictional trip/}).click();
   await expect(page.locator('#plan-recovery-title')).toHaveText('Unable to load your itinerary');
   await expect(page.locator('#trip-view')).toBeHidden();
@@ -222,6 +227,7 @@ test('anonymous shared view recovers temporary reads and clears on real revocati
   await page.locator('#retry-plan').click();
   await expect(page.locator(`#item-${app.itemId}`)).toContainText(originalTitle);
   fail=true;
+  await openDisclosure(page,'plan-more');
   await page.locator('#refresh').click();
   await expect(page.locator('#plan-recovery-title')).toHaveText('Showing your last-loaded itinerary');
   await expect(page.locator('#trip-view')).toBeVisible();

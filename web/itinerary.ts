@@ -18,12 +18,14 @@ import {configureTripLifecycle} from './trip-lifecycle.js';
 import {configureDiningComparison} from './dining-comparison.js';
 import {configureStayComparison} from './stay-comparison.js';
 import {isTemporaryReadError,readItineraryResponse,temporaryReadError} from './itinerary-read-response.js';
+import {configureItineraryChrome} from './itinerary-chrome.js';
 
 type Row={id:string;payload:ItineraryItem;position:number;sourceLink?:{decisionId:string;webPath:string}};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';archived_at?:string|null;lifecycle_revision?:number;payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
 type Plan={trip:Trip;role?:'owner'|'viewer'|'editor';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const timezonePickers=configureTimezonePickers($<HTMLFormElement>('item-form'));
+const chrome=configureItineraryChrome();
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
 let pending:{signature:string;key:string}|null=null;
@@ -231,10 +233,11 @@ $('trip-discussion').onclick=()=>void discussion.open();
 $('add-stay-research').onclick=()=>{($('add-research') as HTMLDetailsElement).open=false;stayComparison.openCreate();};
 $('add-dining-research').onclick=()=>{($('add-research') as HTMLDetailsElement).open=false;diningComparison.openCreate();};
 function render(){
-  members.reset();
+  if(!plan||demo||anonymousView)members.reset();
   discussion.reset();
   calendarExport.reset();
   $('add-research').hidden=!(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor');
+  chrome.update({tripId:plan?.trip.id??null,tripCount:trips.length,status:tripStatus,researchAllowed:!$('add-research').hidden,switching:!demo&&!anonymousView});
   if($('add-research').hidden)($('add-research') as HTMLDetailsElement).open=false;
   diningComparison.update(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor'?{tripId:plan.trip.id,revision:plan.revision,name:plan.trip.payload.name,checkIn:plan.trip.payload.startDate,checkOut:plan.trip.payload.endDate,adults:plan.trip.payload.adults}:null);
   stayComparison.update(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor'?{tripId:plan.trip.id,revision:plan.revision,name:plan.trip.payload.name,checkIn:plan.trip.payload.startDate,checkOut:plan.trip.payload.endDate,adults:plan.trip.payload.adults}:null);
@@ -256,7 +259,8 @@ function render(){
   $('people-detail').textContent=anonymousView?'Anyone with this view link can read the shared itinerary. The owner can revoke the link. Editing requires an editor invitation and sign-in.':editor?'Shared with you. You can add, edit, remove and reorder itinerary items. The owner manages booking status, private notes and invitations.':viewer?'Shared with you. You can view this itinerary; the trip owner controls edits and access.':'Share an account-free view link, or invite a friend to edit with their own account.';
   $('booking-detail').textContent='Bookings are reported by the trip owner. Adding a plan never makes a reservation.';
   if(viewer)$('plan-empty').textContent='The owner has not added any items yet. Refresh later to see their plan.';
-  else $('plan-empty').textContent='Your itinerary has no saved items yet. Review a flight above, or add a stay, transfer or activity. Saving research does not automatically add it to your plan.';
+  else if(editor)$('plan-empty').textContent='Add your first item to start building the shared plan.';
+  else $('plan-empty').textContent='Add your first item, or open Research to review saved options. Research stays separate until you choose to add it to the plan.';
   $('trip-title').textContent=p.name;$('trip-destination').textContent=p.destination;
   $('trip-meta').replaceChildren(node('span',`${date(p.startDate)} – ${date(p.endDate,{day:'numeric',month:'short',year:'numeric'})}`),node('span',`${p.adults} adults${demo?' · assumed':''}`),node('span',editor?'Shared · can edit':viewer?'Shared · view only':'Your itinerary'));
   $('progress').replaceChildren(...[[`${plan.items.length}`,'items in the plan'],[`${booked}`,'bookings reported'],[`${unscheduled}`,'without a date']].map(([count,label])=>{const row=node('div','','progress-row');row.append(node('span',label!),node('strong',count!));return row;}));
