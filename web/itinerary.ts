@@ -128,7 +128,8 @@ async function mutate(operation:string,args:Record<string,unknown>){
   const result=await api(operation,{...args,idempotencyKey:pending.key});pending=null;return result;
 }
 async function loadTrips(selectId?:string){
-  const generation=accountBoundary.generation;
+  const generation=accountBoundary.generation,requested=selectId??new URL(location.href).searchParams.get('trip');
+  let listLoaded=false;
   listing=true;$<HTMLSelectElement>('trip-filter').disabled=true;$<HTMLButtonElement>('retry-plan').disabled=true;$<HTMLButtonElement>('refresh').disabled=true;
   try{
   if(!demo){
@@ -137,13 +138,13 @@ async function loadTrips(selectId?:string){
     for(let offset=0;;offset+=50){const page=await api('list_trips',{status:tripStatus,limit:50,offset});accountBoundary.check(generation);collected.push(...page.trips);if(page.trips.length<50)break;}
     trips=collected;
   }
+  listLoaded=true;
   $('workspace').hidden=false;$('access').hidden=true;
-  const requested=selectId??new URL(location.href).searchParams.get('trip');
   const available=requested&&trips.some(trip=>trip.id===requested);
   if(requested&&!available&&!demo){
     try{const opened=await api('get_itinerary',{tripId:requested});accountBoundary.check(generation);const status=opened.trip.archived_at?'archived':'active';
       if(tripStatus!=='all'&&tripStatus!==status){tripStatus=status;$<HTMLSelectElement>('trip-filter').value=tripStatus;return await loadTrips(requested);}}
-    catch(error){accountBoundary.check(generation);}
+    catch(error){accountBoundary.check(generation);if(isTemporaryReadError(error))throw error;}
   }
   if(selectId&&!available){clearTripView();throw Error('This itinerary is unavailable. Its access may have been revoked.');}
   const id=available?requested:trips[0]?.id;
@@ -152,11 +153,15 @@ async function loadTrips(selectId?:string){
   if(requested&&!available)message('The requested trip is not available in this account. Choose one of your trips, or create a new one.');
   }catch(error){
     accountBoundary.check(generation);
-    // loadPlan already owns recovery for a trip read; retry the list only when
-    // listing itself failed, before a trip could be opened.
+    // loadPlan owns recovery once a trip is opened. Before that, retry discovery
+    // with the exact requested target, including its archived-status lookup.
     if(isTemporaryReadError(error)&&failedRead?.kind!=='plan'){
-      failedRead={kind:'trips',selectId};$('workspace').hidden=false;$('access').hidden=true;
+      failedRead={kind:'trips',selectId:requested??undefined};$('workspace').hidden=false;$('access').hidden=true;
       showReadRecovery(!!plan,'Unable to load your trips');
+    }else if(!isTemporaryReadError(error)&&!listLoaded){
+      // A denied list read invalidates the entire displayed trip list, not just
+      // one trip. Do not apply this to a denial already handled by loadPlan.
+      trips=[];clearTripView();
     }
     throw error;
   }finally{listing=false;$<HTMLSelectElement>('trip-filter').disabled=loading;$<HTMLButtonElement>('retry-plan').disabled=loading;$<HTMLButtonElement>('refresh').disabled=loading;}

@@ -6,7 +6,7 @@ Updated 25 October 2026 for hosted landing-page navigation; dated feature and ac
 
 For [#52's first increment](https://github.com/eddieyang-97/trip-planning-engine/issues/52), source retains the current trip's last-loaded on-screen plan after a temporary refresh failure, labels it with the last successful load time, and provides Retry. A failed first load has its own retry panel. Retry reads the requested trip only; it does not repeat edits or searches. This applies to signed-in trips and account-free view links and adds no persistent/offline cache.
 
-Switching trips clears the previous snapshot. Sign-out/account changes and access denial clear private content and open dialogs; denial is handled before assuming a non-JSON response is temporary. The recovery UI does not establish that access remains valid during an outage: the next successful access check is authoritative. This increment requires separate merge/deployment and hosted acceptance evidence in issue #52.
+Retry retains the requested trip from a direct link, including an archived-trip lookup that temporarily failed. Switching trips clears the previous snapshot. Sign-out/account changes and access denial clear private content and open dialogs; a denied trip-list read also clears the entire displayed list. Denial is handled before assuming a non-JSON response is temporary. The recovery UI does not establish that access remains valid during an outage: the next successful access check is authoritative. This increment requires separate merge/deployment and hosted acceptance evidence in issue #52.
 
 ## Research archive/restore
 
