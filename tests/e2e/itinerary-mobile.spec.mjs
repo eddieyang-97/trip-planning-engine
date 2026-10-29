@@ -58,6 +58,15 @@ test('phone itinerary first: long title, populated research, compact members and
   expect(top).toBeLessThan(760);
   await page.screenshot({path:testInfo.outputPath('itinerary-phone.png'),fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  // Background comparison discovery must not turn an ordinary returning visit
+  // into a research deep link that expands above the itinerary.
+  await page.reload();
+  await page.getByLabel('Local development token').fill(app.ownerToken);
+  await page.getByRole('button',{name:'Open local trips',exact:true}).click();
+  await expect(page.locator('#refresh')).toBeEnabled();
+  await expect(page.locator('#research-panel')).not.toHaveAttribute('open');
+  expect(new URL(page.url()).searchParams.has('stay')).toBe(false);
+  expect(new URL(page.url()).searchParams.has('dining')).toBe(false);
   await page.locator('#add-item').click();await expect(page.locator('#item-dialog')).toBeVisible();
   await page.getByRole('button',{name:'Close item editor',exact:true}).click();
   await page.locator('#share-trip').click();await expect(page.locator('#share-dialog')).toBeVisible();
