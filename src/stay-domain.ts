@@ -11,7 +11,7 @@ export const stayCriteriaSchema=z.strictObject({...dates,adults:z.number().int()
 export const stayObservationSchema=z.strictObject({
   propertyName:text(160).min(1),configurationLabel:text(160).min(1),kind:z.enum(['hotel_rooms','entire_home']),
   units:z.array(z.strictObject({name:text(120).min(1),count:z.number().int().min(1).max(20),
-    beds:z.array(z.strictObject({type:z.enum(['single','double','bunk','sofa_bed','other']),count:z.number().int().min(1).max(20),sleepingPlaces:z.number().int().min(1).max(10).nullable()})).max(20)})).min(1).max(20),
+    beds:z.array(z.strictObject({type:z.enum(['single','double','bunk','sofa_bed','other']),count:z.number().int().min(1).max(20),sleepingPlaces:z.number().int().min(1).max(10).nullable()})).max(20)})).max(20).describe('Recorded room or home layout. Use [] when unknown; this means unknown bed count and capacity, never zero.'),
   quotedAdults:z.number().int().min(1).max(50).nullable(),...dates,currency:z.string().regex(/^[A-Z]{3}$/),baseTotalMinor:money.nullable(),
   charges:z.array(z.strictObject({label:text(120).min(1),kind:z.enum(['tax','cleaning','linen','other']),amountMinor:money.nullable(),includedInBase:z.boolean().nullable()})).max(30),
   mandatoryChargesComplete:z.boolean(),excludedCharges:z.array(text(300).min(1)).max(20),
@@ -22,7 +22,7 @@ export const stayObservationSchema=z.strictObject({
   source:z.strictObject({url:https.nullable(),label:text(160).min(1),observedAt:z.iso.datetime({offset:true}),kind:z.enum(['manual','sourced'])}),unknowns:z.array(text(300).min(1)).max(30),
 }).superRefine((o,ctx)=>{
   if(!validDates(o))ctx.addIssue({code:'custom',message:'Check-out must follow check-in',path:['checkOut']});
-  if(o.kind==='entire_home'&&(o.units.length!==1||o.units[0]!.count!==1))ctx.addIssue({code:'custom',message:'An entire home is one unit; describe its beds inside that unit',path:['units']});
+  if(o.kind==='entire_home'&&o.units.length>0&&(o.units.length!==1||o.units[0]!.count!==1))ctx.addIssue({code:'custom',message:'An entire home is one unit; describe its beds inside that unit',path:['units']});
   if((o.location.latitude===null)!==(o.location.longitude===null))ctx.addIssue({code:'custom',message:'Supply both coordinates or neither',path:['location']});
   if(o.location.precision==='exact'&&o.location.latitude===null)ctx.addIssue({code:'custom',message:'An exact location needs coordinates',path:['location']});
   if(o.source.kind==='sourced'&&!o.source.url)ctx.addIssue({code:'custom',message:'Sourced evidence needs its source link',path:['source','url']});
@@ -66,7 +66,8 @@ export function evaluateStay(o:StayObservation,c:StayCriteria):StayAssessment{
     const trustedBasis=sameDates&&sameParty&&sameCurrency;
     add('budget',trustedBasis&&knownSubtotalMinor!==null&&knownSubtotalMinor>c.maximumTotalMinor?false:totalMinor===null?null:totalMinor<=c.maximumTotalMinor,'Known exact-party costs above the budget fail even when mandatory costs are missing');
   }
-  let sleepingPlaces:number|null=0,bedCount:number|null=0;
+  // No recorded units means unknown layout, never a verified zero-bed property.
+  let sleepingPlaces:number|null=o.units.length?0:null,bedCount:number|null=o.units.length?0:null;
   for(const unit of o.units){if(!unit.beds.length){sleepingPlaces=null;bedCount=null;continue;}for(const bed of unit.beds){if(bedCount!==null)bedCount+=unit.count*bed.count;if(bed.sleepingPlaces===null)sleepingPlaces=null;else if(sleepingPlaces!==null)sleepingPlaces+=unit.count*bed.count*bed.sleepingPlaces;}}
   add('sleeping_capacity',sleepingPlaces===null?null:sleepingPlaces>=Math.max(c.adults,c.minimumSleepingPlaces??0),'Actual supplied sleeping places must cover the party; bed types alone do not establish capacity');
   add('availability',o.availability==='unknown'?null:o.availability==='reported_available','Availability is a dated report, never supplier verification');

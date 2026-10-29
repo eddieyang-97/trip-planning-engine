@@ -15,6 +15,8 @@ This slice compares the whole trip party; subgroup allocations and children rema
 
 The web form is a complete fallback: no assistant, supplier account, API key or live hotel integration is required. Friends continue to see the permitted shared itinerary, including its reviewed listing URL and practical details. Research origin IDs, source timestamps, comparison rationale and selection history remain owner-private.
 
+Room layout starts empty in the capture form. Add a room/unit only when its configuration is known; an explicitly added row still requires a name and a positive unit count. Existing unit and bed rows reopen unchanged when adding dated evidence. Web and MCP accept `units: []` for either hotel rooms or an entire home, meaning **no layout recorded**. Bed count and sleeping capacity remain unknown, never zero or adequate. An entire home with a supplied layout still permits exactly one unit with count one. The comparison table and full evidence explicitly label an unrecorded layout as unknown. Broader progressive disclosure of research capture remains separate work in [#52](https://github.com/eddieyang-97/trip-planning-engine/issues/52).
+
 ## Cost and fit rules
 
 - The base price is the **entire stay for all units and all quoted adults**, in integer minor units. A nightly/per-room headline must be converted and checked manually before entering it as that base.
@@ -35,6 +37,8 @@ The assistant should return a concise shortlist with the stable web link, preser
 ## Persistence and compatibility
 
 Migration [013](../migrations/013_stay_comparison.sql) extends the existing research graph with a typed decision kind and candidate rationale, and adds a protected selected-stay-to-itinerary relationship. Existing decisions default to flight; observations, selections, booking reports and IDs are preserved. There is no backfill of lodging from flight JSON or inference from manual itinerary text.
+
+The empty-layout contract requires no SQL migration or rewrite of existing evidence; it relaxes the shared JSON validation and preserves populated layouts. Once an empty layout has been saved, use forward recovery or retain its schema/evaluation support in a rollback: earlier readers reject empty unit arrays and their evaluator would treat them as zero capacity. Do not manufacture placeholder units or mutate historical observations to make older code accept them. Clients caching the former tool schema may need a tool refresh to submit empty layouts; automated fixture coverage does not establish hosted client acceptance.
 
 Application migrations remain authoritative through `src/database.ts` and `app_schema_migrations`; this work does not apply production DDL through the Supabase connector. RLS and explicit PUBLIC/browser-role revocations protect the new relation; the privileged service still enforces owner checks. Retention follows the existing trip: archive preserves it, permanent trip deletion removes it. A research decision linked to a reported-booked stay item cannot be archived; a removed item still retains its booking report. Use factual summaries/source links rather than copied private confirmations or raw supplier pages.
 

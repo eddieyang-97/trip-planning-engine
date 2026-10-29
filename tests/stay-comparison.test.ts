@@ -70,6 +70,45 @@ test('unknown cost, charges, bed capacity and availability stay conditional; dif
   }finally{await db.close();}
 });
 
+test('unrecorded hotel and entire-home layouts have unknown capacity, while supplied layouts stay validated',()=>{
+  for(const kind of ['hotel_rooms','entire_home'] as const){
+    const unknown=stayObservationSchema.parse({...stayObservation(10,kind),units:[]});
+    const result=evaluateStay(unknown,stayCriteria());
+    assert.equal(result.bedCount,null);assert.equal(result.sleepingPlaces,null);assert.equal(result.eligibility,'conditional');
+    assert.equal(result.checks.find(check=>check.name==='sleeping_capacity')?.status,'unknown');
+    assert.ok(!stayObservationSchema.safeParse({...unknown,units:[{name:'',count:1,beds:[]}]}).success,'An explicitly added unit still needs a name');
+    assert.ok(!stayObservationSchema.safeParse({...unknown,units:[{name:'Invalid count',count:0,beds:[]}]}).success);
+  }
+  const home=stayObservation(10,'entire_home');
+  assert.ok(!stayObservationSchema.safeParse({...home,units:[...home.units,...home.units]}).success);
+  assert.ok(!stayObservationSchema.safeParse({...home,units:[{...home.units[0]!,count:2}]}).success);
+  assert.equal(evaluateStay(stayObservation(10),stayCriteria()).sleepingPlaces,10);
+});
+
+test('MCP and web retain missing layouts as dated evidence without duplicate writes or rewriting known layouts',async()=>{
+  const db=await embedded();try{
+    const {core,owner,decisionId}=await setup(db),initial={...stayObservation(),units:[]};
+    const request={...key(),decisionId,expectedRevision:1,observation:initial};
+    const saved=await core.call('save_stay_candidate',request,owner);
+    assert.deepEqual(await core.call('save_stay_candidate',request,owner),saved);
+    let read=await core.callFromWeb('get_stay_decision',{decisionId},owner.userId);
+    assert.deepEqual(read.candidates[0].observations[0].payload,initial);
+    assert.equal(read.results[0].sleepingPlaces,null);assert.equal(read.results[0].bedCount,null);
+    assert.equal(read.results[0].eligibility,'conditional');
+    assert.equal(await count(db,'observations'),1);
+    assert.equal((await db.query("select count(*)::int n from mutation_requests where operation='save_stay_candidate'")).rows[0]!.n,1);
+    const known=stayObservation();
+    await core.callFromWeb('save_stay_candidate',{...key(),decisionId,expectedRevision:2,candidateId:saved.candidateId,observation:known},owner.userId);
+    read=await core.call('get_stay_decision',{decisionId},owner);
+    assert.equal(read.candidates.length,1);assert.equal(read.candidates[0].observationCount,2);
+    assert.deepEqual(read.candidates[0].observations[0].payload,known);assert.equal(read.results[0].sleepingPlaces,10);
+    const older=await core.call('get_stay_observation',{decisionId,observationId:saved.observationId},owner);
+    assert.deepEqual(older.observation.payload,initial);assert.equal(older.assessment.sleepingPlaces,null);
+    assert.equal(read.selection,null);assert.equal(read.links.length,0);
+    for(const table of ['search_runs','booking_records','itinerary_items'])assert.equal(await count(db,table),0);
+  }finally{await db.close();}
+});
+
 test('new manual prices append evidence while selected observations, independent rationale and reported itinerary bookings survive',async()=>{
   const db=await embedded();try{
     const {core,owner,tripId,decisionId}=await setup(db),old=stayObservation();
