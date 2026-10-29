@@ -17,6 +17,7 @@ import {configureMembers} from './itinerary-members.js';
 import {configureTripLifecycle} from './trip-lifecycle.js';
 import {configureDiningComparison} from './dining-comparison.js';
 import {configureStayComparison} from './stay-comparison.js';
+import {isTemporaryReadError,readItineraryResponse,temporaryReadError} from './itinerary-read-response.js';
 
 type Row={id:string;payload:ItineraryItem;position:number;sourceLink?:{decisionId:string;webPath:string}};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';archived_at?:string|null;lifecycle_revision?:number;payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
@@ -30,18 +31,25 @@ let loading=false,listing=false;
 let anonymousToken:string|null=null,anonymousView=false;
 let tripStatus:'active'|'archived'|'all'='active';
 const accountBoundary=new AccountBoundary();
-function clearPrivate(){
-  if(anonymousView)return;
-  trips=[];plan=null;editing=null;removing=null;pending=null;collapsed.clear();
+let failedRead:{kind:'plan';id:string}|{kind:'trips';selectId?:string}|null=null,lastLoadedAt:Date|null=null;
+function clearTripView(){
+  plan=null;editing=null;removing=null;pending=null;collapsed.clear();lastLoadedAt=null;failedRead=null;
+  $('plan-recovery').hidden=true;
+  $('plan-recovery-title').textContent='';$('plan-recovery-detail').textContent='';
   tripLifecycle.reset();
   stayComparison.reset();diningComparison.reset();
-  tripStatus='active';$<HTMLSelectElement>('trip-filter').value='active';
   for(const dialog of document.querySelectorAll<HTMLDialogElement>('dialog'))if(dialog.open)dialog.close();
   for(const form of document.querySelectorAll<HTMLFormElement>('dialog form'))form.reset();
   mapEditor.set([]);timezonePickers.setValues(blank);
   for(const id of ['trip-title','trip-destination','trip-meta','progress','research','questions','history','day-nav','invitation-detail','invitation-title','remove-title','access-list','link-details','calendar-trip','calendar-items','comment-list','discussion-scope'])document.getElementById(id)?.replaceChildren();
   $<HTMLInputElement>('invite-link').value='';$('created-link').hidden=true;
-  $('invitation').hidden=true;$('workspace').hidden=true;$('access').hidden=false;render();
+  $('invitation').hidden=true;render();
+}
+function clearPrivate(){
+  if(anonymousView)return;
+  trips=[];clearTripView();
+  tripStatus='active';$<HTMLSelectElement>('trip-filter').value='active';
+  $('workspace').hidden=true;$('access').hidden=false;
 }
 type View='overview'|'details'|'map';
 const initialView=new URL(location.href).searchParams.get('view');
@@ -95,6 +103,11 @@ function date(value:string,options:Intl.DateTimeFormatOptions={day:'numeric',mon
 }
 function message(text:string){$('status').textContent=text;}
 function errorText(error:unknown){return error instanceof Error?error.message:'Unable to finish. Please try again.';}
+function showReadRecovery(hasPrevious:boolean,title:string){
+  $('plan-recovery-title').textContent=hasPrevious?'Showing your last-loaded itinerary':title;
+  $('plan-recovery-detail').textContent=hasPrevious?`Last loaded at ${lastLoadedAt!.toLocaleString('en-GB')}. Updates could not be checked. Retry to see the latest plan.`:'The service is temporarily unavailable. Try again using Retry.';
+  $('plan-recovery').hidden=false;
+}
 function showPlan(id:string){void loadPlan(id).catch(error=>message(errorText(error)));}
 async function api(operation:string,input:unknown){
   const generation=accountBoundary.generation;
@@ -103,11 +116,11 @@ async function api(operation:string,input:unknown){
   accountBoundary.check(generation);
   let response:Response;
   try{response=await fetch(`/itinerary-api/${operation}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(input),signal:AbortSignal.timeout(60_000)});}
-  catch{throw Error('The itinerary service did not respond. Refresh to check saved changes before trying again.');}
-  let result:any;try{result=await response.json();}catch{throw Error('Unable to read the itinerary response. Refresh to check saved changes.');}
+  catch{throw temporaryReadError('The itinerary service did not respond. Refresh to check saved changes before trying again.');}
   accountBoundary.check(generation);
-  if(response.status===401){accountBoundary.update(null);clearPrivate();}
-  if(!response.ok)throw Object.assign(Error(result.error??'Unable to finish. Please try again.'),{code:result.code});return result;
+  if(response.status===401){accountBoundary.update(null);clearPrivate();throw Error('Sign in to your travel account again.');}
+  const result=await readItineraryResponse(response,'Unable to read the itinerary response. Refresh to check saved changes.');
+  accountBoundary.check(generation);return result;
 }
 async function mutate(operation:string,args:Record<string,unknown>){
   const signature=JSON.stringify([operation,args]);
@@ -115,45 +128,73 @@ async function mutate(operation:string,args:Record<string,unknown>){
   const result=await api(operation,{...args,idempotencyKey:pending.key});pending=null;return result;
 }
 async function loadTrips(selectId?:string){
-  listing=true;$<HTMLSelectElement>('trip-filter').disabled=true;
+  const generation=accountBoundary.generation,requested=selectId??new URL(location.href).searchParams.get('trip');
+  let listLoaded=false;
+  listing=true;$<HTMLSelectElement>('trip-filter').disabled=true;$<HTMLButtonElement>('retry-plan').disabled=true;$<HTMLButtonElement>('refresh').disabled=true;
   try{
-  const generation=accountBoundary.generation;
   if(!demo){
     const collected:Trip[]=[];
     // Retrieve all pages rather than silently hiding older trips.
     for(let offset=0;;offset+=50){const page=await api('list_trips',{status:tripStatus,limit:50,offset});accountBoundary.check(generation);collected.push(...page.trips);if(page.trips.length<50)break;}
     trips=collected;
   }
+  listLoaded=true;
   $('workspace').hidden=false;$('access').hidden=true;
-  const requested=selectId??new URL(location.href).searchParams.get('trip');
   const available=requested&&trips.some(trip=>trip.id===requested);
   if(requested&&!available&&!demo){
     try{const opened=await api('get_itinerary',{tripId:requested});accountBoundary.check(generation);const status=opened.trip.archived_at?'archived':'active';
       if(tripStatus!=='all'&&tripStatus!==status){tripStatus=status;$<HTMLSelectElement>('trip-filter').value=tripStatus;return await loadTrips(requested);}}
-    catch(error){accountBoundary.check(generation);}
+    catch(error){accountBoundary.check(generation);if(isTemporaryReadError(error))throw error;}
   }
-  if(selectId&&!available){plan=null;render();throw Error('This itinerary is unavailable. Its access may have been revoked.');}
+  if(selectId&&!available){clearTripView();throw Error('This itinerary is unavailable. Its access may have been revoked.');}
   const id=available?requested:trips[0]?.id;
   render();
-  if(id){await loadPlan(id);}else{plan=null;render();message('');}
+  if(id){await loadPlan(id);}else{clearTripView();message('');}
   if(requested&&!available)message('The requested trip is not available in this account. Choose one of your trips, or create a new one.');
-  }finally{listing=false;$<HTMLSelectElement>('trip-filter').disabled=loading;}
+  }catch(error){
+    accountBoundary.check(generation);
+    // loadPlan owns recovery once a trip is opened. Before that, retry discovery
+    // with the exact requested target, including its archived-status lookup.
+    if(isTemporaryReadError(error)&&failedRead?.kind!=='plan'){
+      failedRead={kind:'trips',selectId:requested??undefined};$('workspace').hidden=false;$('access').hidden=true;
+      showReadRecovery(!!plan,'Unable to load your trips');
+    }else if(!isTemporaryReadError(error)&&!listLoaded){
+      // A denied list read invalidates the entire displayed trip list, not just
+      // one trip. Do not apply this to a denial already handled by loadPlan.
+      trips=[];clearTripView();
+    }
+    throw error;
+  }finally{listing=false;$<HTMLSelectElement>('trip-filter').disabled=loading;$<HTMLButtonElement>('retry-plan').disabled=loading;$<HTMLButtonElement>('refresh').disabled=loading;}
 }
 async function loadPlan(id:string){
-  if(loading)return;loading=true;$<HTMLSelectElement>('trip-filter').disabled=true;message('Loading your itinerary…');
+  if(loading)return;
+  const generation=accountBoundary.generation,previous=plan&&(anonymousView||plan.trip.id===id)?plan:null;
+  if(!previous)clearTripView();
+  loading=true;$<HTMLSelectElement>('trip-filter').disabled=true;$<HTMLButtonElement>('retry-plan').disabled=true;$<HTMLButtonElement>('refresh').disabled=true;message('Loading your itinerary…');
   try{
     if(!demo){
       if(anonymousView&&!anonymousToken)throw Error('This view link is incomplete. Ask the owner for a new link.');
-      plan=anonymousView?await loadViewLink(anonymousToken!):await api('get_itinerary',{tripId:id});
+      const loaded=anonymousView?await loadViewLink(anonymousToken!):await api('get_itinerary',{tripId:id});
+      accountBoundary.check(generation);plan=loaded;
     }
+    failedRead=null;lastLoadedAt=new Date();$('plan-recovery').hidden=true;
     if(anonymousView){trips=[{...plan!.trip,role:'viewer'}];$('shared-unavailable').hidden=true;}
     const url=new URL(location.href);url.searchParams.set('trip',plan!.trip.id);history.replaceState(null,'',url);
     render();message('');
     if(!demo&&!anonymousView&&plan!.role!=='viewer'&&plan!.role!=='editor'){await stayComparison.refresh();await diningComparison.refresh();}
-  }catch(error){plan=null;
-    if(anonymousView){trips=[];$('shared-unavailable').hidden=false;}
-    if(error&&typeof error==='object'&&'code' in error&&error.code==='FORBIDDEN_OR_NOT_FOUND')trips=trips.filter(t=>t.id!==id);
-    render();message(errorText(error));throw error;}finally{loading=false;$<HTMLSelectElement>('trip-filter').disabled=listing;}
+  }catch(error){
+    accountBoundary.check(generation);
+    if(isTemporaryReadError(error)){
+      failedRead={kind:'plan',id};showReadRecovery(!!previous,'Unable to load your itinerary');
+      if(anonymousView)$('shared-unavailable').hidden=true;
+    }else{
+      clearTripView();
+      if(anonymousView){trips=[];$('shared-unavailable').hidden=false;}
+      if(error&&typeof error==='object'&&('status' in error&&[403,404].includes(Number(error.status))||'code' in error&&error.code==='FORBIDDEN_OR_NOT_FOUND'))trips=trips.filter(t=>t.id!==id);
+      render();
+    }
+    message(errorText(error));throw error;
+  }finally{loading=false;$<HTMLSelectElement>('trip-filter').disabled=listing;$<HTMLButtonElement>('retry-plan').disabled=listing;$<HTMLButtonElement>('refresh').disabled=listing;}
 }
 function allDates(){
   if(!plan)return [];
@@ -168,12 +209,12 @@ const members=configureMembers($('trip-members'),api);
 const diningComparison=configureDiningComparison($('dining-research'),{api,mutate,reload:loadPlan,message});
 const stayComparison=configureStayComparison($('stay-research'),{api,mutate,reload:loadPlan,message});
 const tripLifecycle=configureTripLifecycle(mutate,async(action,id)=>{
-  plan=null;const url=new URL(location.href);url.searchParams.delete('trip');history.replaceState(null,'',url);render();
+  clearTripView();const url=new URL(location.href);url.searchParams.delete('trip');history.replaceState(null,'',url);
   if(action==='archive'||action==='restore')tripStatus='active';$<HTMLSelectElement>('trip-filter').value=tripStatus;
   await loadTrips(action==='restore'?id:undefined);
 },message);
 $<HTMLSelectElement>('trip-filter').onchange=()=>{
-  tripStatus=$<HTMLSelectElement>('trip-filter').value as typeof tripStatus;plan=null;
+  tripStatus=$<HTMLSelectElement>('trip-filter').value as typeof tripStatus;clearTripView();
   const url=new URL(location.href);url.searchParams.delete('trip');history.replaceState(null,'',url);render();void loadTrips().catch(error=>message(errorText(error)));
 };
 function openDetail(row:Row){
@@ -336,6 +377,10 @@ function newTrip(){pending=null;$<HTMLFormElement>('trip-form').reset();$('trip-
 $('new-trip').onclick=newTrip;$('first-trip').onclick=newTrip;$('add-item').onclick=()=>openItem(null);
 $('refresh').onclick=()=>{if(demo)location.reload();else if(plan||anonymousView)showPlan(plan?.trip.id??'');else void loadTrips().catch(e=>message(errorText(e)));};
 $('retry-shared-view').onclick=()=>showPlan(plan?.trip.id??'');
+$('retry-plan').onclick=()=>{
+  if(failedRead?.kind==='plan')showPlan(failedRead.id);
+  else if(failedRead?.kind==='trips')void loadTrips(failedRead.selectId).catch(error=>message(errorText(error)));
+};
 $('item-status').onchange=bookingField;
 $<HTMLFormElement>('trip-form').onsubmit=event=>{event.preventDefault();const form=event.currentTarget as HTMLFormElement;void withForm(form,'trip-error',async()=>{
   const fields=Object.fromEntries(new FormData(form));if(String(fields.endDate)<String(fields.startDate))throw Error('End date must follow start date.');

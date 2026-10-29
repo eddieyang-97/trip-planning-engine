@@ -1,3 +1,4 @@
+import {readItineraryResponse,temporaryReadError} from './itinerary-read-response.js';
 const storageKey='travel-shared-view';
 const valid=(value:unknown):value is string=>typeof value==='string'&&/^[A-Za-z0-9_-]{43}$/.test(value);
 export function viewLinkToken(){
@@ -15,8 +16,6 @@ export function viewLinkToken(){
 export async function loadViewLink(token:string){
   let response:Response;
   try{response=await fetch('/itinerary-share/read',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',cache:'no-store',body:JSON.stringify({token}),signal:AbortSignal.timeout(60_000)});}
-  catch{throw Error('Unable to load this shared itinerary. Check your connection and try Refresh.');}
-  let result:any;try{result=await response.json();}catch{throw Error('Unable to load this shared itinerary. Try Refresh later.');}
-  if(!response.ok)throw Error(result.error??'This view link is unavailable. Ask the owner for a new link.');
-  return result;
+  catch{throw temporaryReadError('Unable to load this shared itinerary. Check your connection and try again.');}
+  return readItineraryResponse(response,'Unable to load this shared itinerary. Try again, or ask the owner for a new link.');
 }

@@ -213,6 +213,42 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
   }finally{await app.close();}
 });
 
+test('stale itinerary clears on cross-tab sign-out and cannot return from an in-flight read',async({page,context})=>{
+  const app=await fixture(false);
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort());
+  let release;
+  const held=new Promise(resolve=>{release=resolve;});
+  let arrive;
+  const started=new Promise(resolve=>{arrive=resolve;});
+  try{
+    await page.goto(`${app.origin}/account`);
+    await page.getByLabel('Email',{exact:true}).fill('owner@example.test');
+    await page.getByLabel('Password',{exact:true}).fill('Fictional-password-123');
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    await expect(page.locator('#identity')).toHaveText('owner@example.test');
+    const account=await context.newPage();await account.goto(`${app.origin}/account`);
+    await expect(account.locator('#identity')).toHaveText('owner@example.test');
+    await page.goto(`${app.origin}/itinerary`);
+    await expect(page.locator('#trip-title')).toHaveText('Owner fictional passkey trip');
+    await page.route('**/itinerary-api/get_itinerary',route=>route.fulfill({status:503,json:{error:'Temporary failure'}}));
+    await page.locator('#refresh').click();
+    await expect(page.locator('#plan-recovery-title')).toHaveText('Showing your last-loaded itinerary');
+    await page.unroute('**/itinerary-api/get_itinerary');
+    await page.route('**/itinerary-api/get_itinerary',async route=>{
+      const response=await route.fetch();arrive();await held;
+      await route.fulfill({response}).catch(()=>{}); // sign-out navigation can cancel it
+    });
+    await page.locator('#retry-plan').click();await started;
+    await account.getByRole('button',{name:'Sign out / switch account'}).click();
+    await expect(page.locator('#access')).toBeVisible();
+    release();
+    await expect(page.locator('#trip-view')).toBeHidden();
+    await expect(page.locator('#plan-recovery')).toBeHidden();
+    await expect(page.locator('body')).not.toContainText('Owner fictional passkey trip');
+    await account.close();
+  }finally{release();await app.close();}
+});
+
 test('disabled pilot and unsupported browser retain password sign-in',async({page,context})=>{
   const app=await fixture(false);
   await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort());
