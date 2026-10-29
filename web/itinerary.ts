@@ -181,7 +181,9 @@ async function loadPlan(id:string){
     }
     failedRead=null;lastLoadedAt=new Date();$('plan-recovery').hidden=true;
     if(anonymousView){trips=[{...plan!.trip,role:'viewer'}];$('shared-unavailable').hidden=true;}
-    const url=new URL(location.href);url.searchParams.set('trip',plan!.trip.id);history.replaceState(null,'',url);
+    const url=new URL(location.href);
+    if(url.searchParams.get('trip')!==plan!.trip.id){url.searchParams.delete('stay');url.searchParams.delete('dining');}
+    url.searchParams.set('trip',plan!.trip.id);history.replaceState(null,'',url);
     render();message('');
     if(!demo&&!anonymousView&&plan!.role!=='viewer'&&plan!.role!=='editor'){await stayComparison.refresh();await diningComparison.refresh();}
   }catch(error){

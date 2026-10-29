@@ -115,6 +115,13 @@ test('research stays discoverable on a first trip and opens directly from compar
     await expect(page.locator(`#${root}>details`)).toHaveAttribute('open','');
     await expect(page.locator(`#${root} article`).first()).toBeVisible();
   }
+  await openDisclosure(page,'trip-switcher');
+  await page.locator('#trip-list').getByRole('button',{name:/Sharing browser fixture/}).click();
+  await expect(page.locator('#trip-title')).toHaveText('Sharing browser fixture — fictional');
+  await expect(page.locator('#refresh')).toBeEnabled();
+  expect(new URL(page.url()).searchParams.has('stay')).toBe(false);
+  expect(new URL(page.url()).searchParams.has('dining')).toBe(false);
+  await expect(page.locator('#research-panel')).not.toHaveAttribute('open');
   const empty=await data.call('create_trip',{name:'First fictional trip',destination:'Undecided plans',startDate:'2027-01-01',endDate:'2027-01-02',adults:2});
   await openTrip(page,app,empty.tripId);
   await expect(page.locator('#plan-empty')).toContainText('Add your first item');
