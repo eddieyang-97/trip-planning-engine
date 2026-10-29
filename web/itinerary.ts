@@ -293,12 +293,14 @@ function render(){
     const section=node('section','','day');section.id=`day-${day}`;
     const nav=node('a',day==='unscheduled'?`Ideas${unscheduled?` (${unscheduled})`:''}`:date(day,{weekday:'short',day:'numeric',month:'short'}));nav.dataset.day=day;nav.href=`#${section.id}`;nav.onclick=event=>{event.preventDefault();jumpDay(day);};$('day-nav').append(nav);
     const heading=node('div','','day-heading'),copy=node('div');heading.append(node('span',day==='unscheduled'?'…':day.slice(8),'day-number'));
-    copy.append(node('h3',day==='unscheduled'?'Unscheduled':date(day,{weekday:'long'})),node('p',day==='unscheduled'?'Good ideas, waiting for their moment':date(day,{day:'numeric',month:'long',year:'numeric'})));heading.append(copy);section.append(heading);
+    copy.append(node('h3',day==='unscheduled'?'Unscheduled':date(day,{weekday:'long'})),node('p',day==='unscheduled'?'Good ideas, waiting for their moment':date(day,{day:'numeric',month:'long',year:'numeric'})));heading.append(copy);
+    if(!viewer){const add=button('＋ Add',()=>addToDay(day));add.classList.add('day-add','subtle');add.setAttribute('aria-label',day==='unscheduled'?'Add unscheduled item':`Add item to ${date(day,{weekday:'short',day:'numeric',month:'short'})}`);heading.append(add);}
+    section.append(heading);
     if(!group.length)section.append(node('p',viewer?'No items planned here yet.':day==='unscheduled'?'Everything has a date. New ideas can live here until you’re ready.':'A little breathing room. Add something when you’re ready.','empty-day'));
     for(const [index,row]of group.entries())section.append(card(row,index,group.length));
     $('timeline').append(section);
   }
-  renderOverview($('overview'),plan.items,dates,shared,openDetail);
+  renderOverview($('overview'),plan.items,dates,shared,openDetail,viewer?undefined:{edit:openItem,add:addToDay});
   itineraryMap.update(plan.items,!viewer);setView(view,false);if(view!=='map')markDay(activeDay);
 }
 function card(row:Row,index:number,count:number){
@@ -326,17 +328,31 @@ function card(row:Row,index:number,count:number){
   el.append(actions);return el;
 }
 function bookingField(){const editor=plan?.role==='editor',status=$<HTMLSelectElement>('item-status');
-  status.disabled=editor;$('status-label').hidden=editor;$('editor-booking-hint').hidden=!editor;
+  status.disabled=editor;$('status-label').hidden=editor;$('editor-booking-hint').hidden=!editor;$('item-booking').hidden=editor;
   const field=$<HTMLFormElement>('item-form').elements.namedItem('bookingNote') as HTMLTextAreaElement;
   field.disabled=editor;field.required=!editor&&status.value==='user_reported_booked';$('booking-label').hidden=editor||status.value!=='user_reported_booked';}
-function openItem(row:Row|null,draft?:ItineraryItem){
+function openItem(row:Row|null,draft?:ItineraryItem,day?:string){
   editing=row;pending=null;const form=$<HTMLFormElement>('item-form');form.reset();
-  const payload=row?.payload??draft??blank;
+  const payload=row?.payload??draft??{...blank,startDate:day&&day!=='unscheduled'?day:null};
   for(const [key,value]of Object.entries(payload)){const field=form.elements.namedItem(key) as HTMLInputElement|null;if(field&&!Array.isArray(value))field.value=value??'';}
   timezonePickers.setValues(payload);
+  $<HTMLDetailsElement>('item-schedule').open=!!(payload.endDate||payload.endTime||payload.timeZone||payload.endTimeZone);
+  $<HTMLDetailsElement>('item-notes').open=!!(payload.notes||payload.url||payload.openQuestion);
+  $<HTMLDetailsElement>('item-booking').open=payload.status==='user_reported_booked'||!!payload.bookingNote;
   mapEditor.set(payload.mapLocations);$<HTMLDetailsElement>('map-place-editor').open=!!payload.mapLocations?.length;
   $('editor-title').textContent=row?'Edit this item':draft?'Review flight for your plan':'Add to the plan';$('research-draft').hidden=!draft;$('item-error').textContent='';bookingField();$<HTMLDialogElement>('item-dialog').showModal();
+  $('item-dialog').querySelector('.item-editor-fields')!.scrollTop=0;
+  (form.elements.namedItem('title') as HTMLInputElement).focus({preventScroll:true});
 }
+function addToDay(day:string){
+  openItem(null,undefined,day);
+  $('editor-title').textContent=day==='unscheduled'?'Add an unscheduled idea':`Add to ${date(day,{weekday:'short',day:'numeric',month:'short'})}`;
+}
+// Native validation must be able to reveal and focus a field in a closed section.
+$('item-form').addEventListener('invalid',event=>{
+  for(let section=(event.target as HTMLElement).closest('details');section;section=section.parentElement?.closest('details')??null)section.open=true;
+},true);
+$('same-item-zone').onclick=()=>{try{timezonePickers.copyStartToEnd();$('item-error').textContent='';}catch(error){$('item-error').textContent=errorText(error);}};
 async function withForm(form:HTMLFormElement,errorId:string,work:()=>Promise<void>){
   const b=form.querySelector<HTMLButtonElement>('button[type=submit]')!;b.disabled=true;$(errorId).textContent='';
   try{await work();}catch(error){$(errorId).textContent=errorText(error);}finally{b.disabled=false;}
@@ -380,7 +396,7 @@ async function move(row:Row,direction:'up'|'down'){
   }catch(error){message(errorText(error));}finally{loading=false;}
 }
 function newTrip(){pending=null;$<HTMLFormElement>('trip-form').reset();$('trip-error').textContent='';$<HTMLDialogElement>('trip-dialog').showModal();}
-$('new-trip').onclick=newTrip;$('first-trip').onclick=newTrip;$('add-item').onclick=()=>openItem(null);
+$('new-trip').onclick=newTrip;$('first-trip').onclick=newTrip;$('add-item').onclick=()=>addToDay(view==='map'&&mapDay==='all'?'unscheduled':activeDay||'unscheduled');
 $('refresh').onclick=()=>{if(demo)location.reload();else if(plan||anonymousView)showPlan(plan?.trip.id??'');else void loadTrips().catch(e=>message(errorText(e)));};
 $('retry-shared-view').onclick=()=>showPlan(plan?.trip.id??'');
 $('retry-plan').onclick=()=>{

@@ -83,6 +83,12 @@
 .calendar-hour{display:block;font-size:10px;color:var(--muted);margin-bottom:8px;font-variant-numeric:tabular-nums}
 .overview-item{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;width:100%;min-width:0;margin:0 0 8px;padding:9px 11px;color:var(--ink);background:#f0f4ef;border:1px solid #dce5d9;border-left:3px solid #7e9c70;border-radius:7px;line-height:1.4;font-size:12px;font-weight:400;white-space:normal;overflow-wrap:anywhere}
 .overview-item:hover{box-shadow:0 2px 8px #173c3a15}.overview-item strong{font-size:12px}
+.overview-entry{position:relative;margin-bottom:8px;min-width:0}.overview-entry .overview-item{margin:0;height:100%}
+.overview-entry:has(.overview-edit) .overview-item{padding-bottom:47px}
+.overview-edit{position:absolute;right:7px;bottom:6px;min-height:36px;padding:7px 12px;font-size:11px}
+.overview-day>h3,.overview-unscheduled>h3{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.day-add{flex:none;min-height:40px;padding:8px 11px;font-size:12px}.day-heading .day-add{margin-left:auto}
+.overview-ideas .overview-entry,.calendar-stays .overview-entry:last-child,.calendar-untimed .overview-entry:last-child{margin-bottom:0}
 .overview-item[data-type=flight]{background:#eef4f8;border-color:#d8e3eb;border-left-color:#6695b5}
 .overview-item[data-type=transfer]{background:#f1eff8;border-color:#e2ddec;border-left-color:#9a86b6}
 .overview-item[data-type=restaurant]{background:#faf1e7;border-color:#eddfcd;border-left-color:#c39962}
@@ -101,6 +107,18 @@
   .overview-ideas{grid-template-columns:1fr}.overview-explainer{font-size:11px}.item-top .item-type{font-size:9px;letter-spacing:.5px}
 }
 @media(prefers-reduced-motion:reduce){.item-chevron{transition:none}}
+/* Keep Save available while the editor's optional sections scroll. */
+#item-dialog{overflow:hidden}
+#item-form{display:flex;flex-direction:column;max-height:calc(90vh - 60px);max-height:calc(90dvh - 60px)}
+#item-form>.dialog-heading{flex:none;margin-bottom:8px}#item-form h2{margin:0}
+.item-editor-fields{min-height:0;overflow:auto;padding:0 4px;overscroll-behavior:contain;scroll-padding:12px}
+#item-form>.dialog-actions{flex:none;background:#fafbf7;margin-top:8px;padding-top:12px}
+#item-error{flex:none;max-height:70px;overflow:auto;margin:8px 0 0}
+.item-editor-section{border-top:1px solid var(--line);padding:14px 0}
+.item-editor-section>summary{cursor:pointer;font-size:13px;font-weight:600;line-height:1.7}
+.item-editor-section>summary>span{display:block;font-size:11px;font-weight:400}
+@media(max-width:700px){#item-form{max-height:calc(90dvh - 46px)}#item-form>.dialog-heading .eyebrow{display:none}#item-form h2{font-size:23px}.overview-unscheduled>h3{font-size:21px}}
+@media print{.day-add,.overview-edit{display:none}.overview-entry .overview-item{padding-bottom:12px}}
 @media print{.plan-navigation{display:none}.calendar-board{display:block}.overview-day{display:block;break-inside:avoid;margin-bottom:20px}.calendar-slot-empty{display:none}.calendar-slot{min-height:0}.overview-item{break-inside:avoid}}
 
 .map-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}.map-heading h3{font:27px Georgia,serif;margin:0 0 8px}.map-heading p{font-size:12px;line-height:1.6;margin:0}.map-heading>button{flex:none}

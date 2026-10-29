@@ -69,6 +69,7 @@ export function timezonePicker(root:HTMLElement,choices:TimezoneChoice[]){
       const exact=choices.find(choice=>choice.id.toLowerCase()===query.toLowerCase()||choice.label.toLowerCase()===query.toLowerCase());
       if(exact){select(exact);return;}
       const message=`Choose a ${value.name==='timeZone'?'start':'end'} timezone from the results, or clear it if unknown.`;
+      for(let section=root.closest('details');section;section=section.parentElement?.closest('details')??null)section.open=true;
       input.focus();input.setCustomValidity(message);input.setAttribute('aria-invalid','true');throw Error(message);
     },
   };
@@ -80,5 +81,11 @@ export function configureTimezonePickers(form:HTMLFormElement){
   return {
     setValues(values:{timeZone:string|null;endTimeZone:string|null}){for(const {name,picker} of pickers)picker.setValue(values[name as keyof typeof values]);},
     validate(){for(const {picker} of pickers)picker.validate();},
+    copyStartToEnd(){
+      pickers.find(({name})=>name==='timeZone')!.picker.validate();
+      const start=(form.elements.namedItem('timeZone') as HTMLInputElement).value;
+      if(!start)throw Error('Choose a start time zone first.');
+      pickers.find(({name})=>name==='endTimeZone')!.picker.setValue(start);
+    },
   };
 }
