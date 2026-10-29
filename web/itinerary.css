@@ -17,6 +17,11 @@
 .comment-context{font-weight:600}.comment-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 12px}
 #comment-form{margin-top:24px}#comment-body{width:100%;box-sizing:border-box}#discussion-dialog{overflow-wrap:anywhere}
 
+.plan-recovery{padding:18px;margin-bottom:24px;border:1px solid #d7c99e;border-radius:10px;background:#fffdf5;color:#62512c}
+.plan-recovery h2{font:600 16px/1.5 Inter,'Segoe UI',system-ui,sans-serif;letter-spacing:0}
+.plan-recovery p{font-size:14px;line-height:1.6;margin:8px 0 14px}
+@media print{.plan-recovery button{display:none}}
+
 /* Private, source-backed lodging research */
 .stay-research{margin:0 0 28px;border:1px solid var(--line);border-radius:12px;background:#f0f3eb;overflow:hidden}
 .stay-research>summary{padding:20px 24px;font-family:Georgia,serif;font-size:26px;cursor:pointer}
