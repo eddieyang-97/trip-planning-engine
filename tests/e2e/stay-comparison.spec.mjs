@@ -9,6 +9,7 @@ import {Core} from '../../dist/src/core.js';
 import {createApp} from '../../dist/src/app.js';
 import {itineraryRoutes} from '../../dist/src/itinerary-web.js';
 import {stayCriteria,stayObservation} from '../../dist/tests/fixtures/stays.js';
+import {openDisclosure} from './navigation.mjs';
 
 const test=base.extend({
   app:async({},use)=>{
@@ -69,10 +70,13 @@ test('MCP lodging shortlist opens in the built web app, is reviewed into one ten
     const capture=page.locator('#stay-option-dialog');
     await capture.getByLabel('Property name',{exact:true}).fill('Fictional Source-only Annex');
     await capture.getByLabel('Configuration name',{exact:true}).fill('Room allocation still unconfirmed');
+    await openDisclosure(page,'stay-capture-basis');
     await capture.getByLabel('Adults covered by this quote',{exact:true}).fill('10');
+    await openDisclosure(page,'stay-capture-layout');
     await capture.getByRole('button',{name:'Add room / unit',exact:true}).click();
     await capture.getByLabel('Unit name',{exact:true}).fill('Proposed allocation');
     await capture.getByLabel('Base price — whole stay, all rooms',{exact:true}).fill('800');
+    await openDisclosure(page,'stay-capture-source');
     await capture.getByLabel('Evidence type',{exact:true}).selectOption('sourced');
     await capture.getByLabel('Source label',{exact:true}).fill('Fictional manually reviewed listing');
     await capture.getByLabel('Source URL',{exact:true}).fill('https://annex.example/stay');
@@ -165,6 +169,7 @@ test('an unknown home layout saves without invented units; explicit layouts vali
   await capture.getByLabel('Property name',{exact:true}).fill('Fictional home, layout to confirm');
   await capture.getByLabel('Configuration name',{exact:true}).fill('Proposed whole home');
   await capture.getByLabel('Lodging configuration',{exact:true}).selectOption('entire_home');
+  await openDisclosure(page,'stay-capture-source');
   await capture.getByLabel('Evidence type',{exact:true}).selectOption('sourced');
   await capture.getByLabel('Source label',{exact:true}).fill('Fictional public listing');
   await capture.getByLabel('Source URL',{exact:true}).fill('https://example.com/fictional-home');
@@ -178,6 +183,7 @@ test('an unknown home layout saves without invented units; explicit layouts vali
   await card.getByText('Full stay details and source',{exact:true}).click();await expect(card).toContainText('Unknown — no room layout recorded');
   await card.screenshot({path:info.outputPath('unknown-layout-phone.png')});
   await card.getByRole('button',{name:'Add new observation',exact:true}).click();await expect(capture.locator('.stay-unit')).toHaveCount(0);
+  await openDisclosure(page,'stay-capture-layout');
   await capture.getByRole('button',{name:'Add room / unit',exact:true}).click();
   await capture.getByRole('button',{name:'Save observation',exact:true}).click();
   await expect(capture.getByLabel('Unit name',{exact:true})).toBeFocused();
@@ -189,6 +195,7 @@ test('an unknown home layout saves without invented units; explicit layouts vali
   await capture.getByLabel('Bed type',{exact:true}).selectOption('single');
   await capture.getByLabel('Beds of this type per unit',{exact:true}).fill('10');
   await capture.getByLabel('Sleeping places per bed',{exact:true}).fill('1');
+  await openDisclosure(page,'stay-capture-basis');
   await capture.getByLabel('Adults covered by this quote',{exact:true}).fill('10');
   await capture.getByRole('button',{name:'Save observation',exact:true}).click();await expect(capture).not.toBeVisible();
   read=await app.tool('get_stay_decision',{decisionId:app.decisionId});
