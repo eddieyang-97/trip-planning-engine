@@ -119,6 +119,18 @@
 .item-editor-section>summary>span{display:block;font-size:11px;font-weight:400}
 @media(max-width:700px){#item-form{max-height:calc(90dvh - 46px)}#item-form>.dialog-heading .eyebrow{display:none}#item-form h2{font-size:23px}.overview-unscheduled>h3{font-size:21px}}
 @media print{.day-add,.overview-edit{display:none}.overview-entry .overview-item{padding-bottom:12px}}
+/* Research capture uses the same essentials-first, fixed-action editor pattern. */
+dialog.research-capture{overflow:hidden}
+.research-capture>form{display:flex;flex-direction:column;max-height:calc(90vh - 60px);max-height:calc(90dvh - 60px)}
+.research-capture .dialog-heading{flex:none;margin-bottom:8px}.research-capture .dialog-heading h2{margin:0}
+.research-capture-fields{min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 4px;scroll-padding:12px}
+.research-capture-fields>p{margin:8px 0 12px;font-size:12px;line-height:1.6}
+.research-capture-fields>.capture-context{padding:10px 12px;background:#eaf0e4;border-radius:7px;color:var(--ink);font-size:11px}
+.research-capture>form>.dialog-actions{flex:none;margin-top:8px;padding-top:12px}
+.research-capture>form>.form-error{flex:none;max-height:80px;overflow:auto;margin:8px 0 0}
+.research-capture-section{border:1px solid var(--line);border-radius:8px;padding:13px;margin:12px 0}
+.research-capture-section>summary{cursor:pointer;font-size:13px;font-weight:600;line-height:1.6}
+@media(max-width:700px){.research-capture>form{max-height:calc(90dvh - 46px)}.research-capture .dialog-heading h2{font-size:23px}}
 @media print{.plan-navigation{display:none}.calendar-board{display:block}.overview-day{display:block;break-inside:avoid;margin-bottom:20px}.calendar-slot-empty{display:none}.calendar-slot{min-height:0}.overview-item{break-inside:avoid}}
 
 .map-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}.map-heading h3{font:27px Georgia,serif;margin:0 0 8px}.map-heading p{font-size:12px;line-height:1.6;margin:0}.map-heading>button{flex:none}
