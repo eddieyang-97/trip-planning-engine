@@ -101,8 +101,7 @@ export async function dispatchStay(tx:Queryable,name:StayToolName,a:any,userId:s
     result={candidateId:a.candidateId,disposition:a.disposition,rationale:a.rationale};
   }else if(name==='select_stay_candidate'){
     const row=await observation(tx,decision.id,a.observationId),assessment=evaluateStay(row.payload,criteria);
-    if(assessment.eligibility==='ineligible')fail('VALIDATION_ERROR','This stay fails a known constraint. Review the dates, party, capacity, currency or budget.');
-    if(assessment.eligibility==='conditional'&&!a.acknowledgeUnknowns)fail('VALIDATION_ERROR','Review and explicitly acknowledge the unresolved stay conditions before selecting.');
+    if(assessment.eligibility==='ineligible')fail('VALIDATION_ERROR','This stay fails a known constraint. Review the dates, party, capacity, currency, availability or budget.');
     await tx.query('update selections set superseded_at=now() where decision_id=$1 and superseded_at is null',[decision.id]);
     const id=randomUUID();
     await tx.query('insert into selections(id,decision_id,observation_id,criteria_version,rationale,evaluation,selected_by) values($1,$2,$3,1,$4,$5,$6)',[id,decision.id,row.id,a.rationale,JSON.stringify(assessment),userId]);

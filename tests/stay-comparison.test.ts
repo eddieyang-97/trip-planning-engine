@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {embedded,migrate,type Database} from '../src/database.js';
 import {Core,type ToolName} from '../src/core.js';
-import {DomainError,criteriaSchema,tripInput} from '../src/domain.js';
+import {DomainError,criteriaSchema,tripInput,canonical} from '../src/domain.js';
 import {flaineCriteria} from '../src/acceptance.js';
 import {FixtureProvider} from '../src/providers.js';
 import {stayCriteria,stayObservation} from './fixtures/stays.js';
@@ -61,12 +61,46 @@ test('unknown cost, charges, bed capacity and availability stay conditional; dif
   assert.equal(evaluateStay({...base,units:[{name:'Four twin rooms',count:4,beds:[{type:'single',count:2,sleepingPlaces:1}]}]},c).eligibility,'ineligible');
   const db=await embedded();try{
     const s=await setup(db),saved=await s.core.call('save_stay_candidate',{...key(),decisionId:s.decisionId,expectedRevision:1,observation:{...base,availability:'unknown'}},s.owner);
-    await assert.rejects(s.core.call('select_stay_candidate',{...key(),decisionId:s.decisionId,expectedRevision:2,observationId:saved.observationId,rationale:'Review uncertainty',acknowledgeUnknowns:false},s.owner),code('VALIDATION_ERROR'));
-    const selected=await s.core.call('select_stay_candidate',{...key(),decisionId:s.decisionId,expectedRevision:2,observationId:saved.observationId,rationale:'Availability remains a dated unknown, to confirm separately',acknowledgeUnknowns:true},s.owner);
+    const selected=await s.core.call('select_stay_candidate',{...key(),decisionId:s.decisionId,expectedRevision:2,observationId:saved.observationId,acknowledgeUnknowns:false},s.owner);
+    const read=await s.core.callFromWeb('get_stay_decision',{decisionId:s.decisionId},s.owner.userId);
+    assert.equal(read.selection.rationale,'');assert.equal(read.selection.evaluation.eligibility,'conditional');
+    assert.ok(read.selection.evaluation.unknowns.some((value:string)=>value.includes('Availability')));
     assert.ok(selected.selectionId);assert.equal(await count(db,'booking_records'),0);assert.equal(await count(db,'itinerary_items'),0);
     const budgetDecision=await s.core.call('create_stay_decision',{...key(),tripId:s.tripId,title:'Fictional hard budget',criteria:{...c,maximumTotalMinor:250000}},s.owner);
     const tooExpensive=await s.core.call('save_stay_candidate',{...key(),decisionId:budgetDecision.decisionId,expectedRevision:1,observation:{...base,mandatoryChargesComplete:false}},s.owner);
     await assert.rejects(s.core.call('select_stay_candidate',{...key(),decisionId:budgetDecision.decisionId,expectedRevision:2,observationId:tooExpensive.observationId,rationale:'Acknowledgement cannot override known budget failure',acknowledgeUnknowns:true},s.owner),code('VALIDATION_ERROR'));assert.equal(await count(db,'selections'),1);
+  }finally{await db.close();}
+});
+
+test('stay selection accepts optional notes across web/MCP and preserves legacy receipts and frozen choices',async()=>{
+  const db=await embedded();try{
+    const {core,owner,decisionId}=await setup(db),original=stayObservation();
+    const first=await core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:1,observation:original},owner);
+    const later={...original,units:[],availability:'unknown' as const};
+    const second=await core.call('save_stay_candidate',{...key(),decisionId,expectedRevision:2,candidateId:first.candidateId,observation:later},owner);
+    // Existing clients can still send notes and the old acknowledgement flag.
+    const legacy={...key(),decisionId,expectedRevision:3,observationId:first.observationId,rationale:'Existing reviewed choice'};
+    const previous=await core.call('select_stay_candidate',legacy,owner);
+    const receipt=(await db.query("select request_hash from mutation_requests where owner_id=$1 and operation='select_stay_candidate' and key=$2",[owner.userId,legacy.idempotencyKey])).rows[0]!;
+    assert.equal(receipt.request_hash,createHash('sha256').update(canonical({...legacy,acknowledgeUnknowns:false})).digest('hex'),'Retain the pre-change normalized hash for legacy requests');
+    assert.deepEqual(await core.callFromWeb('select_stay_candidate',{...legacy,acknowledgeUnknowns:false},owner.userId),previous);
+    const old=(await db.query('select * from selections where id=$1',[previous.selectionId])).rows[0];
+    assert.ok(old);
+    await assert.rejects(core.call('select_stay_candidate',{...legacy,acknowledgeUnknowns:true},owner),code('IDEMPOTENCY_CONFLICT'));
+    const request={...key(),decisionId,expectedRevision:4,observationId:second.observationId};
+    const selected=await core.callFromWeb('select_stay_candidate',request,owner.userId);
+    assert.deepEqual(await core.call('select_stay_candidate',{...request,rationale:'',acknowledgeUnknowns:false},owner),selected);
+    const read=await core.call('get_stay_decision',{decisionId},owner);
+    assert.equal(read.selection.id,selected.selectionId);assert.equal(read.selection.rationale,'');
+    assert.deepEqual(read.selection.observation,later);assert.equal(read.selection.evaluation.sleepingPlaces,null);
+    assert.equal(read.selection.evaluation.eligibility,'conditional');assert.ok(read.selection.evaluation.unknowns.length);
+    const historical=(await db.query('select * from selections where id=$1',[previous.selectionId])).rows[0];
+    assert.ok(historical);
+    assert.ok(historical.superseded_at);assert.equal(historical.rationale,old.rationale);assert.equal(historical.observation_id,first.observationId);assert.deepEqual(historical.evaluation,old.evaluation);
+    const withLegacyFlag=await core.call('select_stay_candidate',{...key(),decisionId,expectedRevision:5,observationId:second.observationId,rationale:'Optional follow-up note',acknowledgeUnknowns:true},owner);
+    assert.ok(withLegacyFlag.selectionId);assert.equal(await count(db,'selections'),3);
+    assert.equal((await db.query("select count(*)::int n from mutation_requests where operation='select_stay_candidate'")).rows[0]!.n,3);
+    for(const table of ['booking_records','itinerary_items','search_runs'])assert.equal(await count(db,table),0);
   }finally{await db.close();}
 });
 

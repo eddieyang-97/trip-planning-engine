@@ -35,6 +35,43 @@ const test=base.extend({
   },
 });
 
+test('conditional stay selection needs no note or acknowledgement, retains uncertainty and remains separate from the itinerary',async({page,context,app},info)=>{
+  const external=[];await context.route('**/*',route=>{if(new URL(route.request().url()).origin===app.origin)return route.continue();external.push(route.request().url());return route.abort('blockedbyclient');});
+  let current=await app.tool('get_stay_decision',{decisionId:app.decisionId});
+  const unknown={...stayObservation(10,'entire_home'),units:[],availability:'unknown'};
+  const uncertain=await app.tool('save_stay_candidate',{idempotencyKey:randomUUID(),decisionId:app.decisionId,expectedRevision:current.decision.revision,candidateId:app.home.candidateId,observation:unknown});
+  const unavailable=await app.tool('save_stay_candidate',{idempotencyKey:randomUUID(),decisionId:app.decisionId,expectedRevision:uncertain.revision,observation:{...stayObservation(),propertyName:'Fictional unavailable hotel',availability:'unavailable'}});
+  // The actual SDK/MCP path accepts an omitted rationale for an eligible option.
+  await app.tool('select_stay_candidate',{idempotencyKey:randomUUID(),decisionId:app.decisionId,expectedRevision:unavailable.revision,observationId:app.hotel.observationId});
+  current=await app.tool('get_stay_decision',{decisionId:app.decisionId});expect(current.selection.rationale).toBe('');expect(current.selection.evaluation.eligibility).toBe('eligible');
+  await page.goto(app.webUrl);await page.getByLabel('Local development token').fill(app.ownerToken);await page.getByRole('button',{name:'Open local trips',exact:true}).click();await expect(page.locator('#refresh')).toBeEnabled();
+  await expect(page.getByRole('article',{name:'Fictional unavailable hotel',exact:true}).getByRole('button',{name:'Review this option',exact:true})).toBeDisabled();
+  const blocked=await page.request.post(`${app.origin}/itinerary-api/select_stay_candidate`,{headers:{authorization:`Bearer ${app.ownerToken}`,origin:app.origin},data:{idempotencyKey:randomUUID(),decisionId:app.decisionId,expectedRevision:current.decision.revision,observationId:unavailable.observationId,acknowledgeUnknowns:true}});
+  expect(blocked.ok()).toBe(false);expect((await blocked.json()).code).toBe('VALIDATION_ERROR');
+  expect((await app.tool('get_stay_decision',{decisionId:app.decisionId})).selection.observationId).toBe(app.hotel.observationId);
+  await page.getByRole('article',{name:'Fictional Alpine Chalet',exact:true}).getByRole('button',{name:'Review this option',exact:true}).click();
+  const dialog=page.locator('#stay-select-dialog');await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+  const note=dialog.getByLabel('Selection rationale (optional)',{exact:true});await expect(note).not.toHaveAttribute('required');await expect(note).toHaveValue('');
+  await expect(dialog.locator('.question')).toContainText('Actual supplied sleeping places');await expect(dialog.locator('.question')).toContainText('Availability');
+  await note.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('conditional-selection-phone.png')});
+  await page.setViewportSize({width:1280,height:900});await note.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('conditional-selection-desktop.png')});
+  await dialog.getByRole('button',{name:'Select this observation',exact:true}).click();await expect(dialog).not.toBeVisible();
+  const selected=page.getByRole('region',{name:'Selected stay evidence'});await expect(selected).toContainText('Selection rationale: None provided');await expect(selected.locator('>.question')).toContainText('Availability');
+  current=await app.tool('get_stay_decision',{decisionId:app.decisionId});const frozen=current.selection;
+  expect(frozen.rationale).toBe('');expect(frozen.observationId).toBe(uncertain.observationId);expect(frozen.observation).toEqual(unknown);expect(frozen.evaluation).toMatchObject({eligibility:'conditional',sleepingPlaces:null});
+  expect(current.links).toHaveLength(0);
+  await app.tool('save_stay_candidate',{idempotencyKey:randomUUID(),decisionId:app.decisionId,expectedRevision:current.decision.revision,candidateId:app.home.candidateId,observation:stayObservation(10,'entire_home')});
+  await page.getByRole('button',{name:'Refresh lodging',exact:true}).click();await expect(page.locator('#stay-error')).toHaveText('');
+  await expect(selected.locator('>.question')).toContainText('Availability');
+  expect((await app.tool('get_stay_decision',{decisionId:app.decisionId})).selection).toEqual(frozen);
+  await selected.getByRole('button',{name:'Review tentative stay',exact:true}).click();await expect(page.locator('#stay-commit-dialog')).toContainText('Selection rationale: None provided');
+  await page.locator('#stay-commit-dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+  expect((await app.db.query("select count(*)::int n from mutation_requests where operation='select_stay_candidate'")).rows[0].n).toBe(2);
+  expect((await app.db.query('select count(*)::int n from selections')).rows[0].n).toBe(2);
+  for(const table of ['itinerary_items','itinerary_events','stay_itinerary_links','booking_records','search_runs'])expect((await app.db.query(`select count(*)::int n from ${table}`)).rows[0].n).toBe(0);
+  expect(external).toEqual([]);
+});
+
 test('MCP lodging shortlist opens in the built web app, is reviewed into one tentative item and reads back through MCP',async({browser,app},testInfo)=>{
   const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}),externalRequests=[],pageErrors=[];
   await context.route('**/*',route=>{if(new URL(route.request().url()).origin===app.origin)return route.continue();externalRequests.push(route.request().url());return route.abort('blockedbyclient');});
@@ -88,7 +125,8 @@ test('MCP lodging shortlist opens in the built web app, is reviewed into one ten
     await home.getByRole('button',{name:'Review this option',exact:true}).click();
     const selection=page.locator('#stay-select-dialog');
     const rationale='Reviewed fictional dates, full-party cost and ten known sleeping places; confirm again before booking.';
-    await selection.getByLabel('Selection rationale',{exact:true}).fill(rationale);
+    await expect(selection.getByRole('checkbox')).toHaveCount(0);
+    await selection.getByLabel('Selection rationale (optional)',{exact:true}).fill(rationale);
     await selection.getByRole('button',{name:'Select this observation',exact:true}).click();
     await expect(selection).not.toBeVisible();
     const selected=page.getByRole('region',{name:'Selected stay evidence'});

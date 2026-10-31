@@ -40,7 +40,8 @@ export const staySchemas={
     identityReview:z.strictObject({priorObservationId:uuid,confirmedSameConfiguration:z.literal(true),reason:text(1000).min(1)}).optional()}),
   set_stay_disposition:z.strictObject({...edit,candidateId:uuid,disposition:z.enum(['neutral','saved','rejected']),rationale:text(2000)}),
   compare_stays:z.strictObject({decisionId:uuid}),
-  select_stay_candidate:z.strictObject({...edit,observationId:uuid,rationale:text(2000).min(1),acknowledgeUnknowns:z.boolean().default(false)}),
+  // Retain the old flag/default for client and stored request-hash compatibility.
+  select_stay_candidate:z.strictObject({...edit,observationId:uuid,rationale:text(2000).default(''),acknowledgeUnknowns:z.boolean().default(false)}),
   commit_stay_selection:z.strictObject({...edit,expectedItineraryRevision:z.number().int().positive(),selectionId:uuid}),
 };
 export type StayToolName=keyof typeof staySchemas;
