@@ -42,6 +42,7 @@
 
 /* One compact navigation surface stays visible after the trip header leaves. */
 :root{--plan-nav-height:90px}
+#share-error[data-copied=true]{color:var(--green)}
 .timezone-picker{position:relative;min-width:0;margin:15px 0}
 .timezone-picker>label{margin:0 0 7px}.timezone-picker>input[role=combobox]{margin-top:0}
 .timezone-picker::after{content:'⌄';position:absolute;right:12px;top:32px;color:var(--muted);font-size:21px;pointer-events:none}
