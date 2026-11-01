@@ -5,6 +5,20 @@ const storageKey='travel-pending-invitation';
 const valid=(value:unknown):value is string=>typeof value==='string'&&/^[A-Za-z0-9_-]{43}$/.test(value);
 const errorText=(error:unknown)=>error instanceof Error?error.message:'Unable to finish. Try again.';
 
+function copyLink(value:string|Promise<string>):Promise<boolean>{
+  if(typeof value!=='string')void value.catch(()=>{});
+  try{
+    if(!navigator.clipboard)return Promise.resolve(false);
+    if(typeof value==='string')return navigator.clipboard.writeText(value).then(()=>true,()=>false);
+    if(typeof ClipboardItem==='function'&&typeof navigator.clipboard.write==='function'){
+      // Start during the submit gesture; Safari can resolve the text after the request.
+      const data=value.then(link=>new Blob([link],{type:'text/plain'}));void data.catch(()=>{});
+      return navigator.clipboard.write([new ClipboardItem({'text/plain':data})]).then(()=>true,()=>false);
+    }
+    return value.then(link=>navigator.clipboard.writeText(link)).then(()=>true,()=>false);
+  }catch{return Promise.resolve(false);}
+}
+
 // A URL fragment does not reach server access logs. Keep it in this tab only while
 // navigating to sign-in; neither analytics nor external scripts run on these pages.
 export function pendingInvitation(){
@@ -46,9 +60,18 @@ export async function openInvitation(api:Api,mutate:Mutate,joined:(id:string)=>P
 }
 export function configureSharing(api:Api,mutate:Mutate,tripId:()=>string|null){
   $('dismiss-invitation').onclick=event=>{event.preventDefault();sessionStorage.removeItem(storageKey);location.assign('/itinerary');};
-  let currentTrip:string|null=null,link='';
+  let currentTrip:string|null=null,link='',generation=0;
+  const dialog=$<HTMLDialogElement>('share-dialog');
+  function active(stamp:number,id:string|null){return stamp===generation&&tripId()===id&&dialog.open;}
+  function copyResult(copied:boolean,automatic=false){
+    $('share-error').dataset.copied=String(copied);
+    $('share-error').textContent=copied?'Copied. Send this link privately to your friend.':automatic?'Link created, but automatic copy was blocked. Tap Copy link or copy the selected link manually.':'Select the link above and copy it manually.';
+    if(!copied){const input=$<HTMLInputElement>('invite-link');input.focus();input.select();}
+    $('share-error').scrollIntoView({block:'nearest'});
+  }
   async function refresh(){
-    const data=await api('list_itinerary_access',{tripId:currentTrip}),list=$('access-list');list.replaceChildren();
+    const stamp=generation,id=currentTrip,data=await api('list_itinerary_access',{tripId:id});if(!active(stamp,id))return;
+    const list=$('access-list');list.replaceChildren();
     if(!data.invites.length){list.textContent='Only you can view this itinerary. Create a view link or invite an editor when you’re ready.';return;}
     for(const invite of data.invites){
       const row=document.createElement('div');row.className='access-row';
@@ -75,22 +98,32 @@ export function configureSharing(api:Api,mutate:Mutate,tripId:()=>string|null){
   }
   $('share-trip').onclick=()=>{
     currentTrip=tripId();if(!currentTrip)return;
+    generation++;$<HTMLButtonElement>('create-invitation').disabled=false;delete $('share-error').dataset.copied;
     link='';$('created-link').hidden=true;$('share-error').textContent='';$<HTMLFormElement>('invite-form').reset();
     permissionChanged();
     $('access-list').textContent='Loading access…';$<HTMLDialogElement>('share-dialog').showModal();
-    void refresh().catch(error=>{$('share-error').textContent=errorText(error);});
+    const stamp=generation;void refresh().catch(error=>{if(active(stamp,currentTrip))$('share-error').textContent=errorText(error);});
   };
+  dialog.addEventListener('close',()=>{generation++;link='';$<HTMLInputElement>('invite-link').value='';$('created-link').hidden=true;});
   $('invite-role').onchange=permissionChanged;
   $<HTMLFormElement>('invite-form').onsubmit=event=>{
-    event.preventDefault();const button=$<HTMLButtonElement>('create-invitation');button.disabled=true;$('share-error').textContent='';
-    void (async()=>{try{
-      const editor=$<HTMLSelectElement>('invite-role').value==='editor',days=$<HTMLSelectElement>('invite-expiry').value;
-      const result=await mutate(editor?'create_itinerary_invite':'create_itinerary_view_link',{tripId:currentTrip,label:$<HTMLInputElement>('invite-label').value,...(editor?{role:'editor'}:{expiresInDays:days?Number(days):null})});
+    event.preventDefault();const button=$<HTMLButtonElement>('create-invitation');if(button.disabled)return;
+    button.disabled=true;$('share-error').textContent='';delete $('share-error').dataset.copied;
+    const stamp=++generation,id=currentTrip,editor=$<HTMLSelectElement>('invite-role').value==='editor',days=$<HTMLSelectElement>('invite-expiry').value;
+    link='';$('created-link').hidden=true;$<HTMLInputElement>('invite-link').value='';
+    const generated=mutate(editor?'create_itinerary_invite':'create_itinerary_view_link',{tripId:id,label:$<HTMLInputElement>('invite-label').value,...(editor?{role:'editor'}:{expiresInDays:days?Number(days):null})}).then(result=>{
+      if(!active(stamp,id))throw Error('Sharing closed or the trip changed.');
       if(!result.token)throw Error('The link cannot be recovered after a lost response. Revoke the new link or invitation below, then create a fresh one.');
-      link=`${location.origin}/itinerary#${editor?'invite':'view'}=${result.token}`;$<HTMLInputElement>('invite-link').value=link;$('created-link').hidden=false;
-      $('link-details').textContent=editor?`Can edit itinerary after signing in. One person can accept before ${new Date(result.expiresAt).toLocaleDateString('en-GB')}. Copy it now; it is shown only here.`:`Anyone with this link can view and forward it, without an account. ${result.expiresAt?`Expires ${new Date(result.expiresAt).toLocaleDateString('en-GB')}.`:'No expiry; it works until you revoke it.'} Copy it now; it is shown only here.`;
-      await refresh();
-    }catch(error){$('share-error').textContent=errorText(error);await refresh().catch(()=>{});}finally{button.disabled=false;}})();
+      return {result,url:`${location.origin}/itinerary#${editor?'invite':'view'}=${result.token}`};
+    });
+    const copied=copyLink(generated.then(value=>value.url));
+    void (async()=>{try{
+      const {result,url}=await generated;if(!active(stamp,id))return;
+      link=url;$<HTMLInputElement>('invite-link').value=link;$('created-link').hidden=false;
+      $('link-details').textContent=editor?`Can edit itinerary after signing in. One person can accept before ${new Date(result.expiresAt).toLocaleDateString('en-GB')}. This link is shown only here.`:`Anyone with this link can view and forward it, without an account. ${result.expiresAt?`Expires ${new Date(result.expiresAt).toLocaleDateString('en-GB')}.`:'No expiry; it works until you revoke it.'} This link is shown only here.`;
+      const success=await copied;if(!active(stamp,id))return;copyResult(success,true);
+      await refresh().catch(()=>{if(active(stamp,id))$('share-error').textContent+=' Reopen sharing to refresh the access list.';});
+    }catch(error){if(active(stamp,id)){$('share-error').textContent=errorText(error);await refresh().catch(()=>{});}}finally{if(stamp===generation)button.disabled=false;}})();
   };
-  $('copy-invite').onclick=()=>{void navigator.clipboard.writeText(link).then(()=>{$('share-error').textContent='Copied. Send this link privately to your friend.';}).catch(()=>{$('share-error').textContent='Select the link above and copy it manually.';$<HTMLInputElement>('invite-link').select();});};
+  $('copy-invite').onclick=()=>{if(!link)return;const stamp=generation,id=currentTrip,value=link;void copyLink(value).then(copied=>{if(active(stamp,id)&&link===value)copyResult(copied);});};
 }
