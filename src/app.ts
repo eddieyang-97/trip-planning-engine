@@ -90,10 +90,11 @@ function serverFor(core: Core, actor: Actor, publicOrigin:string) {
   return server;
 }
 
-export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void>; accounts?: Router; itinerary?:Router; deployment?:{commit:string|null;schemaVersion:number} }) {
+export function createApp(options: { core: Core; authenticate: Authenticate; publicOrigin: string; issuer?: string; ready?: () => Promise<void>; accounts?: Router; itinerary?:Router; deployment?:{commit:string|null;schemaVersion:number}; trustedProxyAddresses?:string[] }) {
   const origin = new URL(options.publicOrigin);
   if (origin.origin !== options.publicOrigin) throw new Error('PUBLIC_ORIGIN must be an origin without a trailing slash');
   const app = express();
+  app.set('trust proxy',options.trustedProxyAddresses??[]);
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');

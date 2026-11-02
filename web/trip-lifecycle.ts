@@ -30,6 +30,7 @@ export function configureTripLifecycle(mutate:Mutate,changed:(action:string,id:s
       catch(error){if(stamp===generation){$('lifecycle-error').textContent=error instanceof Error?error.message:'Unable to finish.';if(error&&typeof error==='object'&&'code'in error&&['REVISION_CONFLICT','CONFIRMATION_REQUIRED'].includes(String(error.code))){review=null;$('lifecycle-error').textContent+=' Close this dialog and review again.';}}}
       finally{busy=false;controls();}})();
   };
-  return {update(next:Context|null,archived:boolean){if(context?.id!==next?.id)clear();context=next;$('trip-actions').hidden=!next;$('trip-archived').hidden=!archived;
+  return {reconcile(id:string,revision:number){if(context?.id===id&&Number.isSafeInteger(revision)&&revision>context.revision)context={...context,revision};},
+    update(next:Context|null,archived:boolean){if(context?.id!==next?.id)clear();context=next;$('trip-actions').hidden=!next;$('trip-archived').hidden=!archived;
     $('archive-trip').hidden=!next||next.role!=='owner'||next.archived;$('restore-trip').hidden=!next||next.role!=='owner'||!next.archived;$('delete-trip').hidden=!next||next.role!=='owner';$('leave-trip').hidden=!next||next.role==='owner';controls();},reset(){clear();context=null;$('trip-actions').hidden=true;$('trip-archived').hidden=true;}};
 }

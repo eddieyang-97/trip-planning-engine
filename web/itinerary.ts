@@ -111,7 +111,7 @@ function showReadRecovery(hasPrevious:boolean,title:string){
   $('plan-recovery').hidden=false;
 }
 function showPlan(id:string){void loadPlan(id).catch(error=>message(errorText(error)));}
-async function api(operation:string,input:unknown){
+async function api(operation:string,input:unknown,refreshStale=true):Promise<any>{
   const generation=accountBoundary.generation;
   let token=localToken;
   if(client){const {data:{session},error}=await client.auth.getSession();if(error||!session){accountBoundary.update(null);clearPrivate();throw Error('Sign in to your travel account again.');}token=session.access_token;}
@@ -122,7 +122,26 @@ async function api(operation:string,input:unknown){
   accountBoundary.check(generation);
   if(response.status===401){accountBoundary.update(null);clearPrivate();throw Error('Sign in to your travel account again.');}
   const result=await readItineraryResponse(response,'Unable to read the itinerary response. Refresh to check saved changes.');
-  accountBoundary.check(generation);return result;
+  accountBoundary.check(generation);
+
+  // Discussion has its own retry key and calls api directly. Reconcile here so
+  // every successful same-tab mutation updates lifecycle controls without a
+  // render that would clear dialogs/drafts. Never upgrade a destructive review.
+  const tripId=input&&typeof input==='object'&&'tripId' in input?input.tripId:undefined;
+  if(plan&&tripId===plan.trip.id){
+    const revision=result.lifecycleRevision;
+    if(Number.isSafeInteger(revision)&&revision>(plan.trip.lifecycle_revision??1)){
+      plan.trip.lifecycle_revision=revision;tripLifecycle.reconcile(plan.trip.id,revision);
+    }
+    // A read begun before a mutation can finish afterwards. Re-read once rather
+    // than regress the clock or discard newly loaded items from that snapshot.
+    // Only reads are retried; continued changes require an explicit refresh.
+    if(operation==='get_itinerary'&&result.trip?.id===plan.trip.id&&result.trip.lifecycle_revision<(plan.trip.lifecycle_revision??1)){
+      if(!refreshStale)throw temporaryReadError('The trip changed while loading. Refresh it to see the current plan.');
+      return api(operation,input,false);
+    }
+  }
+  return result;
 }
 async function mutate(operation:string,args:Record<string,unknown>){
   const signature=JSON.stringify([operation,args]);

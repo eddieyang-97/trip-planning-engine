@@ -171,3 +171,7 @@ initiated for this release. Free hosting and existing auth permissions remain.
 After migration, prefer a forward fix. If older code is needed, leave live search
 disabled and drain newer workers before replacement; never restart old live workers
 against the migrated ledger. Database/code rollback cannot undo a confirmed deletion.
+
+## Browser revision reconciliation
+
+Successful same-tab sharing and discussion mutations advance the loaded lifecycle clock without resetting dialogs. Older receipts cannot lower it. An itinerary read older than that clock is fetched again once; continued changes use the existing read-recovery flow. Archive/restore still enforce expected revisions. Delete/leave reviews retain their original token and revision and are never automatically retried.

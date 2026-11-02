@@ -5,6 +5,7 @@ import type {Core} from './core.js';
 import {DomainError} from './domain.js';
 import {readItineraryViewLink,viewLinkReadSchema} from './itinerary-view-links.js';
 import {calendarFile,type CalendarPlan} from './calendar-export.js';
+import {publicRequestLimits} from './public-request-limits.js';
 
 const selection={itemIds:z.array(z.uuid()).min(1).max(500),expectedRevision:z.number().int().positive()};
 const direct=z.strictObject({...selection,tripId:z.uuid()});
@@ -13,7 +14,7 @@ const lifetime=2*60_000;
 type Ticket={body:string;bytes:number;filename:string;expires:number;check:()=>Promise<unknown>};
 export function calendarExportRoutes(options:{core:Core;origin:string;authenticate?:(header?:string)=>Promise<{userId:string}>;clock?:()=>number}){
   const router=Router(),tickets=new Map<string,Ticket>(),clock=options.clock??Date.now;
-  let windowStart=clock(),requests=0;
+  const limits=publicRequestLimits(30,300,60,clock);
   router.use(['/itinerary/calendar','/itinerary-api/calendar-export','/itinerary-share/calendar-export'],(_req,res,next)=>{
     res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Robots-Tag','noindex, nofollow, noarchive');
@@ -22,8 +23,8 @@ export function calendarExportRoutes(options:{core:Core;origin:string;authentica
   router.post(['/itinerary-api/calendar-export','/itinerary-share/calendar-export'],json({limit:'32kb'}),async(req,res)=>{
     if(req.headers.origin!==options.origin){res.status(403).json({error:'Open the itinerary page to export.'});return;}
     const now=clock();
-    if(now-windowStart>=60_000){windowStart=now;requests=0;}
-    if(++requests>60){res.setHeader('Retry-After','60');res.status(429).json({error:'Too many calendar exports. Please try again in a minute.'});return;}
+    const limited=()=>{res.setHeader('Retry-After','60');res.status(429).json({error:'Too many calendar exports. Please try again in a minute.'});};
+    if(!limits.attempt(req)){limited();return;}
     for(const [token,ticket]of tickets)if(ticket.expires<=now)tickets.delete(token);
     if(tickets.size>=120){res.status(429).json({error:'Please wait two minutes before preparing another export.'});return;}
     try{
@@ -46,6 +47,7 @@ export function calendarExportRoutes(options:{core:Core;origin:string;authentica
         };
       }
       if(plan.revision!==revision){res.status(409).json({error:'The itinerary changed. Refresh it before exporting.'});return;}
+      if(!limits.authorize()){limited();return;}
       let body:string;
       try{body=calendarFile(plan,itemIds,new Date(now));}catch(error){res.status(400).json({error:error instanceof Error?error.message:'Check the selected items.'});return;}
       const bytes=Buffer.byteLength(body);

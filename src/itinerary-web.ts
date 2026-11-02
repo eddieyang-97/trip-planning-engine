@@ -10,10 +10,11 @@ import {itineraryAccess} from './itinerary.js';
 import {MapPlaces,placeSearchSchema} from './map-places.js';
 import {readTripRoster} from './account-profiles.js';
 import {uuid} from './domain.js';
+import {publicRequestLimits} from './public-request-limits.js';
 import {withStayWebUrls} from './stay-links.js';
 
 export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(header?:string)=>Promise<{userId:string}>;
-  supabaseUrl?:string;publishableKey?:string;local?:boolean;mapPlaces?:MapPlaces}) {
+  supabaseUrl?:string;publishableKey?:string;local?:boolean;mapPlaces?:MapPlaces;clock?:()=>number}) {
   const router=Router();
   const places=options.mapPlaces??new MapPlaces();
   const tileUrl=process.env.MAP_TILE_URL??'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -35,12 +36,12 @@ export function itineraryRoutes(options:{core:Core;origin:string;authenticate?:(
   router.get('/itinerary/map-config',(_req,res)=>res.json({tileUrl,attribution:process.env.MAP_TILE_ATTRIBUTION??'© OpenStreetMap contributors'}));
   // One fixed read operation accepts only a view-link credential. It cannot
   // dispatch tools, join a membership, or use a client-supplied trip/owner ID.
-  let readWindow=Date.now(),reads=0;
+  const readLimits=publicRequestLimits(30,600,120,options.clock);
   router.post('/itinerary-share/read',json({limit:'2kb'}),async(req,res)=>{
     if(req.headers.origin!==options.origin){res.status(403).json({error:'Open the shared itinerary to view it.'});return;}
-    if(Date.now()-readWindow>=60000){readWindow=Date.now();reads=0;}
-    if(++reads>120){res.setHeader('Retry-After','60');res.status(429).json({error:'Too many shared-view requests. Please try again in a minute.'});return;}
-    try{res.json(await readItineraryViewLink(options.core.db,req.body));}
+    const limited=()=>{res.setHeader('Retry-After','60');res.status(429).json({error:'Too many shared-view requests. Please try again in a minute.'});};
+    if(!readLimits.attempt(req)){limited();return;}
+    try{const plan=await readItineraryViewLink(options.core.db,req.body);if(!readLimits.authorize()){limited();return;}res.json(plan);}
     catch(error){res.status(error instanceof z.ZodError?400:error instanceof DomainError?404:500).json({error:error instanceof z.ZodError?'This view link is incomplete. Ask the owner for a new link.':error instanceof DomainError?error.message:'Unable to load this shared itinerary. Try again later.'});}
   });
   router.all('/itinerary-share/read',(_req,res)=>{res.setHeader('Allow','POST');res.status(405).json({error:'Open the shared itinerary to view it.'});});

@@ -44,7 +44,7 @@ if (!local) await db.query(`insert into oauth_resource(singleton,audience) value
 const core=new Core(db,local,config.liveSearch);
 const accounts=!local&&config.publishableKey?supabaseAccounts(issuer!,config.publishableKey):undefined;
 const app = createApp({ core, authenticate, publicOrigin: origin, issuer,
-  deployment:{commit:deploymentCommit(),schemaVersion},
+  deployment:{commit:deploymentCommit(),schemaVersion}, trustedProxyAddresses:config.trustedProxyAddresses,
   itinerary:itineraryRoutes({core,origin,local,authenticate:local?authenticate:accounts?.authenticate,
     supabaseUrl:issuer?new URL(issuer).origin:undefined,publishableKey:config.publishableKey}),
   accounts: !local && config.publishableKey ? accountRoutes({ db, origin, issuer:issuer!, publishableKey:config.publishableKey,

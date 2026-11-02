@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { configuration } from '../src/config.js';
+import { configuration,trustedProxyAddresses } from '../src/config.js';
+
+test('proxy trust defaults off and requires explicit IP addresses or bounded CIDRs',()=>{
+  assert.deepEqual(trustedProxyAddresses(),[]);
+  assert.deepEqual(trustedProxyAddresses(' 127.0.0.1, ::1/128, 10.2.3.0/24 '),['127.0.0.1','::1/128','10.2.3.0/24']);
+  for(const value of ['true','1','loopback','*','0.0.0.0/0','::/0','10.0.0.1/33','::1/129','10.0.0.1/','10.0.0.1/2/3','10.0.0.1,'])assert.throws(()=>trustedProxyAddresses(value),/TRUSTED_PROXY_ADDRESSES/);
+  assert.deepEqual(configuration({TRUSTED_PROXY_ADDRESSES:'127.0.0.1'}).trustedProxyAddresses,['127.0.0.1']);
+});
 
 const hosted = {
   APP_MODE: 'hosted', NODE_ENV: 'production', RENDER: 'true', PORT: '10000',

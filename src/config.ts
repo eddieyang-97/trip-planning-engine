@@ -1,3 +1,17 @@
+import {isIP} from 'node:net';
+
+export function trustedProxyAddresses(value=''):string[]{
+  if(!value.trim())return [];
+  const addresses=value.split(',').map(address=>address.trim());
+  for(const address of addresses){
+    const [ip,prefix,...extra]=address.split('/'),version=isIP(ip!);
+    if(!version||extra.length||(prefix!==undefined&&(!/^\d+$/.test(prefix)||Number(prefix)<1||Number(prefix)>(version===4?32:128)))){
+      throw Error('TRUSTED_PROXY_ADDRESSES must contain explicit IP addresses or nonzero CIDR ranges');
+    }
+  }
+  return addresses;
+}
+
 // Only a public Git SHA may leave the process through /health; never echo arbitrary env text.
 export function deploymentCommit(env:NodeJS.ProcessEnv=process.env):string|null {
   return /^[a-f0-9]{40}$/i.test(env.RENDER_GIT_COMMIT??'')?env.RENDER_GIT_COMMIT!.toLowerCase():null;
@@ -51,7 +65,7 @@ export function configuration(env: NodeJS.ProcessEnv = process.env) {
   const passkeys=passkeysEnabled(origin,env);
   if(passkeys&&local)throw Error('Passkeys require hosted account mode');
   return { mode, local, port, origin, passkeys, migrateOnStart: migrateOnStart === 'true',liveSearch:liveSearch==='true',
-    databaseUrl, databaseCaFile: env.DATABASE_CA_FILE,
+    databaseUrl, databaseCaFile: env.DATABASE_CA_FILE, trustedProxyAddresses:trustedProxyAddresses(env.TRUSTED_PROXY_ADDRESSES),
     publishableKey: env.SUPABASE_PUBLISHABLE_KEY,
     issuer: local ? undefined : required('SUPABASE_AUTH_ISSUER'),
     audience: local ? undefined : env.MCP_AUDIENCE || `${origin}/mcp`,
