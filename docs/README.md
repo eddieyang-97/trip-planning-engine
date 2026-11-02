@@ -23,7 +23,7 @@ Use this index to find the authoritative guide for each topic. Start with curren
 | --- | --- |
 | [ChatGPT and Claude user setup](connect-chatgpt-claude.md) | Friend-friendly connection, account, permissions and troubleshooting guide |
 | [Account linking and persistent sign-in](account-linking.md) | Supabase/Brevo, browser session lifecycle, grants, revocation and dated OAuth/session acceptance |
-| [Optional passkey pilot](passkeys.md) | Enabled hosted passkey sign-in/management; optional password-free registration source follow-up, recovery, exact Render-service RP settings and security/client acceptance limits |
+| [Optional passkey pilot](passkeys.md) | Deployed passkey registration choice, sign-in/management, email recovery, exact Render-service RP settings and security/client acceptance limits |
 | [Trip lifecycle](trip-lifecycle.md) | Owner archive/restore, confirmed permanent deletion, leave-trip, retention and retry protections |
 | [Database security investigation](database-security-2026-10-21.md) | Migration bootstrap hardening, read-only audit and October 30 grant compatibility; approved live repair; bootstrap release evidence |
 | [Account profiles and trip members](account-profiles.md) | Editable names, private avatar uploads, accepted-member roster and profile privacy |
