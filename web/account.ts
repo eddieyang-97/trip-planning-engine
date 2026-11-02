@@ -29,14 +29,15 @@ el<HTMLInputElement>('allow-write').onchange=()=>{
 const supabase=createAccountClient(config,false),boundary=new AccountBoundary();
 const credentials=new CredentialGuard(supabase,boundary);
 const emailRequestKey='travel-account-email-request';
-let enrolling=false,emailVerified=false;
-async function requestEmail(email:string,create:boolean){
+let emailPurpose:'signup'|'signin'|'manage'|undefined;
+async function requestEmail(email:string,purpose:'signup'|'signin'|'manage'){
+  const create=purpose==='signup';
   if(create&&config.passkeys!==true)throw Error('Passkey signup is unavailable. Use email and password.');
   const generation=boundary.generation,userId=boundary.userId;
   if(userId){const {data,error}=await supabase.auth.getUser();boundary.check(generation);
     if(error||data.user?.id!==userId||data.user.email?.toLowerCase()!==email.toLowerCase())throw Error('Your account changed. Sign in again.');}
   credentials.reset();el<HTMLInputElement>('password').value='';el<HTMLInputElement>('passkey-password').value='';
-  const pending={email,userId,expiresAt:Date.now()+10*60_000,enroll:create,authorization,returnToItinerary};
+  const pending={email,userId,expiresAt:Date.now()+10*60_000,purpose,authorization,returnToItinerary};
   localStorage.setItem(emailRequestKey,JSON.stringify(pending));
   try{const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:create,emailRedirectTo:`${location.origin}/account`}});if(error)throw error;}
   catch{localStorage.removeItem(emailRequestKey);throw Error('Unable to request an email link. Wait a moment, then try again.');}
@@ -50,7 +51,7 @@ el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();
 el<HTMLButtonElement>('passkey-signup').disabled=!supportsPasskeys();
 if(!supportsPasskeys())el('passkey-login-hint').textContent='Passkeys are unsupported in this browser or connection. Use email and password to sign in.';
 function clearPrivate(){
-  enrolling=false;emailVerified=false;localStorage.removeItem(emailRequestKey);
+  emailPurpose=undefined;localStorage.removeItem(emailRequestKey);
   profileEditor.reset();
   credentials.reset();passkeys.reset();el<HTMLInputElement>('new-password').value='';el<HTMLInputElement>('current-password').value='';
   requestId=undefined;
@@ -101,7 +102,7 @@ async function render() {
   el('signin').hidden=false;
   if(!session){status('');return;}
   const me=await api('me');
-  if(returnToItinerary&&!authorization&&!emailVerified){location.replace('/itinerary');return;}
+  if(returnToItinerary&&!authorization&&emailPurpose!=='signup'&&emailPurpose!=='manage'){location.replace('/itinerary');return;}
   el('identity').textContent=me.email;el('account-id').textContent=`Account ID: ${me.userId}`;el('mcp-url').textContent=config.mcpUrl;
   for(const id of ['account','connections'])el(id).hidden=false;el('signin').hidden=true;
   await profileEditor.load();
@@ -112,7 +113,7 @@ async function render() {
     requestId=details.requestId;el('client-name').textContent=`Connect ${details.clientName}?`;el('client-id').textContent=details.clientId;
     el('client-redirect').textContent=details.redirectUri;el('client-scopes').textContent=details.scope||'None';el<HTMLInputElement>('allow-write').checked=false;el<HTMLInputElement>('allow-search').checked=false;el<HTMLInputElement>('allow-search').disabled=true;el('consent').hidden=false;
   }
-  status(enrolling?'Email verified. Choose Register a passkey below to finish creating your passkey. If cancelled, verify by email again to retry.':emailVerified?'Email verified. You can register or remove one passkey within five minutes.':'');
+  status(emailPurpose==='signup'?'Email verified. Choose Register a passkey below to finish creating your passkey. If cancelled, verify by email again to retry.':emailPurpose?'Email verified. You can register or remove one passkey within five minutes.':'');
 }
 el<HTMLFormElement>('login-form').onsubmit=event=>{event.preventDefault();const button=el('login-form').querySelector<HTMLButtonElement>('button[type=submit]')!;
   if(!validateEmail()||!validatePassword(false))return;
@@ -139,15 +140,15 @@ el<HTMLButtonElement>('passkey-login').onclick=()=>busy(el('passkey-login'),asyn
 });
 el<HTMLButtonElement>('passkey-signup').onclick=()=>busy(el('passkey-signup'),async()=>{
   if(!supportsPasskeys())throw Error('This browser cannot create passkeys. Use email and password.');
-  if(validateEmail())await requestEmail(el<HTMLInputElement>('email').value,true);
+  if(validateEmail())await requestEmail(el<HTMLInputElement>('email').value,'signup');
 });
 el<HTMLButtonElement>('email-login').onclick=()=>busy(el('email-login'),async()=>{
-  if(validateEmail())await requestEmail(el<HTMLInputElement>('email').value,false);
+  if(validateEmail())await requestEmail(el<HTMLInputElement>('email').value,'signin');
 });
 el<HTMLButtonElement>('passkey-email').onclick=()=>busy(el('passkey-email'),async()=>{
   const {data,error}=await supabase.auth.getUser();
   if(error||!data.user?.email)throw Error('Sign in again before requesting verification.');
-  await requestEmail(data.user.email,false);
+  await requestEmail(data.user.email,'manage');
 });
 el<HTMLButtonElement>('reset-password').onclick=()=>busy(el('reset-password'),async()=>{
   if(!validateEmail())return;
@@ -192,7 +193,7 @@ try{const {error}=await supabase.auth.initialize();if(error)throw new Error(acco
     const flowId=callback.searchParams.get('sb_flow_id')??undefined;
     callback.searchParams.delete('code');callback.searchParams.delete('sb_flow_id');history.replaceState(null,'',callback);
     const verified=await credentials.completeEmailLink(code,flowId,pending);
-    if(verified&&pending){emailVerified=true;enrolling=pending.enroll===true;authorization=typeof pending.authorization==='string'?pending.authorization:null;returnToItinerary=pending.returnToItinerary===true;
+    if(verified&&pending){emailPurpose=['signup','signin','manage'].includes(pending.purpose)?pending.purpose:undefined;authorization=typeof pending.authorization==='string'?pending.authorization:null;returnToItinerary=pending.returnToItinerary===true;
       if(authorization)callback.searchParams.set('authorization_id',authorization);
       if(returnToItinerary)callback.searchParams.set('returnTo','itinerary');
       history.replaceState(null,'',callback);

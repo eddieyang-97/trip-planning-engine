@@ -312,7 +312,7 @@ test('passkey-first signup verifies email without a password, supports retry and
     await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
     await expect(page.locator('#passkey-status')).toContainText('Passkey registered');expect(app.keys.size).toBe(1);
     const identity=app.users.find(u=>u.email==='new@example.test').id;
-    await page.getByRole('button',{name:'Sign out / switch account'}).click();
+    await Promise.all([page.waitForEvent('load'),page.getByRole('button',{name:'Sign out / switch account'}).click()]);
     await page.getByRole('button',{name:'Continue with passkey',exact:true}).click();
     await expect(page).toHaveURL(`${app.origin}/itinerary`);
     await expect(page.locator('body')).toContainText('New passkey account trip');
@@ -320,7 +320,7 @@ test('passkey-first signup verifies email without a password, supports retry and
     await expect(page.locator('#identity')).toHaveText('new@example.test');
     expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('travel-account')).user.id)).toBe(identity);
     // Lost-key email access preserves assistant consent context without granting access.
-    await page.getByRole('button',{name:'Sign out / switch account'}).click();
+    await Promise.all([page.waitForEvent('load'),page.getByRole('button',{name:'Sign out / switch account'}).click()]);
     await page.goto(`${app.origin}/oauth/consent?authorization_id=fixture-auth`);
     await page.getByLabel('Email',{exact:true}).fill('new@example.test');
     await page.getByRole('button',{name:'Email me a sign-in link'}).click();
@@ -336,7 +336,7 @@ test('passkey-first signup verifies email without a password, supports retry and
     await page.goto(`${app.origin}/itinerary`);
     await expect(page.locator('body')).toContainText('New passkey account trip');
     await expect(page.locator('body')).not.toContainText('Owner fictional passkey trip');
-    await page.goto(`${app.origin}/account`);await page.getByRole('button',{name:'Sign out / switch account'}).click();
+    await page.goto(`${app.origin}/account`);await Promise.all([page.waitForEvent('load'),page.getByRole('button',{name:'Sign out / switch account'}).click()]);
     await page.getByLabel('Email',{exact:true}).fill('new@example.test');await page.getByRole('button',{name:'Forgot password'}).click();
     await expect(page.locator('#status')).toContainText('recovery email has been requested');
     await page.goto(`${app.origin}/account?code=fictional-recovery`);
@@ -344,5 +344,21 @@ test('passkey-first signup verifies email without a password, supports retry and
     await page.getByText('Password and recovery',{exact:true}).click();await page.getByLabel('New password',{exact:true}).fill('Optional-new-password');
     await page.getByRole('button',{name:'Set new password',exact:true}).click();
     await expect(page.locator('#status')).toContainText('Password updated');expect(app.counts().passwordUpdates).toBe(1);
+  }finally{await app.close();}
+});
+
+
+test('existing-account email-link sign-in continues the itinerary invitation',async({page,context})=>{
+  const app=await fixture();
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort());
+  try{
+    await page.goto(`${app.origin}/account?returnTo=itinerary`);
+    await page.getByLabel('Email',{exact:true}).fill('owner@example.test');
+    await page.getByRole('button',{name:'Email me a sign-in link'}).click();
+    await expect(page.locator('#status')).toContainText('verification link');
+    await page.goto(app.emailLink());
+    await expect(page).toHaveURL(`${app.origin}/itinerary`);
+    await expect(page.locator('body')).toContainText('Owner fictional passkey trip');
+    expect(app.users).toHaveLength(3);expect(app.counts().registrations).toBe(0);
   }finally{await app.close();}
 });
