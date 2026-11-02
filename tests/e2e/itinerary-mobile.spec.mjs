@@ -127,7 +127,15 @@ test('research stays discoverable on a first trip and opens directly from compar
   await expect(page.locator('#plan-empty')).toContainText('Add your first item');
   await expect(page.locator('#research-summary')).toHaveText('Add options');
   await expect(page.locator('#stay-research')).toBeHidden();await expect(page.locator('#dining-research')).toBeHidden();
-  await openDisclosure(page,'research-panel');await openDisclosure(page,'add-research');
+  await expect(page.locator('#research-panel')).toBeHidden();
+  await openDisclosure(page,'plan-more');await openDisclosure(page,'trip-actions');
+  await expect(page.locator('#toggle-research')).toHaveText('Show research');
+  await page.locator('#toggle-research').click();await expect(page.locator('#research-panel')).toBeVisible();
+  await openDisclosure(page,'plan-more');await openDisclosure(page,'trip-actions');
+  await expect(page.locator('#toggle-research')).toHaveText('Hide research');
+  await page.locator('#toggle-research').click();await expect(page.locator('#research-panel')).toBeHidden();
+  await openDisclosure(page,'plan-more');await openDisclosure(page,'trip-actions');await page.locator('#toggle-research').click();
+  await openDisclosure(page,'add-research');
   await page.locator('#add-stay-research').click();await expect(page.locator('#stay-decision-dialog')).toBeVisible();
   await page.goto(`${app.origin}/itinerary?demo=1`);
   await expect(page.locator('#overview')).toBeVisible();

@@ -239,7 +239,7 @@ function render(){
   discussion.reset();
   calendarExport.reset();
   $('add-research').hidden=!(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor');
-  chrome.update({tripId:plan?.trip.id??null,tripCount:trips.length,status:tripStatus,researchAllowed:!$('add-research').hidden,switching:!demo&&!anonymousView});
+  chrome.update({tripId:plan?.trip.id??null,tripCount:trips.length,status:tripStatus,researchAllowed:!$('add-research').hidden,activeFlights:!!plan?.research?.decisions.length,switching:!demo&&!anonymousView});
   if($('add-research').hidden)($('add-research') as HTMLDetailsElement).open=false;
   diningComparison.update(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor'?{tripId:plan.trip.id,revision:plan.revision,name:plan.trip.payload.name,checkIn:plan.trip.payload.startDate,checkOut:plan.trip.payload.endDate,adults:plan.trip.payload.adults}:null);
   stayComparison.update(plan&&!demo&&!anonymousView&&plan.role!=='viewer'&&plan.role!=='editor'?{tripId:plan.trip.id,revision:plan.revision,name:plan.trip.payload.name,checkIn:plan.trip.payload.startDate,checkOut:plan.trip.payload.endDate,adults:plan.trip.payload.adults}:null);

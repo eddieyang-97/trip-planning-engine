@@ -2,7 +2,14 @@
 export function configureItineraryChrome(){
   const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
   const phone=matchMedia('(max-width:700px)'),switcher=$<HTMLDetailsElement>('trip-switcher'),more=$<HTMLDetailsElement>('plan-more'),research=$<HTMLDetailsElement>('research-panel');
-  let tripId:string|null=null;
+  let tripId:string|null=null, allowed=false, activeFlights=false, override:boolean|null=null;
+  const toggle=$('toggle-research');
+  function visibility(){
+    const active=activeFlights||!['stay-research','dining-research'].every(id=>$(id).hidden);
+    const visible=allowed&&(override??active);
+    research.hidden=!visible;toggle.hidden=!allowed;toggle.textContent=visible?'Hide research':'Show research';toggle.setAttribute('aria-expanded',String(visible));
+  }
+  toggle.addEventListener('click',()=>{override=research.hidden===true;visibility();if(!research.hidden){research.open=true;research.querySelector<HTMLElement>('summary')!.focus();}});
   function researchDefault(){const url=new URL(location.href);return !phone.matches||url.searchParams.get('trip')===tripId&&(url.searchParams.has('stay')||url.searchParams.has('dining'));}
   function defaults(){switcher.open=!phone.matches;more.open=!phone.matches;research.open=researchDefault();}
   defaults();phone.addEventListener('change',defaults);
@@ -25,14 +32,14 @@ export function configureItineraryChrome(){
   },true);
   function researchSummary(){
     const labels=[['research','Flights'],['stay-research','Stays'],['dining-research','Dining']].filter(([id])=>!$(id!).hidden).map(([,label])=>label);
-    $('research-summary').textContent=labels.join(' · ')||'Add options';
+    $('research-summary').textContent=labels.join(' · ')||'Add options';visibility();
   }
   const observer=new MutationObserver(researchSummary);
   for(const id of ['research','stay-research','dining-research'])observer.observe($(id),{attributes:true,attributeFilter:['hidden']});
-  return {update(next:{tripId:string|null;tripCount:number;status:string;researchAllowed:boolean;switching:boolean}){
-    if(tripId!==next.tripId){tripId=next.tripId;research.open=researchDefault();if(phone.matches)more.open=false;}
+  return {update(next:{tripId:string|null;tripCount:number;status:string;researchAllowed:boolean;activeFlights:boolean;switching:boolean}){
+    if(tripId!==next.tripId){tripId=next.tripId;override=null;const url=new URL(location.href);if(url.searchParams.get('trip')===tripId&&(url.searchParams.has('stay')||url.searchParams.has('dining')))override=true;research.open=researchDefault();if(phone.matches)more.open=false;}
     switcher.hidden=!next.switching;
     $('trip-switcher-count').textContent=`${next.tripCount} ${next.status==='all'?'total':next.status}`;
-    research.hidden=!next.researchAllowed;researchSummary();
+    allowed=next.researchAllowed;activeFlights=next.activeFlights;researchSummary();
   }};
 }
