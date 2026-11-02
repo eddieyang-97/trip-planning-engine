@@ -11,10 +11,12 @@ Deployment/public checks passed; the new password-free registration journey has 
 
 | Action on `/account` | Behavior |
 | --- | --- |
-| **Create account** | Enter email and a new password, confirm the email, then sign in. |
-| **Create account with passkey** | Enter email, open the newest verification link in the requesting browser, then explicitly choose **Register a passkey** under Passkeys (beta). No password is created. |
-| **Continue with passkey** | Use a previously enrolled passkey; the authenticator resolves the account. This does not create an account. |
-| **Email me a sign-in link** | Access an existing account without a password. It does not create a new account (`shouldCreateUser:false`) and remains available when passkeys are disabled or unsupported. |
+| **Create account → Password** | Enter email and a new password, choose **Create account**, confirm the email, then sign in. |
+| **Create account → Passkey** | Enter email and choose **Verify email to create a passkey**. Open the newest verification link in the requesting browser, then explicitly choose **Register a passkey** under Passkeys (beta). No password is created. |
+| **Sign in with passkey** | Use a previously enrolled passkey; the authenticator resolves the account. This does not create an account. |
+| **Email me a sign-in link → Send sign-in link** | Access an existing account without a password. It does not create a new account (`shouldCreateUser:false`) and remains available when passkeys are disabled or unsupported. |
+
+Sign-in and registration have separate views. Email-link access, **Forgot password → Send recovery link**, and confirmation resend use email-only forms; changing views never sends a request. Confirmation resend is available after password signup or under **Need help signing in?**. The compact entry panel keeps provider/search details out of the sign-in flow; signed-in account settings and assistant consent remain separate.
 
 Supabase requires a confirmed, signed-in, non-anonymous user before enrollment. The passkey signup path establishes that account through a supported email magic-link/PKCE exchange. An existing email resolves to the existing account; no app-managed account merge or credential database is introduced. Losing access to an account is not a reason to create a duplicate to recover its trips.
 

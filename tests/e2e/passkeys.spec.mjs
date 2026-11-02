@@ -22,7 +22,7 @@ async function fixture(enabled=true){
     created_at:'2026-10-25T00:00:00Z',is_anonymous:false,app_metadata:{},user_metadata:{}}));
   const passwords=new Map(users.map(u=>[u.id,'Fictional-password-123']));
   const sessions=new Map(),keys=new Map(),challenges=new Map(),client=randomUUID();
-  let refreshes=0,registrations=0,deletions=0,recoveries=0,passwordUpdates=0,registrationOptions=0,failOptions=null;
+  let refreshes=0,registrations=0,deletions=0,recoveries=0,passwordUpdates=0,registrationOptions=0,failOptions=null,signups=0,resends=0,emails=0;
   let recovery,emailRequest;
   const emailCodes=new Map();
   const issue=async(user,method='password')=>{
@@ -51,7 +51,15 @@ async function fixture(enabled=true){
   });
   auth.get('/user',(req,res)=>{const user=current(req);res.status(user?200:401).json(user??{msg:'No fixture session'});});
   auth.put('/user',(req,res)=>{if(!current(req))return res.sendStatus(401);passwordUpdates++;passwords.set(current(req).id,req.body.password);res.json(current(req));});
+  auth.post('/signup',(req,res)=>{
+    signups++;
+    let user=users.find(u=>u.email===req.body.email);
+    if(!user){user={...users[0],id:randomUUID(),email:req.body.email,email_confirmed_at:null};users.push(user);passwords.set(user.id,req.body.password);}
+    res.json({user,session:null});
+  });
+  auth.post('/resend',(_req,res)=>{resends++;res.json({});});
   auth.post('/otp',(req,res)=>{
+    emails++;
     let user=users.find(u=>u.email===req.body.email);
     if(!user&&req.body.create_user){user={...users[0],id:randomUUID(),email:req.body.email,email_confirmed_at:null};users.push(user);}
     if(user){const code=randomUUID();emailCodes.set(code,req.body);emailRequest={code,redirect:new URL(req.query.redirect_to)};}
@@ -100,7 +108,7 @@ async function fixture(enabled=true){
   }));http.on('request',app);
   return {origin,db,core,tripId,users,client,keys,
     emailLink:()=>{const url=new URL(emailRequest.redirect);url.searchParams.set("code",emailRequest.code);return url.href;},
-    counts:()=>({refreshes,registrations,deletions,recoveries,passwordUpdates,registrationOptions}),fail:code=>{failOptions=code;},
+    counts:()=>({refreshes,registrations,deletions,recoveries,passwordUpdates,registrationOptions,signups,resends,emails}),fail:code=>{failOptions=code;},
     ageSessions:()=>{for(const user of sessions.values())user.last_sign_in_at=new Date(Date.now()-48*60*60_000).toISOString();},
     close:async()=>{http.closeAllConnections();await new Promise(resolve=>http.close(resolve));await db.close();}};
 }
@@ -155,7 +163,7 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
     await expect(page.locator('#passkey-status')).toContainText('Passkey registered');expect(app.counts().registrations).toBe(1);
     await page.getByRole('button',{name:'Sign out / switch account'}).click();
     await expect(page.locator('#signin')).toBeVisible();
-    await page.getByRole('button',{name:'Continue with passkey'}).click();
+    await page.getByRole('button',{name:'Sign in with passkey'}).click();
     await expect(page.locator('#identity')).toHaveText('owner@example.test');
     const storage=await page.evaluate(()=>JSON.parse(localStorage.getItem('travel-account')));
     expect(storage.user.id).toBe(app.users[0].id);
@@ -202,6 +210,7 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
     const second=await context.newPage();await second.goto(`${app.origin}/account`);await expect(second.locator('#identity')).toHaveText('owner@example.test');
     await page.getByRole('button',{name:'Sign out / switch account'}).click();await expect(second.locator('#account')).toBeHidden();await second.close();
     await page.getByLabel('Email',{exact:true}).fill('owner@example.test');await page.getByRole('button',{name:'Forgot password'}).click();
+    await page.getByRole('button',{name:'Send recovery link'}).click();
     await expect(page.locator('#status')).toContainText('recovery email has been requested');expect(app.counts().recoveries).toBe(1);
     await page.goto(`${app.origin}/account?code=fictional-recovery`);
     await expect(page.locator('#identity')).toHaveText('owner@example.test');
@@ -214,7 +223,7 @@ test('optional passkeys: password enrollment, virtual-device login, same trips, 
     await expect(page.locator('#status')).toContainText('Enter your current password');expect(app.counts().passwordUpdates).toBe(2);
     await page.getByRole('button',{name:'Sign out / switch account'}).click();await expect(page.locator('#signin')).toBeVisible();
     for(const code of ['webauthn_challenge_expired','webauthn_credential_not_found','passkey_disabled']){
-      app.fail(code);await page.getByRole('button',{name:'Continue with passkey'}).click();
+      app.fail(code);await page.getByRole('button',{name:'Sign in with passkey'}).click();
       await expect(page.locator('#status')).toContainText(code==='webauthn_challenge_expired'?'expired':code==='webauthn_credential_not_found'?'No matching passkey':'unavailable');
       await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();
     }
@@ -269,10 +278,14 @@ test('disabled pilot and unsupported browser retain password sign-in',async({pag
     await page.goto(`${app.origin}/account`);await expect(page.locator('#signin')).toBeVisible();await expect(page.locator('#passkey-signin')).toBeHidden();
     await page.route('**/account/config',async route=>{const response=await route.fetch();await route.fulfill({json:{...await response.json(),passkeys:true}});});
     await page.addInitScript(()=>{Object.defineProperty(window,'PublicKeyCredential',{value:undefined});});
-    await page.reload();await expect(page.getByRole('button',{name:'Continue with passkey'})).toBeDisabled();
+    await page.reload();await expect(page.getByRole('button',{name:'Sign in with passkey'})).toBeDisabled();
     await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();
     await expect(page.locator('#passkey-login-hint')).toContainText('unsupported');
-    await expect(page.getByRole('button',{name:'Create account with passkey',exact:true})).toBeDisabled();
+    await expect(page.locator('#passkey-login')).toHaveAccessibleDescription(/unsupported/);
+    await page.locator('#entry-signup').click();
+    await expect(page.locator('#method-passkey')).toBeDisabled();
+    await expect(page.locator('#signup-passkey-support')).toContainText('unsupported');
+    await page.locator('#entry-signin').click();
     await expect(page.getByRole('button',{name:'Email me a sign-in link'})).toBeEnabled();
     await page.goto(`${app.origin}/account?error=access_denied&error_code=otp_expired&error_description=private-fixture-diagnostic`);
     await expect(page.locator('#status')).toContainText('expired or could not be verified');
@@ -291,8 +304,10 @@ test('passkey-first signup verifies email without a password, supports retry and
     await page.goto(`${app.origin}/account?returnTo=itinerary`);
     await page.getByLabel('Email',{exact:true}).fill('new@example.test');
     await page.getByRole('button',{name:'Email me a sign-in link'}).click();
+    await page.getByRole('button',{name:'Send sign-in link',exact:true}).click();
     await expect(page.locator('#status')).toContainText('verification link');expect(app.users).toHaveLength(3);
-    await page.getByRole('button',{name:'Create account with passkey',exact:true}).click();
+    await page.locator('#entry-signup').click();await page.getByRole('button',{name:'Passkey',exact:true}).click();
+    await page.getByRole('button',{name:'Verify email to create a passkey',exact:true}).click();
     await expect(page.locator('#status')).toContainText('verification link');
     const link=app.emailLink();await page.goto(link);
     await expect(page.locator('#identity')).toHaveText('new@example.test');
@@ -313,7 +328,7 @@ test('passkey-first signup verifies email without a password, supports retry and
     await expect(page.locator('#passkey-status')).toContainText('Passkey registered');expect(app.keys.size).toBe(1);
     const identity=app.users.find(u=>u.email==='new@example.test').id;
     await Promise.all([page.waitForEvent('load'),page.getByRole('button',{name:'Sign out / switch account'}).click()]);
-    await page.getByRole('button',{name:'Continue with passkey',exact:true}).click();
+    await page.getByRole('button',{name:'Sign in with passkey',exact:true}).click();
     await expect(page).toHaveURL(`${app.origin}/itinerary`);
     await expect(page.locator('body')).toContainText('New passkey account trip');
     await page.goto(`${app.origin}/account`);
@@ -324,6 +339,7 @@ test('passkey-first signup verifies email without a password, supports retry and
     await page.goto(`${app.origin}/oauth/consent?authorization_id=fixture-auth`);
     await page.getByLabel('Email',{exact:true}).fill('new@example.test');
     await page.getByRole('button',{name:'Email me a sign-in link'}).click();
+    await page.getByRole('button',{name:'Send sign-in link',exact:true}).click();
     await expect(page.locator('#status')).toContainText('verification link');await page.goto(app.emailLink());
     await expect(page.locator('#identity')).toHaveText('new@example.test');expect(app.users).toHaveLength(4);
     await expect(page.locator('#consent')).toBeVisible();await expect(page.locator('#allow-write')).not.toBeChecked();
@@ -338,6 +354,7 @@ test('passkey-first signup verifies email without a password, supports retry and
     await expect(page.locator('body')).not.toContainText('Owner fictional passkey trip');
     await page.goto(`${app.origin}/account`);await Promise.all([page.waitForEvent('load'),page.getByRole('button',{name:'Sign out / switch account'}).click()]);
     await page.getByLabel('Email',{exact:true}).fill('new@example.test');await page.getByRole('button',{name:'Forgot password'}).click();
+    await page.getByRole('button',{name:'Send recovery link'}).click();
     await expect(page.locator('#status')).toContainText('recovery email has been requested');
     await page.goto(`${app.origin}/account?code=fictional-recovery`);
     await expect(page.locator('#identity')).toHaveText('new@example.test');
@@ -355,10 +372,76 @@ test('existing-account email-link sign-in continues the itinerary invitation',as
     await page.goto(`${app.origin}/account?returnTo=itinerary`);
     await page.getByLabel('Email',{exact:true}).fill('owner@example.test');
     await page.getByRole('button',{name:'Email me a sign-in link'}).click();
+    await page.getByRole('button',{name:'Send sign-in link',exact:true}).click();
     await expect(page.locator('#status')).toContainText('verification link');
     await page.goto(app.emailLink());
     await expect(page).toHaveURL(`${app.origin}/itinerary`);
     await expect(page.locator('body')).toContainText('Owner fictional passkey trip');
     expect(app.users).toHaveLength(3);expect(app.counts().registrations).toBe(0);
+  }finally{await app.close();}
+});
+
+test('account entry fits mobile and desktop and switches tasks without sending auth requests',async({page,context})=>{
+  const app=await fixture();
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort());
+  const fit=async()=>{
+    const geometry=await page.locator('#signin').evaluate(panel=>{
+      const controls=[...panel.querySelectorAll('button,input')].filter(el=>el.getClientRects().length);
+      return {overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,
+        outside:controls.filter(el=>{const r=el.getBoundingClientRect();return r.left<0||r.right>document.documentElement.clientWidth||r.height<44;}).map(el=>el.id)};
+    });
+    expect(geometry).toEqual({overflow:false,outside:[]});
+  };
+  try{
+    for(const width of [320,390,1280]){
+      await page.setViewportSize({width,height:844});await page.goto(`${app.origin}/account`);
+      await expect(page.locator('#entry-title')).toHaveText('Welcome back');
+      await expect(page.locator('#passkey-login')).not.toHaveAccessibleDescription(/unsupported/);
+      await expect(page.locator('#account-intro')).toBeHidden();await fit();
+      const primary=await page.locator('#password-login').boundingBox();expect(primary.y+primary.height).toBeLessThan(844);
+      await page.getByLabel('Email',{exact:true}).fill('layout@example.test');await page.getByLabel('Password',{exact:true}).fill('Fictional-password');
+      await page.locator('#entry-signup').click();
+      await expect(page.getByLabel('Email',{exact:true})).toHaveValue('layout@example.test');
+      await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toHaveAttribute('autocomplete','new-password');
+      await page.getByRole('button',{name:'Passkey',exact:true}).click();await expect(page.locator('#password')).toBeHidden();await fit();
+      await page.getByRole('button',{name:'Password',exact:true}).click();await expect(page.locator('#password')).toBeVisible();
+      await page.locator('#entry-signin').click();await expect(page.locator('#password')).toHaveAttribute('autocomplete','current-password');
+      await page.getByRole('button',{name:'Email me a sign-in link'}).click();await expect(page.locator('#email-login')).toBeVisible();await expect(page.locator('#password')).toBeHidden();await fit();
+      await page.getByRole('button',{name:'Back to sign in'}).click();await page.getByRole('button',{name:'Forgot password?'}).click();
+      await expect(page.locator('#reset-password')).toBeVisible();await expect(page.locator('#password')).toBeHidden();await fit();
+    }
+    expect(app.counts()).toMatchObject({signups:0,resends:0,emails:0,recoveries:0,registrations:0});
+    await page.getByLabel('Email',{exact:true}).fill('invalid');await page.locator('#email').press('Enter');
+    await expect(page.locator('#status')).toContainText('valid email');expect(app.counts().recoveries).toBe(0);
+    await page.getByLabel('Email',{exact:true}).fill('owner@example.test');await page.locator('#email').press('Enter');
+    await expect(page.locator('#status')).toContainText('recovery email has been requested');expect(app.counts().recoveries).toBe(1);
+    await page.getByRole('button',{name:'Back to sign in'}).click();
+    await page.getByRole('button',{name:'Email me a sign-in link'}).click();await page.locator('#email').press('Enter');
+    await expect(page.locator('#status')).toContainText('verification link');expect(app.counts().emails).toBe(1);expect(app.users).toHaveLength(3);
+    await page.route('**/account/config',route=>route.fulfill({status:503,json:{}}));
+    await page.goto(`${app.origin}/account`);await expect(page.locator('#status')).toContainText('Unable to load sign-in');
+    await expect(page.locator('#signin')).toBeVisible();await expect(page.locator('#login-form')).toBeHidden();
+  }finally{await app.close();}
+});
+
+test('password registration supports keyboard submission and contextual confirmation resend',async({page,context})=>{
+  const app=await fixture(false);
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort());
+  try{
+    await page.goto(`${app.origin}/account?returnTo=itinerary`);
+    await expect(page.locator('#entry-context')).toContainText('itinerary');
+    await page.locator('#entry-signup').click();await expect(page.locator('#signup-methods')).toBeHidden();
+    await page.getByLabel('Email',{exact:true}).fill('password-signup@example.test');
+    await page.locator('#login-form').getByLabel('New password',{exact:true}).fill('short');await page.locator('#password').press('Enter');
+    await expect(page.locator('#status')).toContainText('eight characters');expect(app.counts().signups).toBe(0);
+    await page.locator('#login-form').getByLabel('New password',{exact:true}).fill('Fictional-new-password');await page.locator('#password').press('Enter');
+    await expect(page.locator('#status')).toContainText('Check your email');expect(app.counts().signups).toBe(1);
+    await expect(page.locator('#password')).toHaveValue('');expect(app.users.filter(u=>u.email==='password-signup@example.test')).toHaveLength(1);
+    await page.getByRole('button',{name:'Resend confirmation email',exact:true}).click();
+    await expect(page.locator('#password')).toBeHidden();await page.locator('#email').press('Enter');
+    await expect(page.locator('#status')).toContainText('confirmation email has been requested');expect(app.counts().resends).toBe(1);expect(app.counts().signups).toBe(1);
+    await page.getByRole('button',{name:'Back to sign in'}).click();
+    await page.getByLabel('Email',{exact:true}).fill('owner@example.test');await page.getByLabel('Password',{exact:true}).fill('Fictional-password-123');
+    await page.locator('#password').press('Enter');await expect(page).toHaveURL(`${app.origin}/itinerary`);
   }finally{await app.close();}
 });
