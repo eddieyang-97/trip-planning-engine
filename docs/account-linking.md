@@ -1,32 +1,30 @@
 # Account linking pilot
 
-Source follow-up (2 November 2026): optional passkey signup verifies email by magic link before enrollment, without requiring a password. Existing-account email-link sign-in and fresh email verification support recovery and credential management. This follow-up is not yet deployed; see [registration behavior and limits](passkeys.md#optional-registration-choice--source-follow-up-2-november-2026).
+Account and Itinerary share a persistent Supabase session. Users can register with email/password or verify email before enrolling a passkey without a password; existing-account email-link access supports lost-key recovery. See [account choices and credential safeguards](passkeys.md#registration-and-sign-in). Direct web sign-in never grants an assistant access by itself: assistant authorization, permissions and revocation use the separate OAuth boundary below.
 
-Optional passkeys and confirmed-email password recovery are now enabled for confirmed users on the hosted service after separately authorized Supabase/Render activation on 25 October 2026. See the [passkey guide](passkeys.md) for deployment read-back, user-reported real-account sign-in/recovery/removal/re-enrollment/OAuth-continuity tests, and remaining independent acceptance and security limits. The friends-only pilot uses the exact Render service hostname as RP ID and accepts re-enrollment on a later hostname change. Existing password sign-in and separately authorized assistant grants remain available.
-
-The account page, consent API and token hook ship in one Render service. Supabase manages users, OAuth authorization codes, PKCE and refresh tokens. The [bounded live flight pilot](hosted-live-search.md) completed its first real authenticated hosted search on 13 October 2026 through the official MCP SDK; generalized multi-airport return discovery and connected ChatGPT conditional selection/read-back followed. **Client update — 22 October 2026:** a refreshed ChatGPT connection persisted one-way criteria (`inbound:null`), authenticated server tool discovery passed, and an independently authorized Claude Free client completed OAuth, tool discovery and exactly two read-only fictional trip/decision retrievals. These checks do **not** verify live one-way fares, Claude writes/search, refresh/revocation, or a full single hosted new-search-to-selection workflow. See [client evidence](https://github.com/eddieyang-97/trip-planning-engine/issues/21) and [delivery status](implementation.md#current-state--25-october-2026). Booking is unavailable.
+This modular service serves Account, consent, token-hook integration, web and MCP. Supabase manages user identity, authorization codes, PKCE and refresh tokens. [Delivery status](implementation.md) records deployment/acceptance; [client evidence #21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) distinguishes bounded ChatGPT/Claude reads from unverified refresh/revocation, writes/search and complete live-search journeys.
 
 ## Deployment and Supabase configuration
 
-For a new installation, apply the current repository migrations and set `SUPABASE_PUBLISHABLE_KEY`; migration `002_account_linking.sql` introduces account linking. The public key is intentionally exposed in `/account/config`; never substitute a secret or service-role key. The migration adds private tables and the token-hook function, but enabling the hook is a separate Supabase configuration step. The existing service has this configuration enabled; dated verification is recorded below. See [current architecture](architecture.md) and [delivery status](implementation.md).
+For a new installation, apply the current repository migrations and set `SUPABASE_PUBLISHABLE_KEY`; migration `002_account_linking.sql` introduces account linking. The public key is intentionally exposed in `/account/config`; never substitute a secret or service-role key. The migration adds private tables and the token-hook function, but enabling the hook is a separate Supabase configuration step. The existing service has this configuration enabled; [delivery status](implementation.md) and the linked Issues retain dated verification. See [current architecture](architecture.md) for the lasting integration contract.
 
-The existing dedicated project uses the following settings. Verify them when setting up another environment; historical setup and successful acceptance are recorded below:
+The existing dedicated project uses the following settings. Verify them when setting up another environment; consult the linked evidence rather than treating this table as a fresh settings audit:
 
 | Setting | Value |
 | --- | --- |
 | Authentication → URL Configuration → Site URL | `https://trip-planning-engine.onrender.com` |
-| Allowed email-confirmation redirect | `https://trip-planning-engine.onrender.com/account` |
+| Allowed confirmation / magic-link / recovery callback | `https://trip-planning-engine.onrender.com/account` |
 | OAuth Server | Enabled |
 | OAuth authorization path | `/oauth/consent` |
 | Auth Hooks → Custom Access Token | PostgreSQL function `public.travel_access_token_hook` |
 | JWT signing | An active asymmetric ES256 or RS256 key; verify the public JWKS |
 | Dynamic client registration | Enabled for the current assistant connections; registration itself does not grant application access |
 | Custom SMTP | Enabled with Brevo; host `smtp-relay.brevo.com`, port 587, verified sender, sender name Travel Research |
-| Email confirmation | Required; second-account confirmation, sign-in and viewer acceptance passed on 14 October |
+| Email confirmation | Required; a confirmed, non-anonymous identity is required for protected account operations |
 
 These are project settings, not the user's account on the Supabase dashboard. Do not alter dashboard credentials, disable email confirmation, use wildcard redirect URLs, or weaken JWT audience checks. Existing signing-key migration, if required, needs a separate reviewed rollout.
 
-The first user creates a travel account at `/account`, confirms the email, and signs in. Since 16 October, Account and Itinerary share a refreshable Supabase session in persistent browser storage. Closing app tabs does not end valid sign-in; sign-out clears private views across tabs. Passwords are not persisted. Pending invitations remain tab-specific, so return to the invitation tab after confirmation. See [persistent browser session and acceptance](account-linking.md#persistent-browser-session). The existing project uses Brevo custom SMTP as described below; a new environment needs its own sender configuration.
+Create your own travel account at `/account`. Both registration choices require email verification; passkey signup then needs an explicit **Register a passkey** action. Open verification/recovery links in the browser that requested them so the SDK can use its stored PKCE verifier. Pending trip-invitation tokens remain tab-specific: return to the original invitation tab if email opens another tab, then review and accept the invitation. Passkey signup and credential-management verification stay on Account for the requested action; ordinary itinerary sign-in returns to the itinerary. See [registration and recovery](passkeys.md).
 
 The assistant connects to `https://trip-planning-engine.onrender.com/mcp`. Discover the authorization server through its protected-resource metadata. Describe each assistant's observed support precisely: successful registration, PKCE, consent, tool discovery and read-only retrieval **do not** by themselves prove token refresh/revocation, mutation or live search for that client.
 
@@ -38,7 +36,7 @@ A one-time migration moves the previous tab session and pending PKCE verifiers i
 
 Auth events and cross-tab storage changes synchronously clear private UI on sign-out/account changes, then reload outside Supabase's auth callback. Account generations reject responses started under a previous identity; rejected authentication also invalidates outstanding responses. Browser back/forward-cache restoration clears and rechecks private pages that may have missed broadcasts. Token refresh for the same identity does not reload the page. Anonymous shared views continue to work without a session. Two-account testing now requires separate browser profiles or private windows; ordinary tabs share the signed-in account.
 
-“Your account” opens account settings; only sign-in/invitation return links automatically continue into the itinerary.
+“Your account” opens account settings. Ordinary sign-in/invitation return links continue into the itinerary; passkey signup and credential-management verification intentionally remain on Account for the explicit key action.
 
 A real-account browser restart was owner-reported successful; fixture tests cover session persistence, stale response/account boundaries, cross-tab sign-out and refresh/revocation. Original CI/deployment evidence remains in the relevant Issues/PRs, not here.
 
@@ -46,11 +44,11 @@ A real-account browser restart was owner-reported successful; fixture tests cove
 
 The hosted Brevo SMTP email-confirmation flow was tested with a second account, including sign-in, viewer invitation and revocation. This is bounded pilot evidence, not a general deliverability guarantee; setup failures and repairs remain in the original Issues/PRs.
 
-The account page calls Supabase Auth for sign-up and resend confirmation, with the exact `/account` redirect. Supabase generates the message and confirmation link and submits it through Brevo SMTP. Use the provider's SMTP login and **SMTP key**, which is distinct from a Brevo API key. Keep both in Supabase's dashboard; no Brevo credential or new Render environment variable is required. See [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp) and [Brevo SMTP configuration](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP).
+The account page calls Supabase Auth for password signup/resend, email magic-link signup/sign-in, and password recovery, using the exact `/account` callback. Supabase generates the appropriate message/link and submits it through Brevo SMTP. Use the provider's SMTP login and **SMTP key**, which is distinct from a Brevo API key. Keep both in Supabase's dashboard; no Brevo credential or new Render environment variable is required. See [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp) and [Brevo SMTP configuration](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP).
 
-The recorded Brevo dashboard allowance was 300 emails/day. Supabase Auth rate limits also apply independently; that allowance does not establish the project's effective sending rate. Neither quota nor saved SMTP settings prove inbox delivery. For failed delivery, inspect Supabase Auth errors and Brevo transactional logs, then check sender status and both services' limits. The account page supports resend confirmation; automatic retries and application email-delivery tracking are not implemented.
+Check the current Brevo allowance and Supabase Auth rate limits independently; historical dashboard quotas are not the project's effective sending rate. Neither quota nor saved SMTP settings prove inbox delivery. For failed delivery, inspect Supabase Auth errors and Brevo transactional logs, then check sender status and both services' limits. Use **Resend confirmation** for password signup. For email-link access/signup or recovery, request a new link with the corresponding action and use the newest email; requests remain rate-limited. Automatic email retries and application delivery tracking are not implemented.
 
-The hosted second-account email, confirmation, sign-in, invitation and revocation flow passed. This is one pilot delivery, not a deliverability guarantee for every recipient. If confirmation opens another tab, return to the original invitation tab so its pending token is retained. Trip invitations are application links shared manually; they are separate from Supabase Auth email invitations. Keep email confirmation enabled throughout.
+Earlier second-account confirmation/sign-in evidence does not verify the new password-free magic-link registration flow, recovery on every device or inbox delivery for every recipient. See [current passkey acceptance](implementation.md#passkey-registration-delivery--2-november-2026). Trip invitations are application links shared manually, separate from Supabase Auth emails. Keep email confirmation enabled throughout.
 
 ## Permissions and revocation
 
