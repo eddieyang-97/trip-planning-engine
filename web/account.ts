@@ -3,20 +3,25 @@ import { accountAuthError, signupReceivedMessage } from './account-errors.js';
 import {configureProfile} from './account-profile.js';
 import {configurePasskeys,passkeyError,supportsPasskeys} from './account-passkeys.js';
 import {CredentialGuard} from './account-credentials.js';
+import {configureAccountEntry} from './account-entry.js';
 const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getElementById(id) as T;
 const status = (text:string) => { el('status').textContent=text; };
 async function initialize() {
 let authorization = new URL(location.href).searchParams.get('authorization_id');
 let returnToItinerary=new URL(location.href).searchParams.get('returnTo')==='itinerary';
 if(returnToItinerary&&!authorization){
-  document.querySelector('h1')!.textContent='Your trip starts here.';
-  document.querySelector('.intro')!.textContent='Sign in or create a travel account to open your itinerary. You do not need an AI assistant or any developer setup.';
-  el('signin').querySelector('p')!.textContent='Create an account with your own email and password, or choose passkey signup if available. Confirm your email to continue your invitation.';
+  el('entry-context').textContent='Sign in or create an account to continue to your itinerary.';
+  el('entry-context').hidden=false;
   el('pilot-notice').hidden=true;
+}else if(authorization){
+  el('entry-context').textContent='Sign in to review your assistant’s connection request.';
+  el('entry-context').hidden=false;
 }
 const configResponse = await fetch('/account/config',{signal:AbortSignal.timeout(60_000)});
 if (!configResponse.ok) throw new Error('Account configuration unavailable');
 const config = await configResponse.json();
+const entry=configureAccountEntry(config.passkeys===true,supportsPasskeys());
+entry.showAccount(false);
 const liveSearch=config.liveSearch===true;
 el('pilot-notice').textContent=liveSearch?'Live flight research supports bounded economy/GBP one-way and return searches for future dates, 1–6 origin airports, one destination and 1–9 adults. Coverage is partial; baggage costs, party-price basis and bookability may be unknown. Booking is unavailable.':'This pilot saves research and manual evidence. Live search and booking are unavailable.';
 el('search-option').hidden=!liveSearch;
@@ -46,10 +51,8 @@ async function requestEmail(email:string,purpose:'signup'|'signin'|'manage'){
 let requestId:string|undefined;
 const profileEditor=configureProfile(api);
 const passkeys=configurePasskeys(supabase,boundary,config.passkeys===true,credentials);
-el('passkey-signin').hidden=config.passkeys!==true;
 el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();
 el<HTMLButtonElement>('passkey-signup').disabled=!supportsPasskeys();
-if(!supportsPasskeys())el('passkey-login-hint').textContent='Passkeys are unsupported in this browser or connection. Use email and password to sign in.';
 function clearPrivate(){
   emailPurpose=undefined;localStorage.removeItem(emailRequestKey);
   profileEditor.reset();
@@ -57,7 +60,7 @@ function clearPrivate(){
   requestId=undefined;
   for(const id of ['account','connections','consent'])el(id).hidden=true;
   for(const id of ['identity','account-id','connection-list','client-name','client-id','client-redirect','client-scopes'])el(id).replaceChildren();
-  el<HTMLInputElement>('password').value='';el('signin').hidden=false;
+  entry.reset();entry.showAccount(false);
 }
 async function api(path:string, body?:unknown,photo?:{blob:Blob;revision:number}) {
   const generation=boundary.generation;
@@ -75,8 +78,9 @@ async function api(path:string, body?:unknown,photo?:{blob:Blob;revision:number}
 }
 async function busy(button:HTMLButtonElement, work:()=>Promise<void>) {
   const loginButtons=button.closest('#login-form')?.querySelectorAll<HTMLButtonElement>('button')??[];
-  for(const control of loginButtons)control.disabled=true;
-  button.disabled=true;button.setAttribute('aria-busy','true');status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.removeAttribute('aria-busy');button.disabled=false;for(const control of loginButtons)control.disabled=false;for(const id of ['passkey-login','passkey-signup'])el<HTMLButtonElement>(id).disabled=!supportsPasskeys();}
+  const controls=new Map([...loginButtons,button].map(control=>[control,control.disabled]));
+  for(const control of controls.keys())control.disabled=true;
+  button.setAttribute('aria-busy','true');status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.removeAttribute('aria-busy');for(const [control,disabled] of controls)control.disabled=disabled;}
 }
 function validateEmail(){const field=el<HTMLInputElement>('email');field.value=field.value.trim();if(!field.validity.valid){status('Enter a valid email address above.');field.focus();return false;}return true;}
 function validatePassword(signup:boolean){const field=el<HTMLInputElement>('password');if(!field.value||(signup&&field.value.length<8)||!field.validity.valid){status(signup?'Enter a password of at least eight characters to create an account.':'Enter your password to sign in.');field.focus();return false;}return true;}
@@ -99,12 +103,12 @@ async function render() {
   // Keep sign-in reachable until the server verifies this session. Failed identity checks
   // must not leave an empty account panel with no way to sign in again.
   for(const id of ['account','connections'])el(id).hidden=true;
-  el('signin').hidden=false;
+  entry.showAccount(false);
   if(!session){status('');return;}
   const me=await api('me');
   if(returnToItinerary&&!authorization&&emailPurpose!=='signup'&&emailPurpose!=='manage'){location.replace('/itinerary');return;}
   el('identity').textContent=me.email;el('account-id').textContent=`Account ID: ${me.userId}`;el('mcp-url').textContent=config.mcpUrl;
-  for(const id of ['account','connections'])el(id).hidden=false;el('signin').hidden=true;
+  for(const id of ['account','connections'])el(id).hidden=false;entry.showAccount(true);
   await profileEditor.load();
   await passkeys.load();
   await connections();
@@ -115,7 +119,9 @@ async function render() {
   }
   status(emailPurpose==='signup'?'Email verified. Choose Register a passkey below to finish creating your passkey. If cancelled, verify by email again to retry.':emailPurpose?'Email verified. You can register or remove one passkey within five minutes.':'');
 }
-el<HTMLFormElement>('login-form').onsubmit=event=>{event.preventDefault();const button=el('login-form').querySelector<HTMLButtonElement>('button[type=submit]')!;
+el<HTMLFormElement>('login-form').onsubmit=event=>{event.preventDefault();const button=entry.action();
+  if(button.disabled)return;
+  if(button.id!=='password-login'){button.click();return;}
   if(!validateEmail()||!validatePassword(false))return;
   void busy(button,async()=>{status('Signing in…');let result;try{result=await supabase.auth.signInWithPassword({email:el<HTMLInputElement>('email').value,password:el<HTMLInputElement>('password').value});}catch(error){throw new Error(authFailure(error,'signin'));}finally{el<HTMLInputElement>('password').value='';}if(result.error)throw new Error(accountAuthError(result.error,'signin'));await render();});};
 el<HTMLButtonElement>('signup').onclick=()=>busy(el('signup'),async()=>{
@@ -123,7 +129,7 @@ el<HTMLButtonElement>('signup').onclick=()=>busy(el('signup'),async()=>{
   status('Creating your account…');
   let result;try{result=await supabase.auth.signUp({email:el<HTMLInputElement>('email').value,password:el<HTMLInputElement>('password').value,options:{emailRedirectTo:`${location.origin}/account`}});}catch(error){throw new Error(authFailure(error,'signup'));}finally{el<HTMLInputElement>('password').value='';}
   if(result.error)throw new Error(accountAuthError(result.error,'signup'));
-  if(result.data.session){await render();return;}status(signupReceivedMessage);
+  if(result.data.session){await render();return;}status(signupReceivedMessage);entry.confirmationRequested();
 });
 el<HTMLButtonElement>('resend').onclick=()=>busy(el('resend'),async()=>{
   if(!validateEmail())return;status('Requesting confirmation email…');
@@ -202,7 +208,7 @@ try{const {error}=await supabase.auth.initialize();if(error)throw new Error(acco
   const {data:{session}}=await supabase.auth.getSession();boundary.update(session?.user.id??null);watchAccount(supabase,boundary,clearPrivate);await render();}catch(error){
   status(error instanceof Error?error.message:'Unable to load your account.');
   for(const id of ['account','connections','consent'])el(id).hidden=true;
-  el('signin').hidden=false;
+  entry.showAccount(false);
 }
 }
-void initialize().catch(()=>status('Unable to load sign-in. Reload the page to try again.'));
+void initialize().catch(()=>{el('signin').hidden=false;el('login-form').hidden=true;status('Unable to load sign-in. Reload the page to try again.');});

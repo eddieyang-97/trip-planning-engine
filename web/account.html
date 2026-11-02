@@ -1,17 +1,30 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Trip Planner — Your account</title><link rel="stylesheet" href="/assets/account.css"><script type="module" src="/assets/account.js"></script></head>
-<body><header><a href="/">Trip Planner</a><span>Private pilot</span></header><main>
+<body class="signed-out"><header><a href="/">Trip Planner</a><span>Private pilot</span></header><main>
+<div id="account-intro">
 <p class="eyebrow">YOUR TRIPS, ACROSS CONVERSATIONS</p><h1>Plan, organize and share your trips.</h1>
 <p class="intro">Keep your itinerary, research and decisions together. Open your trips here or connect your assistant to the same account.</p>
 <p id="pilot-notice" class="notice">This pilot saves research and manual evidence. Booking is unavailable.</p>
-<div id="status" role="status" aria-live="polite">Loading your account…</div>
-<section id="signin" hidden><h2>Sign in to your travel account</h2><p>Use the same email and sign-in method when connecting ChatGPT or Claude. Your Supabase dashboard login is a separate account.</p>
-<form id="login-form" novalidate><label>Email<input id="email" type="email" autocomplete="email" required maxlength="254"></label>
-<label>Password<input id="password" type="password" autocomplete="current-password" required maxlength="128"></label>
-<div class="actions"><button type="submit">Sign in</button><button id="signup" class="secondary" type="button">Create account</button><button id="resend" class="secondary" type="button">Resend confirmation</button><button id="reset-password" class="secondary" type="button">Forgot password</button></div>
-<div id="passkey-signin" hidden><button id="passkey-login" class="secondary" type="button" aria-describedby="passkey-login-hint">Continue with passkey</button><p id="passkey-login-hint" class="small">Use a previously registered passkey, or create one after verifying your email.</p><div class="actions"><button id="passkey-signup" class="secondary" type="button">Create account with passkey</button></div></div><button id="email-login" class="secondary" type="button">Email me a sign-in link</button></form>
-<p class="small">For email/password signup, enter your email and a new password, then choose Create account. Confirm your email before signing in. When passkeys are available, you can instead choose Create account with passkey and verify your email without setting a password.</p></section>
+</div>
+<div id="account-feedback"><div id="status" role="status" aria-live="polite">Loading your account…</div></div>
+<section id="signin" hidden aria-labelledby="entry-title">
+<p id="entry-context" class="small" hidden></p><h1 id="entry-title">Welcome back</h1><p id="entry-description">Sign in to your travel account.</p>
+<form id="login-form" novalidate>
+<nav class="entry-tabs" aria-label="Account action"><button id="entry-signin" type="button" aria-label="Show sign-in form" aria-pressed="true">Sign in</button><button id="entry-signup" type="button" aria-label="Show create account form" aria-pressed="false">Create account</button></nav>
+<div id="signup-methods" role="group" aria-label="Create account with" hidden><button id="method-password" type="button" aria-pressed="true">Password</button><button id="method-passkey" type="button" aria-pressed="false">Passkey</button></div>
+<p id="signup-passkey-support" class="small" hidden>Passkeys are unsupported in this browser or connection. You can create an account with a password.</p>
+<label for="email">Email</label><input id="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com">
+<div id="entry-password"><div class="password-label-row"><label id="password-label" for="password">Password</label><button id="recovery-mode" class="text-button" type="button">Forgot password?</button></div><input id="password" type="password" autocomplete="current-password" required maxlength="128"></div>
+<p id="signup-hint" class="small" hidden></p>
+<div class="entry-primary"><button id="password-login" type="submit">Sign in</button><button id="signup" type="button" hidden>Create account</button><button id="passkey-signup" type="button" hidden>Verify email to create a passkey</button><button id="email-login" type="button" hidden>Send sign-in link</button><button id="reset-password" type="button" hidden>Send recovery link</button><button id="resend" type="button" hidden>Resend confirmation</button></div>
+<div id="entry-alternatives"><div class="entry-divider">or</div><div id="passkey-signin" hidden><button id="passkey-login" class="secondary" type="button" aria-describedby="passkey-login-hint">Sign in with passkey</button><p id="passkey-login-hint" class="small" hidden>Passkeys are unsupported in this browser or connection. Use a password or an email sign-in link.</p></div><button id="email-mode" class="secondary" type="button">Email me a sign-in link</button></div>
+<div id="signin-feedback"></div>
+<button id="signup-resend" class="text-button" type="button" hidden>Resend confirmation email</button>
+<button id="entry-back" class="text-button" type="button" hidden>Back to sign in</button>
+<details id="entry-help"><summary>Need help signing in?</summary><p class="small">Lost your passkey? Use an email sign-in link. Open email links in the browser that requested them.</p><button id="resend-mode" class="text-button" type="button">Resend confirmation email</button></details>
+</form></section>
+<p id="entry-footer" class="small">Your trips stay together across web, ChatGPT and Claude.<br>Sign out when using a shared device.</p>
 <section id="account" hidden><div class="account-heading"><div><h2>Your travel account</h2><p id="identity"></p><details class="small"><summary>Account identifier</summary><p id="account-id"></p></details></div><button id="signout" class="secondary">Sign out / switch account</button></div>
 <div id="profile-editor"><div class="profile-heading"><div id="profile-photo"></div><div><h3>Your profile</h3><p id="profile-current" class="small"></p></div></div>
 <p class="small">Your name and photo are visible to signed-in members of your trips. Account-free view links hide member profiles. Your account ID and permissions stay the same when you edit your profile.</p>

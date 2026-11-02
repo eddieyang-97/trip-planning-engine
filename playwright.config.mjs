@@ -8,7 +8,7 @@ export default defineConfig({
   retries: 0,
   forbidOnly: !!process.env.CI,
   timeout: 60_000,
-  // The serial suite now has 39 built-browser journeys; retain per-test timeouts.
+  // Bound the serial suite separately from individual journey timeouts.
   globalTimeout: 180_000,
   expect: {timeout: 10_000},
   reporter: 'list',

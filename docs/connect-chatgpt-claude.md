@@ -6,7 +6,7 @@ Trip Planner is a shared travel itinerary and research tool. You can use it dire
 
 ## Before you connect
 
-1. Open **[Trip Planner](https://trip-planning-engine.onrender.com/account)** and create **your own account**. Choose email/password signup, or **Create account with passkey**: verify your email in the same browser, then choose **Register a passkey**. Keep access to your email; **Email me a sign-in link** restores access to an existing account if a key is lost. [Account help](passkeys.md#registration-and-sign-in).
+1. Open **[Trip Planner](https://trip-planning-engine.onrender.com/account)** and create **your own account**. Choose email/password signup, or **Create account → Passkey**: verify your email in the same browser, then choose **Register a passkey**. Keep access to your email; **Email me a sign-in link** restores access to an existing account if a key is lost. [Account help](passkeys.md#registration-and-sign-in).
 2. If a friend owns the trip you want to access, ask them to send you a **signed-in invitation** and accept it using your account. An anonymous view-only link works in the browser but **does not** itself give an AI assistant access to the trip.
 3. Your account shows only trips you own or have been invited to. **Never share another person's login or authorization link.**
 
