@@ -64,3 +64,7 @@ At the user's request, an assistant created an isolated fictional trip through t
 - [Architecture review](architecture-review.md): original findings with follow-up; [spike index](spike/README.md) for historical proposals.
 
 Record acceptance findings in the relevant Issue and implementation/test history in its PR/CI; summarize only current delivery boundaries here. Feature guides own current contracts and lasting limitations. Preserve significant release/security evidence when needed, without copying per-commit histories into permanent guides.
+
+## Issue 51 public limits and lifecycle reconciliation
+
+Prepared in [PR #66](https://github.com/eddieyang-97/trip-planning-engine/pull/66): bounded caller limits and explicit proxy trust, plus same-tab lifecycle revision reconciliation. Hosted caller isolation requires verified ingress configuration; deployment and hosted acceptance remain pending. See [public request limits](public-request-limits.md).
