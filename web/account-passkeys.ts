@@ -10,14 +10,14 @@ export function passkeyError(error:unknown):string {
   const e=error&&typeof error==='object'?error as {code?:string;name?:string;cause?:{name?:string}}:{};
   const code=e.code??'',name=e.cause?.name??e.name;
   if(name==='NotAllowedError'||name==='AbortError'||code==='ERROR_CEREMONY_ABORTED')
-    return 'Passkey request cancelled or timed out. Try again, or sign in with your email and password.';
+    return 'Passkey request cancelled or timed out. Try again, or use email-link access or your password.';
   if(code==='email_not_confirmed'||code==='phone_not_confirmed')return 'Confirm your email before using passkeys. Email and password sign-in is still available.';
   if(code==='webauthn_challenge_expired'||code==='webauthn_challenge_not_found')return 'The passkey request expired. Start again to get a new request.';
-  if(code==='webauthn_credential_not_found')return 'No matching passkey was found. Use your email and password, then register a passkey on this device.';
+  if(code==='webauthn_credential_not_found')return 'No matching passkey was found. Use email-link access or your password, then register a passkey on this device.';
   if(code==='webauthn_credential_exists')return 'This passkey is already registered. Reload your passkeys.';
   if(code==='too_many_passkeys')return 'Your account has reached its passkey limit. Remove an unused key before adding another.';
   if(code==='passkey_disabled')return 'Passkeys are unavailable for this pilot. Use your email and password.';
-  return 'Unable to complete the passkey request. Check your connection, then reload passkeys before retrying. Email and password sign-in remains available.';
+  return 'Unable to complete the passkey request. Check your connection, then reload passkeys before retrying. Email-link access or password sign-in remains available.';
 }
 
 export function configurePasskeys(client:SupabaseClient,boundary:AccountBoundary,enabled:boolean,credentials:CredentialGuard){
@@ -54,7 +54,7 @@ export function configurePasskeys(client:SupabaseClient,boundary:AccountBoundary
           if(error)throw Error(passkeyError(error));
           const keys=await load();
           if(keys?.some(saved=>saved.id===key.id))throw Error('Removal was not confirmed. Reload passkeys before retrying.');
-          return 'Passkey removed. Your password and email recovery remain available.';
+          return 'Passkey removed. Email-link access remains available, along with your password if you set one.';
         });
       };
       row.append(name,remove);list.append(row);
@@ -77,7 +77,7 @@ export function configurePasskeys(client:SupabaseClient,boundary:AccountBoundary
     boundary.check(generation);if(result.error)throw Error(passkeyError(result.error));
     const keys=await load();
     if(!keys?.some(key=>key.id===result.data?.id))throw Error('Registration was not confirmed. Reload passkeys before retrying.');
-    return 'Passkey registered. Keep your password and access to your confirmed email for recovery.';
+    return 'Passkey registered. Keep access to your confirmed email for recovery. A password is optional.';
   });
   el<HTMLButtonElement>('passkey-reload').onclick=()=>void run(async()=>{await load();return 'Passkey list refreshed.';});
   return {reset,load:async()=>{const generation=boundary.generation;try{await load();}catch(error){if(boundary.generation===generation)message.textContent=error instanceof Error?error.message:passkeyError(error);}}};

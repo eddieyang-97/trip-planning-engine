@@ -40,6 +40,6 @@ test('passkey failures provide recovery guidance without reflecting provider dia
   assert.match(passkeyError({code:'webauthn_credential_exists'}),/already registered/);
   assert.match(passkeyError({code:'too_many_passkeys'}),/limit/);
   for(const error of [null,Error('private-token-diagnostic'),{code:'unknown',message:'private-token-diagnostic'}]){
-    assert.doesNotMatch(passkeyError(error),/private-token-diagnostic/);assert.match(passkeyError(error),/Email and password/);
+    assert.doesNotMatch(passkeyError(error),/private-token-diagnostic/);assert.match(passkeyError(error),/Email-link access or password/);
   }
 });

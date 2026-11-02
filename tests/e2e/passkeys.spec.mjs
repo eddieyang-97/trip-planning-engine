@@ -20,9 +20,11 @@ async function fixture(enabled=true){
   const users=['owner','other','unconfirmed'].map(name=>({id:randomUUID(),email:`${name}@example.test`,
     email_confirmed_at:name==='unconfirmed'?null:'2026-10-25T00:00:00Z',aud:'authenticated',role:'authenticated',
     created_at:'2026-10-25T00:00:00Z',is_anonymous:false,app_metadata:{},user_metadata:{}}));
+  const passwords=new Map(users.map(u=>[u.id,'Fictional-password-123']));
   const sessions=new Map(),keys=new Map(),challenges=new Map(),client=randomUUID();
   let refreshes=0,registrations=0,deletions=0,recoveries=0,passwordUpdates=0,registrationOptions=0,failOptions=null;
-  let recovery;
+  let recovery,emailRequest;
+  const emailCodes=new Map();
   const issue=async(user,method='password')=>{
     const token=await new SignJWT({sub:user.id,role:'authenticated',session_id:randomUUID(),amr:[{method}]})
       .setProtectedHeader({alg:'ES256',kid:'fixture'}).setIssuer(issuer).setAudience('authenticated').setIssuedAt().setExpirationTime('1h').sign(privateKey);
@@ -35,17 +37,26 @@ async function fixture(enabled=true){
   auth.post('/token',async(req,res)=>{
     let user;
     if(req.query.grant_type==='pkce'){
-      if(req.body.auth_code!=='fictional-recovery'||createHash('sha256').update(req.body.code_verifier).digest('base64url')!==recovery?.code_challenge)return res.sendStatus(400);
-      user=users.find(u=>u.email===recovery.email);
+      const request=req.body.auth_code==='fictional-recovery'?recovery:emailCodes.get(req.body.auth_code);
+      emailCodes.delete(req.body.auth_code);
+      if(!request||createHash('sha256').update(req.body.code_verifier).digest('base64url')!==request.code_challenge)return res.sendStatus(400);
+      user=users.find(u=>u.email===request.email);
+      if(user&&req.body.auth_code!=='fictional-recovery')user.email_confirmed_at=new Date().toISOString();
     }
     else if(req.query.grant_type==='refresh_token'){refreshes++;user=users.find(u=>req.body.refresh_token===`fixture-${u.id}`);}
-    else user=users.find(u=>u.email===req.body.email&&req.body.password==='Fictional-password-123');
+    else user=users.find(u=>u.email===req.body.email&&req.body.password===passwords.get(u.id));
     if(!user)return res.status(400).json({code:'invalid_credentials',msg:'Invalid fixture credentials'});
     if(!user.email_confirmed_at)return res.status(400).json({code:'email_not_confirmed',msg:'Confirm email'});
     res.json(await issue(user,req.query.grant_type==='pkce'?'recovery':req.query.grant_type==='refresh_token'?'refresh':'password'));
   });
   auth.get('/user',(req,res)=>{const user=current(req);res.status(user?200:401).json(user??{msg:'No fixture session'});});
-  auth.put('/user',(req,res)=>{if(!current(req))return res.sendStatus(401);passwordUpdates++;res.json(current(req));});
+  auth.put('/user',(req,res)=>{if(!current(req))return res.sendStatus(401);passwordUpdates++;passwords.set(current(req).id,req.body.password);res.json(current(req));});
+  auth.post('/otp',(req,res)=>{
+    let user=users.find(u=>u.email===req.body.email);
+    if(!user&&req.body.create_user){user={...users[0],id:randomUUID(),email:req.body.email,email_confirmed_at:null};users.push(user);}
+    if(user){const code=randomUUID();emailCodes.set(code,req.body);emailRequest={code,redirect:new URL(req.query.redirect_to)};}
+    res.json({});
+  });
   auth.post('/recover',(req,res)=>{recoveries++;recovery=req.body;res.json({});});
   auth.post('/logout',(_req,res)=>res.sendStatus(204));
   auth.get('/passkeys',(req,res)=>res.json([...keys.values()].filter(k=>k.owner===current(req)?.id).map(k=>k.metadata)));
@@ -88,6 +99,7 @@ async function fixture(enabled=true){
     itinerary:itineraryRoutes({core,origin,authenticate:provider.authenticate,supabaseUrl:origin,publishableKey:'sb_publishable_fixture'}),
   }));http.on('request',app);
   return {origin,db,core,tripId,users,client,keys,
+    emailLink:()=>{const url=new URL(emailRequest.redirect);url.searchParams.set("code",emailRequest.code);return url.href;},
     counts:()=>({refreshes,registrations,deletions,recoveries,passwordUpdates,registrationOptions}),fail:code=>{failOptions=code;},
     ageSessions:()=>{for(const user of sessions.values())user.last_sign_in_at=new Date(Date.now()-48*60*60_000).toISOString();},
     close:async()=>{http.closeAllConnections();await new Promise(resolve=>http.close(resolve));await db.close();}};
@@ -260,5 +272,73 @@ test('disabled pilot and unsupported browser retain password sign-in',async({pag
     await page.reload();await expect(page.getByRole('button',{name:'Continue with passkey'})).toBeDisabled();
     await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();
     await expect(page.locator('#passkey-login-hint')).toContainText('unsupported');
+    await expect(page.getByRole('button',{name:'Create account with passkey',exact:true})).toBeDisabled();
+    await expect(page.getByRole('button',{name:'Email me a sign-in link'})).toBeEnabled();
+  }finally{await app.close();}
+});
+
+
+test('passkey-first signup verifies email without a password, supports retry and email recovery',async({page,context})=>{
+  const app=await fixture();
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort());
+  const cdp=await context.newCDPSession(page);await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator',{options:{protocol:'ctap2',transport:'internal',hasResidentKey:true,hasUserVerification:true,isUserVerified:true,automaticPresenceSimulation:true}});
+  try{
+    await page.goto(`${app.origin}/account?returnTo=itinerary`);
+    await page.getByLabel('Email',{exact:true}).fill('new@example.test');
+    await page.getByRole('button',{name:'Email me a sign-in link'}).click();
+    await expect(page.locator('#status')).toContainText('verification link');expect(app.users).toHaveLength(3);
+    await page.getByRole('button',{name:'Create account with passkey',exact:true}).click();
+    await expect(page.locator('#status')).toContainText('verification link');
+    const link=app.emailLink();await page.goto(link);
+    await expect(page.locator('#identity')).toHaveText('new@example.test');
+    await expect(page.locator('#status')).toContainText('Email verified');
+    expect(app.counts().passwordUpdates).toBe(0);expect(app.users).toHaveLength(4);
+    const newUser=app.users.find(u=>u.email==='new@example.test');
+    await app.core.callFromWeb('create_trip',{idempotencyKey:randomUUID(),name:'New passkey account trip',destination:'Fixture',startDate:'2027-01-01',endDate:'2027-01-02',adults:1},newUser.id);
+    // A cancelled ceremony consumes UI proof, without creating credentials.
+    await page.evaluate(()=>{window.savedCreate=navigator.credentials.create.bind(navigator.credentials);navigator.credentials.create=()=>Promise.reject(new DOMException('cancel','NotAllowedError'));});
+    await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
+    await expect(page.locator('#passkey-status')).toContainText('cancelled');expect(app.keys.size).toBe(0);
+    await page.evaluate(()=>{navigator.credentials.create=window.savedCreate;});
+    await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
+    await expect(page.locator('#passkey-status')).toContainText('current password');expect(app.counts().registrationOptions).toBe(1);
+    await page.getByRole('button',{name:'Verify by email for a passkey change'}).click();
+    await expect(page.locator('#status')).toContainText('verification link');await page.goto(app.emailLink());
+    await page.getByRole('button',{name:'Register a passkey',exact:true}).click();
+    await expect(page.locator('#passkey-status')).toContainText('Passkey registered');expect(app.keys.size).toBe(1);
+    const identity=app.users.find(u=>u.email==='new@example.test').id;
+    await page.getByRole('button',{name:'Sign out / switch account'}).click();
+    await page.getByRole('button',{name:'Continue with passkey',exact:true}).click();
+    await expect(page).toHaveURL(`${app.origin}/itinerary`);
+    await expect(page.locator('body')).toContainText('New passkey account trip');
+    await page.goto(`${app.origin}/account`);
+    await expect(page.locator('#identity')).toHaveText('new@example.test');
+    expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('travel-account')).user.id)).toBe(identity);
+    // Lost-key email access preserves assistant consent context without granting access.
+    await page.getByRole('button',{name:'Sign out / switch account'}).click();
+    await page.goto(`${app.origin}/oauth/consent?authorization_id=fixture-auth`);
+    await page.getByLabel('Email',{exact:true}).fill('new@example.test');
+    await page.getByRole('button',{name:'Email me a sign-in link'}).click();
+    await expect(page.locator('#status')).toContainText('verification link');await page.goto(app.emailLink());
+    await expect(page.locator('#identity')).toHaveText('new@example.test');expect(app.users).toHaveLength(4);
+    await expect(page.locator('#consent')).toBeVisible();await expect(page.locator('#allow-write')).not.toBeChecked();
+    expect((await app.db.query('select * from client_grants where owner_id=$1',[identity])).rows).toHaveLength(0);
+    page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Remove Fictional security key'}).click();
+    await expect(page.locator('#passkey-status')).toContainText('Passkey removed');expect(app.keys.size).toBe(0);
+    // A used code and stored session cannot mint a new management approval.
+    await page.goto(link);await expect(page.locator('#status')).toContainText('expired or could not be verified');
+    expect(app.counts().registrations).toBe(1);expect(app.counts().deletions).toBe(1);
+    await page.goto(`${app.origin}/itinerary`);
+    await expect(page.locator('body')).toContainText('New passkey account trip');
+    await expect(page.locator('body')).not.toContainText('Owner fictional passkey trip');
+    await page.goto(`${app.origin}/account`);await page.getByRole('button',{name:'Sign out / switch account'}).click();
+    await page.getByLabel('Email',{exact:true}).fill('new@example.test');await page.getByRole('button',{name:'Forgot password'}).click();
+    await expect(page.locator('#status')).toContainText('recovery email has been requested');
+    await page.goto(`${app.origin}/account?code=fictional-recovery`);
+    await expect(page.locator('#identity')).toHaveText('new@example.test');
+    await page.getByText('Password and recovery',{exact:true}).click();await page.getByLabel('New password',{exact:true}).fill('Optional-new-password');
+    await page.getByRole('button',{name:'Set new password',exact:true}).click();
+    await expect(page.locator('#status')).toContainText('Password updated');expect(app.counts().passwordUpdates).toBe(1);
   }finally{await app.close();}
 });
