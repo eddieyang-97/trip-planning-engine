@@ -92,7 +92,10 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await comment("Newer than the held share");
     release.resolve();
     await late;
-    await page.waitForFunction(() => !document.getElementById("create-invitation").disabled);
+    // Current sharing cancels closed-dialog updates and resets controls on reopen.
+    await page.locator("#share-trip").click();
+    assert.equal(await page.locator("#created-link").isVisible(),false);
+    await closeShare();
     await action("archive");
     await archived();
     await action("restore");
