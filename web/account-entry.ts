@@ -33,6 +33,8 @@ export function configureAccountEntry(passkeysEnabled: boolean, passkeysSupporte
     el('entry-alternatives').hidden = mode !== 'signin';
     el('passkey-signin').hidden = !passkeysEnabled;
     el('passkey-login-hint').hidden = passkeysSupported;
+    if (passkeysSupported) el('passkey-login').removeAttribute('aria-describedby');
+    else el('passkey-login').setAttribute('aria-describedby', 'passkey-login-hint');
     el('entry-help').hidden = signup;
     el('entry-back').hidden = mode === 'signin' || signup;
     el('signup-resend').hidden = true;

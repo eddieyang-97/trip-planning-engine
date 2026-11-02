@@ -281,6 +281,7 @@ test('disabled pilot and unsupported browser retain password sign-in',async({pag
     await page.reload();await expect(page.getByRole('button',{name:'Sign in with passkey'})).toBeDisabled();
     await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeEnabled();
     await expect(page.locator('#passkey-login-hint')).toContainText('unsupported');
+    await expect(page.locator('#passkey-login')).toHaveAccessibleDescription(/unsupported/);
     await page.locator('#entry-signup').click();
     await expect(page.locator('#method-passkey')).toBeDisabled();
     await expect(page.locator('#signup-passkey-support')).toContainText('unsupported');
@@ -395,6 +396,7 @@ test('account entry fits mobile and desktop and switches tasks without sending a
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:844});await page.goto(`${app.origin}/account`);
       await expect(page.locator('#entry-title')).toHaveText('Welcome back');
+      await expect(page.locator('#passkey-login')).not.toHaveAccessibleDescription(/unsupported/);
       await expect(page.locator('#account-intro')).toBeHidden();await fit();
       const primary=await page.locator('#password-login').boundingBox();expect(primary.y+primary.height).toBeLessThan(844);
       await page.getByLabel('Email',{exact:true}).fill('layout@example.test');await page.getByLabel('Password',{exact:true}).fill('Fictional-password');
