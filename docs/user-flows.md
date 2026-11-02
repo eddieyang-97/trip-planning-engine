@@ -1,15 +1,15 @@
 # User flow diagrams
 
-Updated 22 October 2026 for the flight-research entry point; other diagrams retain their original dated release scope unless marked **work in progress** or **target flow**. Implementation does not imply every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [current delivery evidence](implementation.md#current-state--25-october-2026).
+Account and invitation diagrams include the deployed password/passkey registration choices. Other diagrams retain their stated feature scope unless marked **work in progress** or **target flow**. Implementation does not imply every end-to-end acceptance step has been verified. See [architecture](architecture.md), [database ER diagrams](database.md) and [current delivery evidence](implementation.md).
 
 ## Sign in and connect an assistant
 
-Web and MCP use the same account, with different session/permission boundaries. Direct sign-in and official-SDK OAuth passed; ChatGPT retrieval and a conditional test selection/read-back have recorded evidence. Independent Claude and additional refresh/revocation acceptance remain separate.
+Web and MCP use the same account, with separate session/permission boundaries. Password, passkey and existing-account email-link sign-in share that identity. Bounded ChatGPT and Claude read-only acceptance is recorded in [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21); broader client behavior and the new password-free registration journey retain their [delivery limits](implementation.md).
 
 ```mermaid
 flowchart TB
     Start[Use the trip workspace] --> Surface{Choose a surface}
-    Surface -->|Web| WebSign[Sign in to the travel account]
+    Surface -->|Web| WebSign[Sign in with password, passkey or email link]
     WebSign --> WebTrip[Open the private itinerary and saved research]
     Surface -->|Assistant| Connect[Connect the hosted MCP server]
     Connect --> Account[Sign in to the same travel account]
@@ -22,7 +22,7 @@ flowchart TB
     Tools --> Same
 ```
 
-Web sign-in does not grant an assistant access. Assistant tokens cannot manage account connections; the user manages consent/revocation through the account page. Identity scopes and application permissions are separate. See [account linking](account-linking.md).
+New users choose email/password signup or email verification followed by explicit passkey enrollment. Passkey signup and credential verification stay on Account; ordinary itinerary sign-in returns to the itinerary. See [registration and recovery](passkeys.md). Web sign-in does not grant an assistant access. Assistant tokens cannot manage account connections; the user manages consent/revocation through the account page. Identity scopes and application permissions are separate. See [account linking](account-linking.md).
 
 ## Research flights through an assistant
 
@@ -109,14 +109,20 @@ flowchart TB
     Invite --> Share[Organizer shares the private link]
     Share --> Friend[Friend opens link; pending invitation stays in this tab]
     Friend --> Account{Already has a confirmed account?}
-    Account -->|Yes| SignIn[Sign in to the travel account]
-    Account -->|No| SignUp[Create account through Supabase Auth]
-    SignUp --> Email[Supabase sends confirmation through Brevo SMTP]
+    Account -->|Yes| SignIn[Sign in to the travel account if needed]
+    Account -->|No| Method{Choose registration method}
+    Method -->|Password| SignUp[Enter email and new password]
+    Method -->|Passkey| Magic[Request email verification without a password]
+    SignUp --> Email[Supabase sends verification through Brevo SMTP]
+    Magic --> Email
     Email --> Delivery{Email received?}
-    Delivery -->|No| Retry[Check spam; request resend or resolve delivery error]
+    Delivery -->|No| Retry[Check spam; request a new link with the matching action]
     Retry --> Email
-    Delivery -->|Yes| Confirm[Follow confirmation link to /account]
-    Confirm --> Return[Return to original invitation tab]
+    Delivery -->|Yes| Confirm[Verify email in the requesting browser]
+    Confirm --> Key{Passkey signup?}
+    Key -->|Yes| Enroll[Choose Register a passkey on Account]
+    Enroll --> Return[Return to original invitation tab]
+    Key -->|No| Return
     Return --> SignIn
     SignIn --> Valid{Invitation valid for this account?}
     Valid -->|No| Unavailable[Show unavailable, expired or revoked]
@@ -130,7 +136,7 @@ flowchart TB
 
 An invitation URL is a route to authenticated membership, not anonymous publication. It does not grant access to the owner's account-private research or assistant connections. Source: [sharing implementation](../src/itinerary-sharing.ts) and [ER extension](database.md#viewer-sharing-extension--14-october-2026-baseline).
 
-The organizer shares the invitation URL manually; the application does not email it through Brevo. Confirmation proves account control, while accepting the invitation separately creates trip membership. A delivery failure leaves onboarding incomplete. Resends remain subject to Supabase and Brevo limits; see [account email delivery](account-linking.md#account-email-delivery).
+The organizer shares the invitation URL manually; the application does not email it through Brevo. Email verification proves account control; passkey enrollment is an explicit Account action, while accepting the invitation separately creates trip membership. A delivery failure leaves onboarding incomplete. Resends remain subject to Supabase and Brevo limits; see [account email delivery](account-linking.md#account-email-delivery).
 
 ## Collaborator proposal and approval — target flow
 
