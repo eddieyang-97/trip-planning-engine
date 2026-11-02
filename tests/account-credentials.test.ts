@@ -5,11 +5,12 @@ import {AccountBoundary} from '../web/account-session.js';
 import {CredentialGuard} from '../web/account-credentials.js';
 
 function fixture(){
-  let now=0,attempts=0,mutations=0,event:(name:string,session:any)=>void=()=>{};
+  let exchangeEvent="SIGNED_IN",exchangeError=false,now=0,attempts=0,mutations=0,event:(name:string,session:any)=>void=()=>{};
   const user={id:'fixture-owner',email:'owner@example.test',email_confirmed_at:'2026-10-25',is_anonymous:false};
   const boundary=new AccountBoundary(user.id);
   const client={auth:{
     onAuthStateChange(fn:typeof event){event=fn;},
+    exchangeCodeForSession:async()=>{event(exchangeEvent,{user});return {data:{user,session:{user}},error:exchangeError?Error("private"):null};},
     getUser:async()=>({data:{user},error:null}),
     signInWithPassword:async(input:{email:string;password:string})=>{
       attempts++;assert.equal(input.email,user.email);
@@ -18,7 +19,7 @@ function fixture(){
     },
   }} as unknown as SupabaseClient;
   const guard=new CredentialGuard(client,boundary,()=>now);
-  return {guard,boundary,user,event:(name:string,identity=user)=>event(name,{user:identity}),
+  return {guard,boundary,user,failExchange:()=>{exchangeError=true;},recoverExchange:()=>{exchangeEvent="PASSWORD_RECOVERY";},pending:()=>({email:user.email,userId:user.id,expiresAt:10*60_000}),event:(name:string,identity=user)=>event(name,{user:identity}),
     advance:()=>{now+=5*60_000;},counts:()=>({attempts,mutations}),
     change:async(password='',recovery=false)=>{await guard.authorize(password,recovery);mutations++;}};
 }
@@ -48,4 +49,33 @@ test('recovery proof and password reauthentication cannot cross account boundari
   await assert.rejects(f.change('',true),/confirmed email account/);assert.equal(f.counts().mutations,0);
   const g=fixture();g.event('PASSWORD_RECOVERY',{...g.user,id:'other-account'});
   await assert.rejects(g.change('',true),/current password/);assert.equal(g.counts().mutations,0);
+});
+
+
+test('explicit email PKCE verification permits one passkey change, not a password change',async()=>{
+  const f=fixture();assert.equal(await f.guard.completeEmailLink('code',undefined,f.pending()),true);
+  f.event('TOKEN_REFRESHED');await f.change();await assert.rejects(f.change(),/current password/);
+  await f.guard.completeEmailLink('code',undefined,f.pending());
+  await assert.rejects(f.change('',true),/current password/);
+  assert.equal(f.counts().mutations,1);
+});
+
+test('email proof rejects wrong identities, expires and is lost on reload/reset or sign-out',async()=>{
+  const f=fixture();
+  await assert.rejects(f.guard.completeEmailLink('code',undefined,{...f.pending(),userId:'other'}),/different account/);
+  await assert.rejects(f.guard.completeEmailLink('code',undefined,{...f.pending(),email:'other@example.test'}),/different account/);
+  for(const clear of [()=>f.advance(),()=>f.guard.reset(),()=>f.event('SIGNED_OUT')]){
+    await f.guard.completeEmailLink('code',undefined,f.pending());clear();await assert.rejects(f.change(),/current password/);
+  }
+  assert.equal(await f.guard.completeEmailLink('code',undefined,{...f.pending(),expiresAt:0}),false);
+  assert.equal(await f.guard.completeEmailLink('code',undefined,null),false);
+  f.failExchange();await assert.rejects(f.guard.completeEmailLink('bad',undefined,f.pending()),/could not be verified/);
+  await assert.rejects(f.change(),/current password/);assert.equal(f.counts().mutations,0);
+});
+
+
+test('a recovery PKCE exchange cannot reuse pending signup intent to authorize passkey management',async()=>{
+  const f=fixture();f.recoverExchange();
+  assert.equal(await f.guard.completeEmailLink('recovery',undefined,f.pending()),false);
+  await assert.rejects(f.change(),/current password/);assert.equal(f.counts().mutations,0);
 });

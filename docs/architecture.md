@@ -2,6 +2,8 @@
 
 This records accepted architecture for **Trip Planning Workspace**, not the latest deployment snapshot. The initial design was validated in release `f6f1670`, and later account, map, sharing, comments and calendar changes are documented in their dated feature guides. Repository/package/service identifiers remain `trip-planning-engine`. See the [PRD](prd.md) for target behavior and [delivery status](implementation.md) for acceptance evidence.
 
+Account registration accepts either email/password or email magic-link verification followed by passkey enrollment. The source follow-up uses Supabase PKCE and the existing account ID/session; expiring browser intent is not authorization. A verified email exchange grants one short-lived UI passkey-management approval. Provider enforcement limits and deployment status remain in [passkeys](passkeys.md) and [delivery status](implementation.md). No custom credential store or identity migration is introduced.
+
 ## High-level architecture
 
 Recorded deployed design: one Free Render service, Supabase identity/storage, Brevo SMTP configured for account-confirmation emails, and an explicitly enabled SerpApi flight pilot. Web and MCP are equal product surfaces; the service owns permissions and saved facts. After SMTP repair, second-account email confirmation, sign-in, viewer joining and organizer revocation passed.

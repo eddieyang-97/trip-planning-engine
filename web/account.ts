@@ -6,12 +6,12 @@ import {CredentialGuard} from './account-credentials.js';
 const el = <T extends HTMLElement = HTMLElement>(id:string) => document.getElementById(id) as T;
 const status = (text:string) => { el('status').textContent=text; };
 async function initialize() {
-const authorization = new URL(location.href).searchParams.get('authorization_id');
-const returnToItinerary=new URL(location.href).searchParams.get('returnTo')==='itinerary';
+let authorization = new URL(location.href).searchParams.get('authorization_id');
+let returnToItinerary=new URL(location.href).searchParams.get('returnTo')==='itinerary';
 if(returnToItinerary&&!authorization){
   document.querySelector('h1')!.textContent='Your trip starts here.';
   document.querySelector('.intro')!.textContent='Sign in or create a travel account to open your itinerary. You do not need an AI assistant or any developer setup.';
-  el('signin').querySelector('p')!.textContent='Create an account with your own email and password. Confirm your email, then return to this tab and sign in to continue your invitation.';
+  el('signin').querySelector('p')!.textContent='Create an account with your own email and password, or choose passkey signup if available. Confirm your email to continue your invitation.';
   el('pilot-notice').hidden=true;
 }
 const configResponse = await fetch('/account/config',{signal:AbortSignal.timeout(60_000)});
@@ -25,15 +25,33 @@ el<HTMLInputElement>('allow-write').onchange=()=>{
   const search=el<HTMLInputElement>('allow-search');search.disabled=!liveSearch||!el<HTMLInputElement>('allow-write').checked;
   if(search.disabled)search.checked=false;
 };
-const supabase=createAccountClient(config),boundary=new AccountBoundary();
+// Handle PKCE explicitly so only a successful exchange can approve an email step-up.
+const supabase=createAccountClient(config,false),boundary=new AccountBoundary();
 const credentials=new CredentialGuard(supabase,boundary);
+const emailRequestKey='travel-account-email-request';
+let emailPurpose:'signup'|'signin'|'manage'|undefined;
+async function requestEmail(email:string,purpose:'signup'|'signin'|'manage'){
+  const create=purpose==='signup';
+  if(create&&config.passkeys!==true)throw Error('Passkey signup is unavailable. Use email and password.');
+  const generation=boundary.generation,userId=boundary.userId;
+  if(userId){const {data,error}=await supabase.auth.getUser();boundary.check(generation);
+    if(error||data.user?.id!==userId||data.user.email?.toLowerCase()!==email.toLowerCase())throw Error('Your account changed. Sign in again.');}
+  credentials.reset();el<HTMLInputElement>('password').value='';el<HTMLInputElement>('passkey-password').value='';
+  const pending={email,userId,expiresAt:Date.now()+10*60_000,purpose,authorization,returnToItinerary};
+  localStorage.setItem(emailRequestKey,JSON.stringify(pending));
+  try{const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:create,emailRedirectTo:`${location.origin}/account`}});if(error)throw error;}
+  catch{localStorage.removeItem(emailRequestKey);throw Error('Unable to request an email link. Wait a moment, then try again.');}
+  status('If this address can receive access, a verification link has been requested. Open the newest email link in this browser within ten minutes. No password is needed.');
+}
 let requestId:string|undefined;
 const profileEditor=configureProfile(api);
 const passkeys=configurePasskeys(supabase,boundary,config.passkeys===true,credentials);
 el('passkey-signin').hidden=config.passkeys!==true;
 el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();
+el<HTMLButtonElement>('passkey-signup').disabled=!supportsPasskeys();
 if(!supportsPasskeys())el('passkey-login-hint').textContent='Passkeys are unsupported in this browser or connection. Use email and password to sign in.';
 function clearPrivate(){
+  emailPurpose=undefined;localStorage.removeItem(emailRequestKey);
   profileEditor.reset();
   credentials.reset();passkeys.reset();el<HTMLInputElement>('new-password').value='';el<HTMLInputElement>('current-password').value='';
   requestId=undefined;
@@ -58,7 +76,7 @@ async function api(path:string, body?:unknown,photo?:{blob:Blob;revision:number}
 async function busy(button:HTMLButtonElement, work:()=>Promise<void>) {
   const loginButtons=button.closest('#login-form')?.querySelectorAll<HTMLButtonElement>('button')??[];
   for(const control of loginButtons)control.disabled=true;
-  button.disabled=true;button.setAttribute('aria-busy','true');status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.removeAttribute('aria-busy');button.disabled=false;for(const control of loginButtons)control.disabled=false;el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();}
+  button.disabled=true;button.setAttribute('aria-busy','true');status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.removeAttribute('aria-busy');button.disabled=false;for(const control of loginButtons)control.disabled=false;for(const id of ['passkey-login','passkey-signup'])el<HTMLButtonElement>(id).disabled=!supportsPasskeys();}
 }
 function validateEmail(){const field=el<HTMLInputElement>('email');field.value=field.value.trim();if(!field.validity.valid){status('Enter a valid email address above.');field.focus();return false;}return true;}
 function validatePassword(signup:boolean){const field=el<HTMLInputElement>('password');if(!field.value||(signup&&field.value.length<8)||!field.validity.valid){status(signup?'Enter a password of at least eight characters to create an account.':'Enter your password to sign in.');field.focus();return false;}return true;}
@@ -84,7 +102,7 @@ async function render() {
   el('signin').hidden=false;
   if(!session){status('');return;}
   const me=await api('me');
-  if(returnToItinerary&&!authorization){location.replace('/itinerary');return;}
+  if(returnToItinerary&&!authorization&&emailPurpose!=='signup'&&emailPurpose!=='manage'){location.replace('/itinerary');return;}
   el('identity').textContent=me.email;el('account-id').textContent=`Account ID: ${me.userId}`;el('mcp-url').textContent=config.mcpUrl;
   for(const id of ['account','connections'])el(id).hidden=false;el('signin').hidden=true;
   await profileEditor.load();
@@ -95,7 +113,7 @@ async function render() {
     requestId=details.requestId;el('client-name').textContent=`Connect ${details.clientName}?`;el('client-id').textContent=details.clientId;
     el('client-redirect').textContent=details.redirectUri;el('client-scopes').textContent=details.scope||'None';el<HTMLInputElement>('allow-write').checked=false;el<HTMLInputElement>('allow-search').checked=false;el<HTMLInputElement>('allow-search').disabled=true;el('consent').hidden=false;
   }
-  status('');
+  status(emailPurpose==='signup'?'Email verified. Choose Register a passkey below to finish creating your passkey. If cancelled, verify by email again to retry.':emailPurpose?'Email verified. You can register or remove one passkey within five minutes.':'');
 }
 el<HTMLFormElement>('login-form').onsubmit=event=>{event.preventDefault();const button=el('login-form').querySelector<HTMLButtonElement>('button[type=submit]')!;
   if(!validateEmail()||!validatePassword(false))return;
@@ -119,6 +137,18 @@ el<HTMLButtonElement>('passkey-login').onclick=()=>busy(el('passkey-login'),asyn
   let result;try{result=await supabase.auth.signInWithPasskey();}catch(error){throw Error(passkeyError(error));}
   if(result.error)throw Error(passkeyError(result.error));
   await render();
+});
+el<HTMLButtonElement>('passkey-signup').onclick=()=>busy(el('passkey-signup'),async()=>{
+  if(!supportsPasskeys())throw Error('This browser cannot create passkeys. Use email and password.');
+  if(validateEmail())await requestEmail(el<HTMLInputElement>('email').value,'signup');
+});
+el<HTMLButtonElement>('email-login').onclick=()=>busy(el('email-login'),async()=>{
+  if(validateEmail())await requestEmail(el<HTMLInputElement>('email').value,'signin');
+});
+el<HTMLButtonElement>('passkey-email').onclick=()=>busy(el('passkey-email'),async()=>{
+  const {data,error}=await supabase.auth.getUser();
+  if(error||!data.user?.email)throw Error('Sign in again before requesting verification.');
+  await requestEmail(data.user.email,'manage');
 });
 el<HTMLButtonElement>('reset-password').onclick=()=>busy(el('reset-password'),async()=>{
   if(!validateEmail())return;
@@ -148,6 +178,27 @@ for(const action of ['approve','deny'] as const)el<HTMLButtonElement>(action).on
   finally{el<HTMLButtonElement>(action==='approve'?'deny':'approve').disabled=false;}
 });
 try{const {error}=await supabase.auth.initialize();if(error)throw new Error(accountAuthError(error,'signin'));
+  const callback=new URL(location.href),code=callback.searchParams.get('code');
+  if(callback.searchParams.has('error')||callback.searchParams.has('error_code')){
+    localStorage.removeItem(emailRequestKey);credentials.reset();
+    for(const key of ['error','error_code','error_description','code','sb_flow_id'])callback.searchParams.delete(key);
+    history.replaceState(null,'',callback);
+    throw Error('This email link expired or could not be verified. Request a new link in this browser.');
+  }
+  if(code){
+    let pending=null;try{pending=JSON.parse(localStorage.getItem(emailRequestKey)??'null');}catch{}
+    localStorage.removeItem(emailRequestKey);
+    // Pending UI intent alone never grants proof; the SDK verifies the PKCE code.
+    if(!pending||typeof pending.email!=='string'||typeof pending.expiresAt!=='number'||!(pending.userId===null||typeof pending.userId==='string'))pending=null;
+    const flowId=callback.searchParams.get('sb_flow_id')??undefined;
+    callback.searchParams.delete('code');callback.searchParams.delete('sb_flow_id');history.replaceState(null,'',callback);
+    const verified=await credentials.completeEmailLink(code,flowId,pending);
+    if(verified&&pending){emailPurpose=['signup','signin','manage'].includes(pending.purpose)?pending.purpose:undefined;authorization=typeof pending.authorization==='string'?pending.authorization:null;returnToItinerary=pending.returnToItinerary===true;
+      if(authorization)callback.searchParams.set('authorization_id',authorization);
+      if(returnToItinerary)callback.searchParams.set('returnTo','itinerary');
+      history.replaceState(null,'',callback);
+    }
+  }
   const {data:{session}}=await supabase.auth.getSession();boundary.update(session?.user.id??null);watchAccount(supabase,boundary,clearPrivate);await render();}catch(error){
   status(error instanceof Error?error.message:'Unable to load your account.');
   for(const id of ['account','connections','consent'])el(id).hidden=true;
