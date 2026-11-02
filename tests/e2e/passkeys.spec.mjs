@@ -274,6 +274,10 @@ test('disabled pilot and unsupported browser retain password sign-in',async({pag
     await expect(page.locator('#passkey-login-hint')).toContainText('unsupported');
     await expect(page.getByRole('button',{name:'Create account with passkey',exact:true})).toBeDisabled();
     await expect(page.getByRole('button',{name:'Email me a sign-in link'})).toBeEnabled();
+    await page.goto(`${app.origin}/account?error=access_denied&error_code=otp_expired&error_description=private-fixture-diagnostic`);
+    await expect(page.locator('#status')).toContainText('expired or could not be verified');
+    await expect(page.locator('#status')).not.toContainText('private-fixture-diagnostic');
+    await expect(page).toHaveURL(`${app.origin}/account`);
   }finally{await app.close();}
 });
 

@@ -25,7 +25,7 @@ export class CredentialGuard {
     const {data,error}=result;
     if(error)throw Error('This email link expired or could not be verified. Request a new link in this browser.');
     const user=data.user;
-    if(pending&&pending.expiresAt>this.now()){
+    if(pending&&pending.expiresAt>this.now()&&!this.recovery){
       if(!data.session||!user?.email_confirmed_at||user.is_anonymous||user.email?.toLowerCase()!==pending.email.toLowerCase()||pending.userId&&pending.userId!==user.id)
         throw Error('The email link belongs to a different account. Sign out and request a new link.');
       this.emailProof={userId:user.id,expiresAt:this.now()+5*60_000};

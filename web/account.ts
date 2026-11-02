@@ -75,7 +75,7 @@ async function api(path:string, body?:unknown,photo?:{blob:Blob;revision:number}
 async function busy(button:HTMLButtonElement, work:()=>Promise<void>) {
   const loginButtons=button.closest('#login-form')?.querySelectorAll<HTMLButtonElement>('button')??[];
   for(const control of loginButtons)control.disabled=true;
-  button.disabled=true;button.setAttribute('aria-busy','true');status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.removeAttribute('aria-busy');button.disabled=false;for(const control of loginButtons)control.disabled=false;el<HTMLButtonElement>('passkey-login').disabled=!supportsPasskeys();}
+  button.disabled=true;button.setAttribute('aria-busy','true');status('');try{await work();}catch(error){status(error instanceof Error?error.message:'Please try again.');}finally{button.removeAttribute('aria-busy');button.disabled=false;for(const control of loginButtons)control.disabled=false;for(const id of ['passkey-login','passkey-signup'])el<HTMLButtonElement>(id).disabled=!supportsPasskeys();}
 }
 function validateEmail(){const field=el<HTMLInputElement>('email');field.value=field.value.trim();if(!field.validity.valid){status('Enter a valid email address above.');field.focus();return false;}return true;}
 function validatePassword(signup:boolean){const field=el<HTMLInputElement>('password');if(!field.value||(signup&&field.value.length<8)||!field.validity.valid){status(signup?'Enter a password of at least eight characters to create an account.':'Enter your password to sign in.');field.focus();return false;}return true;}
@@ -178,6 +178,12 @@ for(const action of ['approve','deny'] as const)el<HTMLButtonElement>(action).on
 });
 try{const {error}=await supabase.auth.initialize();if(error)throw new Error(accountAuthError(error,'signin'));
   const callback=new URL(location.href),code=callback.searchParams.get('code');
+  if(callback.searchParams.has('error')||callback.searchParams.has('error_code')){
+    localStorage.removeItem(emailRequestKey);credentials.reset();
+    for(const key of ['error','error_code','error_description','code','sb_flow_id'])callback.searchParams.delete(key);
+    history.replaceState(null,'',callback);
+    throw Error('This email link expired or could not be verified. Request a new link in this browser.');
+  }
   if(code){
     let pending=null;try{pending=JSON.parse(localStorage.getItem(emailRequestKey)??'null');}catch{}
     localStorage.removeItem(emailRequestKey);
