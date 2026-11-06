@@ -475,4 +475,3 @@ const calendarExport=configureCalendarExport({getPlan:()=>plan,demo,prepare:asyn
   const result=await response.json();if(!response.ok)throw Error(result.error??'Unable to export the shared itinerary.');return result;
 }});
 void initialize().catch(error=>{message(errorText(error));if(!anonymousView&&$('workspace').hidden)$('access').hidden=false;});
-
