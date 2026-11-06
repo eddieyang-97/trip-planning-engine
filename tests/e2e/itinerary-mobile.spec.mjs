@@ -207,7 +207,6 @@ test('compact shared itineraries retain viewer/editor/anonymous permissions',asy
   await expect(page.locator('body')).not.toContainText(privateNote);await expect(page.locator('body')).not.toContainText('Fictional editor');
 });
 
-
 test('switching to Map on a phone brings the map or empty state below the navigation',async({page,app})=>{
   const call=fixtureCall(app),plan=await call('get_itinerary',{tripId:app.tripId});
   const item=plan.items[0];
@@ -231,4 +230,3 @@ test('switching to Map on a phone brings the map or empty state below the naviga
   await page.locator('#view-map').click();await expect(page.locator('#view-map')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('.map-filter[data-category=dining]')).toBeVisible();
 });
-
