@@ -92,7 +92,13 @@ function trackDay(){
 window.addEventListener('scroll',()=>{if(!scrollFrame)scrollFrame=requestAnimationFrame(trackDay);},{passive:true});
 new ResizeObserver(()=>document.documentElement.style.setProperty('--plan-nav-height',`${$('plan-navigation').getBoundingClientRect().height+16}px`)).observe($('plan-navigation'));
 $('view-overview').onclick=()=>setView('overview');$('view-details').onclick=()=>setView('details');
-$('view-map').onclick=()=>setView('map');
+$('view-map').onclick=()=>{
+  const switching=view!=='map';setView('map');
+  if(switching&&matchMedia('(max-width:700px)').matches){
+    const map=$('map-view').querySelector<HTMLElement>('.map-canvas-wrap');
+    if(map)window.scrollTo({top:window.scrollY+map.getBoundingClientRect().top-$('plan-navigation').getBoundingClientRect().height-16});
+  }
+};
 $('map-all-days').onclick=()=>{mapDay='all';setView('map',false);};
 const blank:ItineraryItem={type:'activity',title:'',startDate:null,startTime:null,endDate:null,endTime:null,timeZone:null,endTimeZone:null,
   location:'',url:null,notes:'',openQuestion:'',status:'tentative',bookingNote:''};

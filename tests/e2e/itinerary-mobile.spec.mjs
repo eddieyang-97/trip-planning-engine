@@ -206,3 +206,27 @@ test('compact shared itineraries retain viewer/editor/anonymous permissions',asy
   await expect(page.locator('#research-panel')).toBeHidden();await expect(page.locator('#add-item')).toBeHidden();
   await expect(page.locator('body')).not.toContainText(privateNote);await expect(page.locator('body')).not.toContainText('Fictional editor');
 });
+
+test('switching to Map on a phone brings the map or empty state below the navigation',async({page,app})=>{
+  const call=fixtureCall(app),plan=await call('get_itinerary',{tripId:app.tripId});
+  const item=plan.items[0];
+  await call('update_itinerary_item',{tripId:app.tripId,itemId:item.id,expectedRevision:plan.revision,item:{...item.payload,mapLocations:[{label:'Fictional reception',latitude:46.5,longitude:7}]}});
+  await openTrip(page,app);
+  await page.locator('#view-map').click();
+  await expect(page.locator('.trip-map')).toBeVisible();
+  const positions=async()=>page.evaluate(()=>({nav:document.querySelector('#plan-navigation').getBoundingClientRect(),map:document.querySelector('.map-canvas-wrap').getBoundingClientRect(),height:innerHeight}));
+  let pos=await positions();
+  expect(pos.map.top).toBeGreaterThanOrEqual(pos.nav.bottom);
+  expect(pos.map.bottom).toBeLessThanOrEqual(pos.height);
+  await page.locator('#view-details').click();
+  await page.locator('#view-map').click();
+  pos=await positions();expect(pos.map.top).toBeGreaterThanOrEqual(pos.nav.bottom);expect(pos.map.bottom).toBeLessThanOrEqual(pos.height);
+  await page.locator('.map-filter[data-category=dining]').click();
+  await expect(page.locator('.map-tile-message')).toBeVisible();
+  await page.locator('#view-overview').click();await page.locator('#view-map').click();
+  pos=await positions();expect(pos.map.top).toBeGreaterThanOrEqual(pos.nav.bottom);expect(pos.map.top).toBeLessThan(pos.height);
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('#view-overview').click();await page.locator('#view-map').scrollIntoViewIfNeeded();
+  await page.locator('#view-map').click();await expect(page.locator('#view-map')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('.map-filter[data-category=dining]')).toBeVisible();
+});
