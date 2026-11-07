@@ -89,12 +89,13 @@ operating work.
 ## Deployment and forward recovery
 
 Use the existing Free Render/Supabase deployment with migration-on-start; no new
-provider, credential, scope, host or paid plan. Keep migration 011 when rolling back
-code. After quota ledger activation, do not run an older live-admission worker
-that accounts only from search_runs: pause live search first or forward-fix the
-service. An old worker does not honor the new deletion lock ordering. The new
-code and migration must deploy together on the single instance. Database schema
-rollback cannot restore data removed by a confirmed delete. Restoring an older
+provider, credential, scope, host or paid plan. The new code and migration must
+deploy together on the single instance. After migration 011, prefer a forward fix.
+If older code is needed, keep migration 011 in place, disable live search and
+let the newer workers drain before replacing the code. Keep live search disabled
+while the older code is deployed. Older workers account only from `search_runs`
+and do not honor the new deletion lock ordering. Database schema rollback cannot
+restore data removed by a confirmed delete. Restoring an older
 database backup could resurrect records; backup recovery requires a reviewed
 deletion-tombstone reconciliation before reopening access, and is not automated.
 
