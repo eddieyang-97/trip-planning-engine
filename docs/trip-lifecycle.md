@@ -98,79 +98,29 @@ rollback cannot restore data removed by a confirmed delete. Restoring an older
 database backup could resurrect records; backup recovery requires a reviewed
 deletion-tombstone reconciliation before reopening access, and is not automated.
 
-## Verification
+<a id="verification"></a>
+<a id="local-browser-and-transport-acceptance"></a>
+<a id="release-ci--16-october-2026"></a>
+<a id="hosted-release--16-october-2026"></a>
+## Verification and historical migration evidence
 
-Production build and full local suite pass: 117 tests, 113 passed, four external
-PostgreSQL checks reserved for CI. Focused tests cover upgrade/backfill, archive
-sharing preservation, owner/grant isolation, exact client-bound review, expiry,
-stale revisions, full relational deletion, cache sanitization/non-resurrection,
-leave/rejoin, retained contributions, outstanding calendar/link denial and an
-in-flight stubbed provider with quota preservation. A controlled pooled PostgreSQL
-test races deletion with an already-started editor save. All provider sends are
-stubbed and all trips/accounts are fictional.
+The isolated backend, PostgreSQL and browser tests cover archive/restore,
+confirmation and idempotency, member leave, revocation, private-data erasure,
+concurrent editor writes and provider-attempt preservation. The [16 October
+release CI](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38965043166)
+passed the controlled PostgreSQL deletion/editor race. No real trip was deleted,
+and external provider sends were stubbed.
 
-Browser acceptance and hosted deployment evidence are recorded below.
-Real trips are never deleted to verify the feature.
-
-
-### Local browser and transport acceptance
-
-A fictional owner archived its trip, saw it disappear from Active, opened it from
-Archived with the retained itinerary/roster and restored it to Active. Delete review
-showed exact identity and counts; blank/wrong names disabled the final button,
-the matching name enabled it, and Cancel preserved the trip. At requested 390x844
-phone width the dialog and confirmation controls fit a 375px document without
-horizontal overflow. Browser permanent deletion was not submitted. A second
-fictional account saw only Leave trip for the shared itinerary, confirmed leaving,
-and lost that shared trip while keeping its own trip. No browser warnings/errors
-were recorded. The SDK transport exercised archive/restore/confirmed deletion,
-idempotent delete retries, post-delete denial and preservation of account policy
-notes. No real trip/account was modified and no live provider request was issued.
-
-### Release CI — 16 October 2026
-
-Code commit `ea1c7c582932067f313512248bd66e23448559f4` passed
-[GitHub Actions run 38965043166](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38965043166):
-117 tests passed, zero failed and zero skipped, including the controlled pooled
-PostgreSQL editor/deletion race and the existing admission, sharing and snapshot
-checks. `npm run check`, `npm run build` and the local full suite passed in the
-isolated release worktree (113 passed; four external PostgreSQL checks skipped
-locally). This CI run used synthetic accounts and stub providers.
-
-The rollout first redeployed the previous `7b48098` application with
-`LIVE_SEARCH_ENABLED=false` and checked the public health response before migration.
-The disabled deployment is `dep-db98v22fngtc739bc8rg`. The default old-instance
-shutdown window is 60 seconds before SIGTERM plus 30 seconds to force termination,
-per [Render's deployment sequence](https://render.com/docs/deploys); the Blueprint
-does not override that default. The migration deployment waits beyond that window.
-This avoids overlapping the old quota accounting and child-first worker locks
-with the new lifecycle code. Live search is restored only on the new application.
-
-### Hosted release — 16 October 2026
-
-The exact tested code commit `ea1c7c582932067f313512248bd66e23448559f4`
-was deployed paused as `dep-db9908opd3as73bd1vp0` (53.9 seconds), then redeployed
-with its original live-search flag restored in
-[Render deployment dep-db99167f3r2c73aj805g](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db99167f3r2c73aj805g)
-(54.6 seconds). The final dashboard shows Live at commit `ea1c7c5`; startup logs
-show the hosted live pilot enabled. Successful hosted startup requires migration
-011 to be present. Health returned 200 with `status: ok` and `liveSearch: true`
-at 21:02 UTC. Account and itinerary pages returned 200, and deployed account JS/CSS
-and itinerary JS/view CSS match the locally tested production build after newline
-normalization.
-
-Unauthenticated same-origin requests to prepare, archive, restore, delete and leave
-all returned 401 with `Cache-Control: no-store`. The hosted synthetic demo rendered
-Overview, Details and Map controls, with lifecycle actions/discovery filters hidden
-and no browser warning/error recorded. This verifies deployment, protected-route
-boundaries and public presentation; signed-in hosted lifecycle writes, friend-device
-use and real-account destructive acceptance remain separate joint checks. No real
-trip was archived/deleted, no actual invite was sent, and no provider request was
-initiated for this release. Free hosting and existing auth permissions remain.
-
-After migration, prefer a forward fix. If older code is needed, leave live search
-disabled and drain newer workers before replacement; never restart old live workers
-against the migrated ledger. Database/code rollback cannot undo a confirmed deletion.
+Migration 011 originally required a **coordinated live-search pause and old-worker
+drain** before upgrading code/schema, because the previous worker used
+incompatible quota and lock behavior. The historical [16 October hosted
+deployment](https://dashboard.render.com/web/srv-db3t3iub7d7c739hfad0/deploys/dep-db99167f3r2c73aj805g)
+reported the tested lifecycle build Live with the migration in place; public
+readiness and unauthorized-route checks passed. Those checks did **not**
+establish real-account destructive acceptance, nor do they describe the current
+hosted SHA. Follow the [current release runbook](releases.md) and the
+forward-recovery protections above rather than copying that dated rollout
+sequence into an ordinary new release.
 
 ## Browser revision reconciliation
 

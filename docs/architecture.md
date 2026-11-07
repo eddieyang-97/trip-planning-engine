@@ -51,7 +51,7 @@ Supabase Auth generates confirmation, magic-link sign-in and password-recovery e
 
 ## Core data overview
 
-This is the durable core relationship overview, not an exhaustive representation of the latest schema. [Database diagrams and the migration-extension index](database.md) cover the initial 001–006 baseline and subsequent 007–011 changes. [Data semantics](data-semantics-review.md) records the underlying invariants and unresolved concepts.
+This is the durable core relationship overview, not an exhaustive representation of the latest schema. [Database diagrams and the migration-extension index](database.md) cover the initial 001–006 baseline and subsequent 007–014 changes. [Data semantics](data-semantics-review.md) records the underlying invariants and unresolved concepts.
 
 ```mermaid
 erDiagram
@@ -70,7 +70,7 @@ erDiagram
     SELECTIONS ||..o{ BOOKING_RECORDS : records_outcome
 ```
 
-A candidate survives repeat searches; prices belong to dated observations. A selection pins exact evidence and criteria. A reported booking is a separate outcome. Manual items remain independent; the deployed accommodation extension below adds durable links for explicitly reviewed stays. See [user flow diagrams](user-flows.md) for the corresponding journeys.
+A candidate survives repeat searches; prices belong to dated observations. A selection pins exact evidence and criteria. A reported booking is a separate outcome. Generic flight/manual items remain independent of research selections; the stay and dining extensions below add durable links for explicitly reviewed choices. See [user flow diagrams](user-flows.md) for the corresponding journeys.
 
 ## Decisions already made
 
@@ -83,7 +83,7 @@ A candidate survives repeat searches; prices belong to dated observations. A sel
 | First live source | Bounded generalized SerpApi flight discovery runs in the existing service (F1/F2 closed) | Live multi-origin return discovery and a later connected ChatGPT conditional selection/read-back passed; refreshed ChatGPT one-way criteria, current server/client metadata and independent Claude read-only retrieval also passed. A single hosted new-search-to-selection pass remains unverified. Complete party/equipment quotes and booking remain unverified; see [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) |
 | Evidence | Candidate identity is separate from dated offer observations; criteria versions are immutable | Synthetic, user-reported and provider-reported facts stay distinct; unknown costs are never zero |
 | Outcomes | Selection and user-reported external booking are separate records | No purchase, payment, passenger submission, cancellation or ticket servicing capability |
-| Itinerary | Manual items organize the full trip before further provider integrations | Flight research prepares a tentative manual draft; the deployed accommodation extension adds an explicit durable selected-stay link. General reconciliation remains future work |
+| Itinerary | Manual items organize the full trip before further provider integrations | Flight research prepares a tentative manual draft; sourced stay and dining selections have explicit durable links to reviewed tentative itinerary items. General flight/manual reconciliation remains future work |
 | Apple Calendar export | One-off .ics snapshots of individual, all or selected saved itinerary items; one combined all/selection dialog | Deployed on 15 October; hosted demo and public boundary checks passed. Saved-trip/native iPhone/iPad acceptance remains pending. Two-minute file tickets recheck source access; no Apple account integration or subscription feed |
 | Collaboration | Organizer owns shared itinerary decisions; signed-in editors can edit permitted fields, signed-in members can use discussion according to role, and anonymous links are read-only | Viewer/editor invitations, revocable anonymous links and comments are implemented; proposals, approval and full hosted real-friend editor/comment acceptance remain separate goals. Invitation management uses direct web sessions |
 | Expansion | Manual/sourced accommodation and dining comparison can proceed independently of advanced collaboration | Live supplier integrations require their own evidence, data-rights and provider-access gates; standalone diagnostics do not constitute hosted integrations. Voting and proposals remain deferred |

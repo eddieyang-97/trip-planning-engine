@@ -10,7 +10,7 @@ The existing Blueprint-managed Free Render web service and Supabase remain the o
 4. Verify the applied platform shutdown window. The current Free service rejects `maxShutdownDelaySeconds`; do not configure it or assume a 180-second drain. The default 30-second window can interrupt a multi-request live run. Use the existing interruptible worker strategy and recovery rules below; do not assume platform shutdown prevents uncertain supplier outcomes. No plan upgrade is needed.
 5. Run public and permitted authenticated smoke checks. Use the existing authorized MCP connection for a read; do not create a grant or trip solely for public readiness. The interactive `acceptance-hosted.ts` default establishes OAuth/client authorization and must use an authorized account; `--live` is not a deployment smoke check.
 
-Independent ChatGPT/Claude feature acceptance stays in F3; it is not a reason to keep a safely tested build undeployed. Existing bounded F1/F2 live evidence can be reused. This procedure authorizes no supplier call, booking, payment or real-trip mutation.
+Independent ChatGPT/Claude acceptance belongs to the relevant current feature Issue; flight F3 [#6](https://github.com/eddieyang-97/trip-planning-engine/issues/6) and client-schema [#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) are closed with bounded evidence, not open release gates. Existing F1/F2 live evidence is reusable only for its recorded scope. This procedure authorizes no supplier call, booking, payment or real-trip mutation.
 
 ## CI-gated deployment and verification
 
@@ -52,7 +52,7 @@ The job uses no production secrets, authentication, browser account, trip data, 
 
 The Supabase connector points at the **live** project. Use it primarily to inspect read-only metadata, effective schema, RLS/grants, limited aggregated logs and advisors. A connection alone does not authorize SQL writes/DDL, migration application, Auth changes, branch/project creation or inspection of private trip/traveler records. Obtain separate approval and disclose potential branch costs before such actions; never install production credentials into GitHub smoke jobs.
 
-Application schema authority is `migrations/` plus `src/database.ts` / `app_schema_migrations`. Do **not** assume Supabase's separate migration list contains the app's 001–012 SQL versions or reapply migrations through both channels. Keep code/schema edits in reviewed PRs, pass disposable PostgreSQL checks, and deploy through the existing guarded release flow. After approved schema changes, recheck effective RLS/grants and Supabase security/performance advisors without exposing private rows. See [agent instructions](../AGENTS.md#connected-production-service-tools) and the [database schema reference](database.md).
+Application schema authority is `migrations/` plus `src/database.ts` / `app_schema_migrations`. Do **not** assume Supabase's separate migration list contains the app's 001–014 SQL versions or reapply migrations through both channels. Keep code/schema edits in reviewed PRs, pass disposable PostgreSQL checks, and deploy through the existing guarded release flow. After approved schema changes, recheck effective RLS/grants and Supabase security/performance advisors without exposing private rows. See [agent instructions](../AGENTS.md#connected-production-service-tools) and the [database schema reference](database.md).
 
 ## Pause, drain and recover
 

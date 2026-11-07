@@ -24,7 +24,9 @@ The selected marker gains an outline and its corresponding list card highlights.
 Missing pins remain in the list. An actionable missing-location count filters the
 list to those items; the existing map stays visible for context. Owners/editors
 have Add map location; viewers have no edit action. There are no guessed
-coordinates, route lines, driving durations or live navigation.
+coordinates, route lines, driving durations or live navigation. On phones, switching
+into **Map** scrolls its canvas or empty state below the sticky trip navigation;
+this is implemented and Chromium-tested in [PR #67](https://github.com/eddieyang-97/trip-planning-engine/pull/67), not independent device or hosted acceptance.
 
 ## Saved-pin verification and presentation
 
@@ -32,7 +34,7 @@ The previously deployed backend preserves pins when an older MCP client omits `m
 
 Public website branding is **Trip Planner**, with the headline **Plan, organize and share your trips.** Repository, package and deployment identifiers remain unchanged.
 
-Overview, Details and Map share category meanings: accommodation indigo `#6366F1`, restaurants/bars amber `#F59E0B`, activities green `#16A34A`, and flights/transfers blue `#0284C7`. Notes are neutral slate. Icons, labels and category filter chips provide non-colour cues. The 16 October map simplification removes itinerary numbers and multi-icon pills: a single category icon represents a location, and a neutral place icon represents mixed categories at the same location. Nearby locations cluster into count circles as the map zooms out. Selected pins gain an outline; the corresponding list card highlights. Every activity remains individually accessible through the selected-location card and place list. See the [map guide](itinerary-map.md) for the current interaction.
+Overview, Details and Map share category meanings: accommodation indigo `#6366F1`, dining amber `#F59E0B`, activity green `#16A34A`, transport blue `#0284C7`, and notes slate. Icons, labels and chips supply non-colour cues; mixed-category pins use a neutral symbol. Individual activities remain accessible through the selection card and place list.
 
 Booking remains a separate labelled checkmark: **Booked · reported by you/owner**. Neither colour nor a checkmark implies supplier verification or a new reservation.
 

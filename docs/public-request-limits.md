@@ -1,7 +1,6 @@
 # Public request limits — issue 51
 
-Prepared locally on 2 November 2026. No deployment or hosted proxy validation is
-recorded for this change.
+Implemented in source and merged into `main` via [PR #66](https://github.com/eddieyang-97/trip-planning-engine/pull/66) on 2 November 2026, with latest-head CI passing. Exact-SHA deployment and hosted proxy/caller-isolation validation were not independently confirmed for this change.
 
 Shared reads and calendar preparation use separate process-local fixed windows
 of one minute. Each request must pass the existing Origin check, then per-caller
@@ -38,7 +37,7 @@ nonzero CIDRs, rejecting wildcard trust, hop counts and named subnet shortcuts.
 Express walks the socket peer and forwarded chain from right to left to the first
 untrusted address; arbitrary leftmost header values are not trusted.
 
-Before deploying behind Render or any other ingress, verify its actual socket
+Before enabling client-IP proxy trust behind Render or any other ingress, verify its actual socket
 peers, routing paths and handling of client-supplied forwarded headers. The proxy
 must overwrite or append the actual client address, and only those controlled
 proxy ranges should be trusted. No Render ranges are guessed or automatically
