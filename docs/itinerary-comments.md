@@ -58,63 +58,25 @@ open. It does not add realtime infrastructure. Network retries keep their
 idempotency key and failed writes retain the draft. Trip changes close stale
 discussion views; permission failures clear loaded discussion.
 
-## Validation
+<a id="validation"></a>
+<a id="release-status--15-october-2026"></a>
+## Verification boundaries and historical release
 
-The isolated release suite passes 83 tests locally, with three pooled PostgreSQL
-checks reserved for CI. New coverage includes membership boundaries, moderation,
-revoked retries, cross-trip items/cursors, removed threads, timestamp-precise
-pagination, content/rate limits, anonymous projections and the official MCP
-client workflow. The pooled sharing test also exercises a comment write waiting
-behind revocation on another connection.
+Isolated backend/PostgreSQL and browser regressions cover roles, author privacy,
+revoked retries, cross-trip access, pagination, limits, plain-text rendering
+and editor/viewer behavior. These fixtures do **not** establish a real-account
+hosted comment exchange or moderator/revocation acceptance.
 
-Browser checks on fictional data cover posting, literal HTML display, item
-threads, viewer read-only controls and a 390px phone viewport without horizontal
-overflow. Hosted acceptance and deployment results are recorded after release.
+The initial 15 October comments-only rollout (`c608f0f`) recorded a served
+JavaScript SHA-256 of `d89781335c48623c2ba3bb33a587f2cce9abccfe27910c3201e491e5f9c4c94a`
+and checked guarded unauthenticated routes. Its Render backend SHA and a
+signed-in hosted comment exchange were not independently verified.
+The later combined [calendar/comments hosted release](release-calendar-comments-2026-10-15.md)
+and [original comments CI](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712376361)
+retain dated evidence. Their then-pending client tool refresh and test-editor
+revocation are **historical action items**, not proof of today's client/tool state;
+verify any outstanding fictional-test membership before considering it resolved.
 
-On 15 October 2026, two hosted accounts verified editor invitation acceptance,
-adding, editing, reordering and removing an item on the named fictional sharing
-test trip. The organizer read back the editor's changes. No real itinerary was
-modified. The temporary editor membership is retained only until the discussion
-acceptance run, then revoked.
-
-Proposals, approval workflows, voting, notifications and live collaborative
-presence remain future work; this does not mark the full collaboration roadmap
-complete.
-
-## Release status — 15 October 2026
-
-Implementation commits: `a5d284e` and final UI fix `c608f0f`.
-[Final CI run](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712376361)
-passed all 86 tests with zero skipped, including pooled PostgreSQL checks.
-
-The user started the Render deployment from their phone after Chrome
-became unavailable. The comments build is now serving on the existing hosted
-app. Public verification on 15 October 2026 confirmed:
-
-- `/health` returned 200 with `status: ok`.
-- Itinerary HTML includes the discussion dialog and composer.
-- The hosted JavaScript exactly matches the tested `c608f0f` release bundle
-  (SHA-256 `d89781335c48623c2ba3bb33a587f2cce9abccfe27910c3201e491e5f9c4c94a`).
-- The browser demo renders successfully and hides discussion as intended.
-- An unauthenticated discussion read returned 401; an invalid anonymous request
-  with a tool-dispatch field returned 400.
-- The existing connected MCP account successfully read the fictional itinerary:
-  owner access, revision 6, one remaining original test item. This was read-only.
-
-Render dashboard status and the exact deployed backend commit were not
-independently inspected because the available in-app browser is signed out of
-Render. The tested code checks migration 009 before startup; healthy startup
-with this release is consistent with its migration completing.
-
-**Still pending:** hosted organizer/editor comment exchange, moderation and
-revocation on **Sharing test — fictional itinerary**. The temporary editor
-membership must be revoked after that run. Posting was not verified through a
-signed-in browser in this deployment check. The connector's current discovery
-still lists the previous 23 tools, so the three new MCP comment tools require a
-metadata refresh before use through that connection. Do not change real
-itinerary data or grant new access to a real trip for acceptance.
-
-The separate calendar-export work was excluded from the deployed `c608f0f`
-release. That work subsequently merged into GitHub main (`abe6ba3`); the
-verified hosted bundle still matches the comments release. No new services,
-paid plans or provider searches were used for these deployment checks.
+Proposals, organizer approval workflows, voting, notifications and live
+collaborative presence remain future work. This discussion feature does not
+mark the broader collaboration roadmap complete.

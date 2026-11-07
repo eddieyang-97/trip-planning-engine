@@ -26,7 +26,7 @@ New users choose email/password signup or email verification followed by explici
 
 ## Research flights through an assistant
 
-The current search entry point is MCP. The web app can read saved research and prepare itinerary drafts, but direct web search/comparison/outcome controls remain further delivery work. Bounded generalized live MCP search now supports up to six origin airports in criteria, with at most three supplier requests per run: return searches expand at most two departure results, and one-way searches cover at most three origins. The recorded LHR/LGW/LTN → GVA return search produced ten observations with partial coverage, not guaranteed fares. ChatGPT's actual one-way input schema and Claude remain separate acceptance gaps ([#21](https://github.com/eddieyang-97/trip-planning-engine/issues/21)).
+Live **flight search** is initiated through authorized MCP; the web app displays saved flight results but does not run live supplier flight searches. In contrast, web **stay and dining** screens already support manual/sourced comparisons, selections and reviewed tentative itinerary links. Bounded generalized live MCP search now supports up to six origin airports in criteria, with at most three supplier requests per run: return searches expand at most two departure results, and one-way searches cover at most three origins. The recorded LHR/LGW/LTN → GVA return search produced ten observations with partial coverage, not guaranteed fares. [Issue #21](https://github.com/eddieyang-97/trip-planning-engine/issues/21) is closed after bounded ChatGPT one-way-schema and independent Claude read-only checks; these do not prove a complete hosted new-search journey or Claude write access.
 
 ```mermaid
 flowchart TB

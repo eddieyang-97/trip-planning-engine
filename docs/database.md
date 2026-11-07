@@ -1,6 +1,6 @@
 # Database ER diagrams
 
-Updated 23 October 2026. The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–012 extension index below** for subsequent role, anonymous-link, comments, profile and lifecycle changes, and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
+Updated 23 October 2026. The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–014 extension index below** for later changes, including research archive and stay/dining comparison, and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
 
 Entity names match SQL table names, shown in uppercase for readability. Attributes are selected fields, not complete DDL. `PK` marks a primary-key component; `FK` marks a foreign-key component. Solid lines identify a child through its parent key; dashed lines are non-identifying relationships. Both represent enforced foreign keys here; dashed does **not** mean planned. A circle allows zero, a bar means one, and a crow's foot means many. See [Mermaid's notation reference](https://mermaid.js.org/syntax/entityRelationshipDiagram.html).
 
@@ -125,7 +125,7 @@ erDiagram
 
 The trip revision serializes plan changes; item ordering and optional local dates/times live in the current plan. Removal hides an item while preserving its row and history. `actor_id` records the authenticated account; it is not a foreign key to a local users table.
 
-There is **no persistent foreign key from an itinerary item to a research observation or selection** in this release. The web page reads research from the trip's decisions and can prepare a tentative manual snapshot. A source URL or copied note is not a durable research link, and subsequent searches do not update the manual item automatically.
+The **001–006 baseline diagram** has no persistent item-to-research relationship. Current migrations add `stay_itinerary_links` (013) and `dining_itinerary_links` (014), pinning exact selection, observation and item identities for **explicitly reviewed** sourced stays and meals. Generic flight and other manual drafts remain independent: a copied URL or note is not a durable research link, and later research does not silently update saved items. See [accommodation comparison](accommodation-comparison.md) and [dining comparison](dining-comparison.md).
 
 ## Assistant grants and private policy references
 
@@ -233,7 +233,8 @@ erDiagram
 
 Update the relevant ER diagram when an applied migration changes relationships. Keep local/proposed extensions labelled until deployment and acceptance evidence are recorded.
 
-## Changes since the 001–006 ER baseline (007–012)
+<a id="changes-since-the-001006-er-baseline-007012"></a>
+## Changes since the 001–006 ER baseline (007–014)
 
 The diagrams above intentionally preserve the relationships visible in the 14 October baseline. Consult the SQL migrations for the authoritative current schema; these extensions are recorded here to avoid mistaking the old viewer-only diagram for the present model.
 
