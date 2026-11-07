@@ -233,6 +233,7 @@ erDiagram
 
 Update the relevant ER diagram when an applied migration changes relationships. Keep local/proposed extensions labelled until deployment and acceptance evidence are recorded.
 
+<a id="changes-since-the-001006-er-baseline-007012"></a>
 ## Changes since the 001–006 ER baseline (007–014)
 
 The diagrams above intentionally preserve the relationships visible in the 14 October baseline. Consult the SQL migrations for the authoritative current schema; these extensions are recorded here to avoid mistaking the old viewer-only diagram for the present model.
