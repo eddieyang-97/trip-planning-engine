@@ -67,9 +67,10 @@ revoked retries, cross-trip access, pagination, limits, plain-text rendering
 and editor/viewer behavior. These fixtures do **not** establish a real-account
 hosted comment exchange or moderator/revocation acceptance.
 
-The initial 15 October comments deployment had a separately verified public
-frontend and guarded unauthenticated routes, but its original checks did not
-independently verify a signed-in hosted comment exchange or Render backend SHA.
+The initial 15 October comments-only rollout (`c608f0f`) recorded a served
+JavaScript SHA-256 of `d89781335c48623c2ba3bb33a587f2cce9abccfe27910c3201e491e5f9c4c94a`
+and checked guarded unauthenticated routes. Its Render backend SHA and a
+signed-in hosted comment exchange were not independently verified.
 The later combined [calendar/comments hosted release](release-calendar-comments-2026-10-15.md)
 and [original comments CI](https://github.com/eddieyang-97/trip-planning-engine/actions/runs/38712376361)
 retain dated evidence. Their then-pending client tool refresh and test-editor
