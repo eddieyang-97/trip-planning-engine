@@ -1,6 +1,6 @@
 # Current delivery and acceptance
 
-This is the **current-state summary**, not a chronological implementation log. Requirements and priorities live in [the PRD](prd.md) and [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues); current contracts live in [architecture](architecture.md), [domain semantics](data-semantics-review.md) and [feature guides](README.md). PRs/Issues record implementation iterations, exact CI results and superseded rollout gates.
+This is the **current-state summary**, not a chronological implementation log. Requirements live in the [PRD](prd.md); current priorities, unresolved work and acceptance actions live in [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues); current contracts live in [architecture](architecture.md), [domain semantics](data-semantics-review.md) and [feature guides](README.md). PRs/Issues record implementation iterations, exact CI results and superseded rollout gates.
 
 **Evidence language:** *coded* means present in source; *CI-tested* means tested in that environment; *deployed* means exact hosted release confirmed; *hosted verified* means a named real endpoint/account/client action was observed; *owner-reported* means reported by a user, not independently reproduced. None alone establishes a full production journey, supplier coverage or verified booking.
 
@@ -67,4 +67,4 @@ Record acceptance findings in the relevant Issue and implementation/test history
 
 ## Issue 51 public limits and lifecycle reconciliation
 
-Prepared in [PR #66](https://github.com/eddieyang-97/trip-planning-engine/pull/66): bounded caller limits and explicit proxy trust, plus same-tab lifecycle revision reconciliation. Hosted caller isolation requires verified ingress configuration; deployment and hosted acceptance remain pending. See [public request limits](public-request-limits.md).
+**Implemented on `main`, CI-tested:** [PR #66](https://github.com/eddieyang-97/trip-planning-engine/pull/66) merged 2 November 2026 with bounded caller limits, explicit proxy trust and same-tab lifecycle revision reconciliation. Exact-SHA deployment and hosted caller isolation have not been independently verified for this change; client-IP separation requires checked ingress/forwarded-header behavior, not just a green test. See [public request limits](public-request-limits.md) and [Issue #51](https://github.com/eddieyang-97/trip-planning-engine/issues/51).
