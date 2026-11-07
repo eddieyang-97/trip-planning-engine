@@ -58,6 +58,8 @@ open. It does not add realtime infrastructure. Network retries keep their
 idempotency key and failed writes retain the draft. Trip changes close stale
 discussion views; permission failures clear loaded discussion.
 
+<a id="validation"></a>
+<a id="release-status--15-october-2026"></a>
 ## Verification boundaries and historical release
 
 Isolated backend/PostgreSQL and browser regressions cover roles, author privacy,
