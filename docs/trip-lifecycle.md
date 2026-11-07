@@ -98,6 +98,10 @@ rollback cannot restore data removed by a confirmed delete. Restoring an older
 database backup could resurrect records; backup recovery requires a reviewed
 deletion-tombstone reconciliation before reopening access, and is not automated.
 
+<a id="verification"></a>
+<a id="local-browser-and-transport-acceptance"></a>
+<a id="release-ci--16-october-2026"></a>
+<a id="hosted-release--16-october-2026"></a>
 ## Verification and historical migration evidence
 
 The isolated backend, PostgreSQL and browser tests cover archive/restore,
