@@ -4,7 +4,7 @@ export function configureTripLifecycle(mutate:Mutate,changed:(action:string,id:s
   const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
   const dialog=$<HTMLDialogElement>('lifecycle-dialog'),form=$<HTMLFormElement>('lifecycle-form'),name=$<HTMLInputElement>('lifecycle-name'),submit=$<HTMLButtonElement>('lifecycle-confirm');
   let context:Context|null=null,review:any=null,generation=0,busy=false;
-  function clear(){generation++;review=null;dialog.close();$<HTMLDetailsElement>('trip-actions').open=false;form.reset();for(const id of ['lifecycle-title','lifecycle-trip','lifecycle-effects','lifecycle-counts','lifecycle-error'])$(id).textContent='';}
+  function clear(){generation++;review=null;dialog.close();if(!matchMedia('(max-width:700px)').matches)$<HTMLDetailsElement>('trip-actions').open=false;form.reset();for(const id of ['lifecycle-title','lifecycle-trip','lifecycle-effects','lifecycle-counts','lifecycle-error'])$(id).textContent='';}
   function controls(){submit.disabled=busy||!review||(review.action==='delete'&&name.value!==review.trip.name);for(const id of ['archive-trip','restore-trip','delete-trip','leave-trip'])$<HTMLButtonElement>(id).disabled=busy;}
   async function archive(restore:boolean){if(!context||busy)return;const current=context,stamp=generation;busy=true;controls();
     try{await mutate(restore?'restore_trip':'archive_trip',{tripId:current.id,expectedRevision:current.revision});if(stamp!==generation)return;await changed(restore?'restore':'archive',current.id);message(restore?'Trip restored.':'Trip archived. Find it under Archived; sharing stays active.');}

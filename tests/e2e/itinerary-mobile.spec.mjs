@@ -100,6 +100,7 @@ test('phone itinerary first: long title, populated research, compact members and
   await page.setViewportSize({width:1280,height:900});
   await expect(page.locator('#trip-switcher')).toHaveAttribute('open','');
   await expect(page.locator('#refresh')).toBeVisible();
+  await expect(page.locator('#trip-actions > summary')).toBeVisible();
   await expect(page.locator('#research-panel')).toHaveAttribute('open','');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:testInfo.outputPath('itinerary-desktop.png'),fullPage:true});
@@ -107,7 +108,7 @@ test('phone itinerary first: long title, populated research, compact members and
   expect(errors).toEqual([]);
 });
 
-test('research stays discoverable on a first trip and opens directly from comparison links',async({page,app})=>{
+test('research stays discoverable on a first trip and opens directly from comparison links',async({page,app},testInfo)=>{
   const data=await seedResearchTrip(app);
   for(const [parameter,id,root] of [['stay',data.stays.decisionId,'stay-research'],['dining',data.dining.decisionId,'dining-research']]){
     await openTrip(page,app,data.tripId,app.ownerToken,`&${parameter}=${id}`);
@@ -128,13 +129,16 @@ test('research stays discoverable on a first trip and opens directly from compar
   await expect(page.locator('#research-summary')).toHaveText('Add options');
   await expect(page.locator('#stay-research')).toBeHidden();await expect(page.locator('#dining-research')).toBeHidden();
   await expect(page.locator('#research-panel')).toBeHidden();
-  await openDisclosure(page,'plan-more');await openDisclosure(page,'trip-actions');
+  await openDisclosure(page,'plan-more');
+  await expect(page.locator('#trip-actions > summary')).toBeHidden();
+  await expect(page.locator('#archive-trip')).toBeVisible();await expect(page.locator('#delete-trip')).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath('phone-more-menu.png')});
   await expect(page.locator('#toggle-research')).toHaveText('Show research');
   await page.locator('#toggle-research').click();await expect(page.locator('#research-panel')).toBeVisible();
-  await openDisclosure(page,'plan-more');await openDisclosure(page,'trip-actions');
+  await openDisclosure(page,'plan-more');
   await expect(page.locator('#toggle-research')).toHaveText('Hide research');
   await page.locator('#toggle-research').click();await expect(page.locator('#research-panel')).toBeHidden();
-  await openDisclosure(page,'plan-more');await openDisclosure(page,'trip-actions');await page.locator('#toggle-research').click();
+  await openDisclosure(page,'plan-more');await page.locator('#toggle-research').click();
   await openDisclosure(page,'add-research');
   await page.locator('#add-stay-research').click();await expect(page.locator('#stay-decision-dialog')).toBeVisible();
   await page.goto(`${app.origin}/itinerary?demo=1`);
@@ -197,7 +201,7 @@ test('compact shared itineraries retain viewer/editor/anonymous permissions',asy
   await expect(page.locator('#plan-empty')).toHaveText('Add your first item to start building the shared plan.');
   // Only the explicit fixture removal changes history, never responsive layout.
   expect((await snapshot(app)).history).toHaveLength(before.history.length+1);
-  await openDisclosure(page,'plan-more');await openDisclosure(page,'trip-actions');
+  await openDisclosure(page,'plan-more');
   await expect(page.locator('#leave-trip')).toBeVisible();await expect(page.locator('#delete-trip')).toBeHidden();
   const link=await call('create_itinerary_view_link',{tripId:app.tripId,label:'Fictional mobile view link'});
   await page.goto(`${app.origin}/itinerary#view=${link.token}`);
