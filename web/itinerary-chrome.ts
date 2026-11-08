@@ -1,7 +1,7 @@
 // Keep phone navigation compact while retaining the same controls on desktop.
 export function configureItineraryChrome(){
   const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
-  const phone=matchMedia('(max-width:700px)'),switcher=$<HTMLDetailsElement>('trip-switcher'),more=$<HTMLDetailsElement>('plan-more'),research=$<HTMLDetailsElement>('research-panel');
+  const phone=matchMedia('(max-width:700px)'),switcher=$<HTMLDetailsElement>('trip-switcher'),more=$<HTMLDetailsElement>('plan-more'),research=$<HTMLDetailsElement>('research-panel'),tripActions=$<HTMLDetailsElement>('trip-actions');
   let tripId:string|null=null, allowed=false, activeFlights=false, override:boolean|null=null;
   const toggle=$('toggle-research');
   function visibility(){
@@ -11,7 +11,7 @@ export function configureItineraryChrome(){
   }
   toggle.addEventListener('click',()=>{override=research.hidden===true;visibility();if(!research.hidden){research.open=true;research.querySelector<HTMLElement>('summary')!.focus();}});
   function researchDefault(){const url=new URL(location.href);return !phone.matches||url.searchParams.get('trip')===tripId&&(url.searchParams.has('stay')||url.searchParams.has('dining'));}
-  function defaults(){switcher.open=!phone.matches;more.open=!phone.matches;research.open=researchDefault();}
+  function defaults(){switcher.open=!phone.matches;more.open=!phone.matches;tripActions.open=phone.matches;research.open=researchDefault();}
   defaults();phone.addEventListener('change',defaults);
   $('trip-list').addEventListener('click',event=>{if(phone.matches&&(event.target as HTMLElement).closest('button'))switcher.open=false;});
   more.addEventListener('click',event=>{
