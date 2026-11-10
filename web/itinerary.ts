@@ -19,15 +19,18 @@ import {configureDiningComparison} from './dining-comparison.js';
 import {configureStayComparison} from './stay-comparison.js';
 import {isTemporaryReadError,readItineraryResponse,temporaryReadError} from './itinerary-read-response.js';
 import {configureItineraryChrome} from './itinerary-chrome.js';
+import {configureTravelers} from './itinerary-travelers.js';
+import type {Traveler} from '../src/itinerary-travelers.js';
 
 type Row={id:string;payload:ItineraryItem;position:number;sourceLink?:{decisionId:string;webPath:string}};
 type Trip={id:string;owner_id?:string;role?:'owner'|'viewer'|'editor';archived_at?:string|null;lifecycle_revision?:number;payload:{name:string;destination:string;startDate:string;endDate:string;adults:number}};
-type Plan={trip:Trip;role?:'owner'|'viewer'|'editor';revision:number;items:Row[];history:any[];research?:ItineraryResearch};
+type Plan={trip:Trip;role?:'owner'|'viewer'|'editor';revision:number;items:Row[];history:any[];research?:ItineraryResearch;travelers?:Traveler[]};
 const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 const timezonePickers=configureTimezonePickers($<HTMLFormElement>('item-form'));
 const chrome=configureItineraryChrome();
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
+let itemEditRevision=0;
 let pending:{signature:string;key:string}|null=null;
 let loading=false,listing=false;
 let anonymousToken:string|null=null,anonymousView=false;
@@ -234,6 +237,10 @@ function allDates(){
   return [...dates].sort();
 }
 const discussion=configureDiscussion({context:()=>plan?{tripId:plan.trip.id,allowed:!anonymousView&&!demo}:null,api});
+const travelers=configureTravelers(async({tripId,revision},change)=>{
+  await mutate('manage_trip_traveler',{tripId,expectedRevision:revision,change});
+  if(plan?.trip.id===tripId)await loadPlan(tripId);
+},renderSchedule);
 const members=configureMembers($('trip-members'),api);
 const diningComparison=configureDiningComparison($('dining-research'),{api,mutate,reload:loadPlan,message});
 const stayComparison=configureStayComparison($('stay-research'),{api,mutate,reload:loadPlan,message});
@@ -278,8 +285,9 @@ function render(){
   $('empty-trip-title').textContent=tripStatus==='archived'?'No archived trips':'Where are you heading?';
   $('empty-trip-copy').textContent=tripStatus==='archived'?'Choose Active to return to your current plans. Archived trips keep their content and shared access.':'Create a trip, then add the pieces as you decide. Unknown details can wait.';
   $('first-trip').hidden=tripStatus==='archived';
+  travelers.update(plan&&!demo&&!anonymousView?{tripId:plan.trip.id,revision:plan.revision,owner:plan.role==='owner',travelers:plan.travelers??[]}:null);
   if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();itineraryMap.reset();return;}
-  const p=plan.trip.payload,booked=plan.items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=plan.items.filter(i=>!i.payload.startDate).length;
+  const p=plan.trip.payload;
   if(!anonymousView&&!demo)void members.load(plan.trip.id);
   const viewer=plan.role==='viewer',editor=plan.role==='editor',shared=viewer||editor;
   $('add-item').hidden=viewer;$('share-trip').hidden=shared||demo;$('history-section').hidden=shared;
@@ -290,7 +298,6 @@ function render(){
   else $('plan-empty').textContent='Add your first item, or open Research to review saved options. Research stays separate until you choose to add it to the plan.';
   $('trip-title').textContent=p.name;$('trip-destination').textContent=p.destination;
   $('trip-meta').replaceChildren(node('span',`${date(p.startDate)} – ${date(p.endDate,{day:'numeric',month:'short',year:'numeric'})}`),node('span',`${p.adults} adults${demo?' · assumed':''}`),node('span',editor?'Shared · can edit':viewer?'Shared · view only':'Your itinerary'));
-  $('progress').replaceChildren(...[[`${plan.items.length}`,'items in the plan'],[`${booked}`,'bookings reported'],[`${unscheduled}`,'without a date']].map(([count,label])=>{const row=node('div','','progress-row');row.append(node('span',label!),node('strong',count!));return row;}));
   renderResearch($('research'),plan.research,item=>{
     const existing=plan!.items.find(row=>row.payload.type==='flight'&&row.payload.startDate===item.startDate
       &&row.payload.startTime===item.startTime&&row.payload.endDate===item.endDate&&row.payload.endTime===item.endTime&&row.payload.location===item.location);
@@ -305,16 +312,31 @@ function render(){
     },error:error=>message(errorText(error)),
   }:undefined);
   $('plan-empty').hidden=plan.items.length>0;
-  const questions=plan.items.filter(i=>i.payload.openQuestion);
+  $('history').replaceChildren(...(plan.history.length?plan.history.map(h=>{
+    const event=h.after_payload??h.before_payload;
+    const title=h.action.startsWith('traveler_')?`Traveler ${h.action.slice(9)}: ${event?.name??'Traveler'}`:`${h.action[0].toUpperCase()+h.action.slice(1)}: ${event?.payload?.title??'Item'}`;
+    const el=node('div',title,'history-event');
+    el.append(node('span',`${h.actor_id===plan!.trip.owner_id?'You':'Collaborator'} · ${new Date(h.created_at).toLocaleString('en-GB')}`));return el;
+  }):[node('p','Your saved changes will appear here.','muted')]));
+  renderSchedule();
+}
+function renderSchedule(){
+  if(!plan)return;
+  const selected=travelers.selected;
+  const items=selected?plan.items.filter(({payload})=>!payload.travelerIds?.length||payload.travelerIds.includes(selected)):plan.items;
+  const p=plan.trip.payload,viewer=plan.role==='viewer',shared=viewer||plan.role==='editor';
+  const booked=items.filter(i=>i.payload.status==='user_reported_booked').length,unscheduled=items.filter(i=>!i.payload.startDate).length;
+  $('traveler-no-items').hidden=!selected||items.length>0||!plan.items.length;
+  $('progress').replaceChildren(...[[`${items.length}`,'items in the plan'],[`${booked}`,'bookings reported'],[`${unscheduled}`,'without a date']].map(([count,label])=>{const row=node('div','','progress-row');row.append(node('span',label!),node('strong',count!));return row;}));
+  const questions=items.filter(i=>i.payload.openQuestion);
   const researchOpen=researchQuestions(plan.research);
   $('questions').replaceChildren(...questions.map(i=>{const q=node('div','','question-mini');q.append(node('strong',i.payload.title),node('span',i.payload.openQuestion));return q;}),
     ...researchOpen.map(text=>node('p',text,'question-mini')),...(questions.length||researchOpen.length?[]:[node('p','No open questions recorded. Add one to any item as you plan.','muted')]));
-  $('history').replaceChildren(...(plan.history.length?plan.history.map(h=>{const el=node('div',`${h.action[0].toUpperCase()+h.action.slice(1)}: ${(h.after_payload??h.before_payload)?.payload?.title??'Item'}`,'history-event');el.append(node('span',`${h.actor_id===plan!.trip.owner_id?'You':'Collaborator'} · ${new Date(h.created_at).toLocaleString('en-GB')}`));return el;}):[node('p','Your saved changes will appear here.','muted')]));
   const dates=allDates();$('timeline').replaceChildren();$('day-nav').replaceChildren();
   if(![...dates,'unscheduled'].includes(activeDay))activeDay=dates[0]??'unscheduled';
   if((Date.parse(p.endDate)-Date.parse(p.startDate))/86400000>=60)$('timeline').append(node('p','Showing the first 60 days and all dates with saved items.','muted'));
   for(const day of [...dates,'unscheduled']){
-    const group=plan.items.filter(i=>day==='unscheduled'?!i.payload.startDate:i.payload.startDate===day).sort((a,b)=>a.position-b.position);
+    const group=items.filter(i=>day==='unscheduled'?!i.payload.startDate:i.payload.startDate===day).sort((a,b)=>a.position-b.position);
     const section=node('section','','day');section.id=`day-${day}`;
     const nav=node('a',day==='unscheduled'?`Ideas${unscheduled?` (${unscheduled})`:''}`:date(day,{weekday:'short',day:'numeric',month:'short'}));nav.dataset.day=day;nav.href=`#${section.id}`;nav.onclick=event=>{event.preventDefault();jumpDay(day);};$('day-nav').append(nav);
     const heading=node('div','','day-heading'),copy=node('div');heading.append(node('span',day==='unscheduled'?'…':day.slice(8),'day-number'));
@@ -325,13 +347,15 @@ function render(){
     for(const [index,row]of group.entries())section.append(card(row,index,group.length));
     $('timeline').append(section);
   }
-  renderOverview($('overview'),plan.items,dates,shared,openDetail,viewer?undefined:{edit:openItem,add:addToDay});
-  itineraryMap.update(plan.items,!viewer);setView(view,false);if(view!=='map')markDay(activeDay);
+  renderOverview($('overview'),items,dates,shared,openDetail,viewer?undefined:{edit:openItem,add:addToDay},row=>travelers.itemLabel(row.payload.travelerIds));
+  itineraryMap.update(items,!viewer);setView(view,false);if(view!=='map')markDay(activeDay);
 }
 function card(row:Row,index:number,count:number){
   const item=row.payload,el=node('details','','item'),top=node('summary','','item-top'),copy=node('div','','item-copy');
   el.dataset.type=item.type;el.id=`item-${row.id}`;const key=`${plan!.trip.id}:${row.id}`;el.open=!collapsed.has(key);el.ontoggle=()=>{if(el.open)collapsed.delete(key);else collapsed.add(key);};
   top.append(node('span',icons[item.type],'item-icon'));copy.append(node('span',`${names[item.type]} · ${item.startTime??'Time to confirm'}`,'item-type'),node('h3',item.title));
+  const assignment=travelers.itemLabel(item.travelerIds);
+  if(assignment)copy.append(node('span',assignment,'traveler-caption'));
   copy.append(node('span',item.status==='tentative'?'Tentative':plan?.role==='viewer'||plan?.role==='editor'?'✓ Booked · reported by owner':'✓ Booked · reported by you',`badge ${item.status==='tentative'?'':'booked'}`));
   top.append(copy,node('span','⌄','item-chevron'));el.append(top);
   const detail=node('div','','item-details');
@@ -348,7 +372,7 @@ function card(row:Row,index:number,count:number){
   if(item.url){const a=node('a','Open useful link ↗');a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';actions.append(a);}
   if(plan?.role!=='viewer'){
   actions.append(button('Edit',()=>openItem(row)),button('Remove',()=>{removing=row;$('remove-title').textContent=item.title;$('remove-error').textContent='';$<HTMLDialogElement>('remove-dialog').showModal();}));
-  for(const direction of ['up','down'] as const){const b=button(direction==='up'?'↑':'↓',()=>void move(row,direction));b.setAttribute('aria-label',`Move ${item.title} ${direction}`);b.disabled=direction==='up'?index===0:index===count-1;actions.append(b);}
+  if(!travelers.selected)for(const direction of ['up','down'] as const){const b=button(direction==='up'?'↑':'↓',()=>void move(row,direction));b.setAttribute('aria-label',`Move ${item.title} ${direction}`);b.disabled=direction==='up'?index===0:index===count-1;actions.append(b);}
   }
   el.append(actions);return el;
 }
@@ -358,9 +382,11 @@ function bookingField(){const editor=plan?.role==='editor',status=$<HTMLSelectEl
   field.disabled=editor;field.required=!editor&&status.value==='user_reported_booked';$('booking-label').hidden=editor||status.value!=='user_reported_booked';}
 function openItem(row:Row|null,draft?:ItineraryItem,day?:string){
   editing=row;pending=null;const form=$<HTMLFormElement>('item-form');form.reset();
+  itemEditRevision=plan!.revision;
   const payload=row?.payload??draft??{...blank,startDate:day&&day!=='unscheduled'?day:null};
   for(const [key,value]of Object.entries(payload)){const field=form.elements.namedItem(key) as HTMLInputElement|null;if(field&&!Array.isArray(value))field.value=value??'';}
   timezonePickers.setValues(payload);
+  travelers.openItem(payload.travelerIds);
   $<HTMLDetailsElement>('item-schedule').open=!!(payload.endDate||payload.endTime||payload.timeZone||payload.endTimeZone);
   $<HTMLDetailsElement>('item-notes').open=!!(payload.notes||payload.url||payload.openQuestion);
   $<HTMLDetailsElement>('item-booking').open=payload.status==='user_reported_booked'||!!payload.bookingNote;
@@ -395,6 +421,8 @@ $<HTMLFormElement>('item-form').onsubmit=event=>{
     timezonePickers.validate();
     const editor=plan?.role==='editor',fields=Object.fromEntries(new FormData(form)),item={...fields} as unknown as ItineraryItem;
     item.mapLocations=mapEditor.values();
+    const assigned=travelers.itemValues();
+    if(assigned!==undefined)item.travelerIds=assigned;
     for(const field of ['startDate','startTime','endDate','endTime','timeZone','endTimeZone','url'] as const)item[field]=String(fields[field]??'').trim()||null;
     if(item.status==='tentative')item.bookingNote='';
     // Server is authoritative. Demo uses these small checks without importing backend dependencies.
@@ -403,7 +431,7 @@ $<HTMLFormElement>('item-form').onsubmit=event=>{
     if(item.url){const url=new URL(item.url);if(url.protocol!=='https:'||url.username||url.password)throw Error('Use an HTTPS link without credentials.');}
     if(demo)demoChange(editing?'edited':'added',editing?.id??crypto.randomUUID(),item);
     else{const operation=editor?(editing?'update_shared_itinerary_item':'add_shared_itinerary_item'):(editing?'update_itinerary_item':'add_itinerary_item');
-      const tripId=plan!.trip.id,result=await mutate(operation,{tripId,expectedRevision:plan!.revision,...(editing?{itemId:editing.id}:{}),item});await loadPlan(tripId);
+      const tripId=plan!.trip.id,result=await mutate(operation,{tripId,expectedRevision:itemEditRevision,...(editing?{itemId:editing.id}:{}),item});await loadPlan(tripId);
       const saved=plan?.items.find(row=>row.id===result.itemId)?.payload.mapLocations??[];
       verifyMapSave(item.mapLocations!,result,saved);}
     $<HTMLDialogElement>('item-dialog').close();message(demo?'Example updated. Reloading restores the demo.':'Saved to your itinerary.');

@@ -1,10 +1,13 @@
+import type {Traveler} from './itinerary-travelers.js';
+
 // Allowlist the shared projection: future private fields must not automatically
 // become visible through either membership or account-free view links.
 const fields=['type','title','startDate','startTime','endDate','endTime','timeZone','endTimeZone','location','mapLocations','url','notes','openQuestion','status'] as const;
-export function sharedItinerary(trip:Record<string,any>,items:Record<string,any>[],role:'viewer'|'editor'='viewer'){
+export function sharedItinerary(trip:Record<string,any>,items:Record<string,any>[],role:'viewer'|'editor'='viewer',travelers?:Traveler[]){
   const {name,destination,startDate,endDate,adults}=trip.payload;
   return {trip:{id:trip.id,archived_at:trip.archived_at??null,lifecycle_revision:trip.lifecycle_revision,payload:{name,destination,startDate,endDate,adults}},role,revision:trip.itinerary_revision,
     items:items.map(row=>({id:row.id,position:row.position,payload:{...Object.fromEntries(fields.map(key=>[key,row.payload[key]])) as Record<typeof fields[number],any>,
-      mapLocations:row.payload.mapLocations?.map(({label,latitude,longitude}:{label:string;latitude:number;longitude:number})=>({label,latitude,longitude})),bookingNote:''}})),
-    history:[],research:{decisions:[],truncatedDecisions:false}};
+      mapLocations:row.payload.mapLocations?.map(({label,latitude,longitude}:{label:string;latitude:number;longitude:number})=>({label,latitude,longitude})),
+      ...(travelers&&row.payload.travelerIds?{travelerIds:row.payload.travelerIds}:{}),bookingNote:''}})),
+    ...(travelers?{travelers}:{}),history:[],research:{decisions:[],truncatedDecisions:false}};
 }
