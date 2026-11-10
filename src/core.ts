@@ -12,6 +12,7 @@ import {dispatchSharing,sharingSchemas} from './itinerary-sharing.js';
 import {dispatchComments,commentSchemas} from './itinerary-comments.js';
 import {dispatchLifecycle,lifecycleSchemas,lockDecisionTrip} from './trip-lifecycle.js';
 import {activeMember} from './itinerary-sharing.js';
+import {dispatchExpense,expenseSchemas} from './trip-expenses.js';
 
 import {decisionLifecycleSchemas,changeDecisionArchive} from './decision-lifecycle.js';
 import {diningSchemas,diningReads} from './dining-domain.js';
@@ -27,6 +28,7 @@ export const schemas = {
   ...decisionLifecycleSchemas,
   ...itinerarySchemas,
   ...webItinerarySchemas,
+  ...expenseSchemas,
   ...sharingSchemas,
   ...commentSchemas,
   ...policySchemas,
@@ -46,7 +48,7 @@ export const schemas = {
   record_booking: z.strictObject({ ...edit, selectionId: uuid, bookedAt: z.iso.datetime({ offset: true }), note: z.string().min(1).max(1000) }),
 };
 export type ToolName = keyof typeof schemas;
-const reads = new Set<ToolName>([...diningReads,...stayReads,'list_decisions','list_itinerary_comments','get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
+const reads = new Set<ToolName>(['get_trip_expenses',...diningReads,...stayReads,'list_decisions','list_itinerary_comments','get_itinerary_invite','list_itinerary_access','get_itinerary','list_policy_notes', 'get_policy_note', 'list_trips', 'get_trip', 'get_decision', 'get_search_run', 'compare_candidates', 'compare_search_runs']);
 export const isRead = (name: ToolName) => reads.has(name);
 function fail(code: string, message: string): never { throw new DomainError(code, message); }
 
@@ -119,12 +121,13 @@ export class Core {
   async call(name: ToolName, input: unknown, actor: Actor): Promise<Record<string, any>> {
     // Existing assistant write grants do not authorize sharing with other accounts.
     // Invitation management stays on the directly authenticated web surface for this MVP.
+    if(Object.hasOwn(expenseSchemas,name))fail('FORBIDDEN_OR_NOT_FOUND','Open trip expenses in the web app with your travel account.');
     if(Object.hasOwn(sharingSchemas,name)||Object.hasOwn(webItinerarySchemas,name))fail('FORBIDDEN_OR_NOT_FOUND','Manage shared itineraries in the web app with your travel account.');
     return this.execute(name,input,actor,true);
   }
   // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
   async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
-    if(!['list_trips','create_trip',...Object.keys(staySchemas),...Object.keys(diningSchemas),...Object.keys(decisionLifecycleSchemas),...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(webItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    if(!['list_trips','create_trip',...Object.keys(staySchemas),...Object.keys(diningSchemas),...Object.keys(decisionLifecycleSchemas),...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(webItinerarySchemas),...Object.keys(expenseSchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
     return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
   }
   private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
@@ -179,6 +182,7 @@ export class Core {
         }
         // Recheck invitation state on retries: a cached acceptance never overrides revocation.
         if(name==='accept_itinerary_invite')return work();
+        if(Object.hasOwn(expenseSchemas,name)&&scopedTrip?.owner_id!==actor.userId)fail('FORBIDDEN_OR_NOT_FOUND','Only the trip owner can manage expenses.');
         if(name==='manage_trip_traveler'&&scopedTrip?.owner_id!==actor.userId)fail('FORBIDDEN_OR_NOT_FOUND','Only the trip owner can manage travelers.');
         if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(webItinerarySchemas,name)||Object.hasOwn(commentSchemas,name))await itineraryAccess(tx,args.tripId,actor.userId,true,!checkGrant);
         return old.response;
@@ -206,6 +210,7 @@ export class Core {
       ...(coverage?.queries?.find((q:any)=>q.attempt===a.attempt)?{query:coverage.queries.find((q:any)=>q.attempt===a.attempt)}:{})})) };
   }
   private async dispatch(tx: Queryable, name: ToolName, a: any, actor: Actor,fromWeb:boolean): Promise<Record<string, any>> {
+    if(Object.hasOwn(expenseSchemas,name))return dispatchExpense(tx,name as keyof typeof expenseSchemas,a,actor.userId);
     if(Object.hasOwn(diningSchemas,name))return dispatchDining(tx,name as keyof typeof diningSchemas,a,actor.userId);
     if(Object.hasOwn(staySchemas,name))return dispatchStay(tx,name as keyof typeof staySchemas,a,actor.userId);
     if(Object.hasOwn(lifecycleSchemas,name))return dispatchLifecycle(tx,name as keyof typeof lifecycleSchemas,a,actor);

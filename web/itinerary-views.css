@@ -179,3 +179,22 @@ dialog.research-capture{overflow:hidden}
 #item-traveler-choices label{display:flex;align-items:center;gap:10px;min-height:42px;margin:0;cursor:pointer}
 #item-traveler-choices input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--green)}
 #item-traveler-choices span{color:var(--ink)}
+
+#expenses-dialog{overflow-wrap:anywhere}
+.expense-actions{display:flex;gap:8px;flex-wrap:wrap}
+#expense-form .expense-actions{position:sticky;bottom:0;background:#fafbf7;box-shadow:0 24px 0 #fafbf7;padding:8px 0;border-top:1px solid var(--line)}
+#expenses-dialog:has(#expense-form:not([hidden])) #expense-add,
+#expenses-dialog:has(#expense-form:not([hidden])) .expense-section{display:none}
+.expense-section,#expense-form{border-top:1px solid var(--line);margin-top:18px;padding-top:16px}
+.expense-split{border:1px solid var(--line);border-radius:8px;margin:0;padding:6px 12px}
+#expense-travelers label{display:flex;align-items:center;gap:9px;min-height:38px;margin:0;cursor:pointer}
+#expense-travelers input{width:19px;height:19px;margin:0;flex:none;accent-color:var(--green)}
+#expense-travelers span{color:var(--ink)}
+#expense-preview{margin:12px 0;font-size:13px}
+#expense-balances{list-style:none;margin:0;padding:0}
+#expense-balances li{border-bottom:1px solid var(--line);padding:8px 0;font-size:13px}
+#expense-balances small{display:block;color:var(--muted);margin-top:3px}
+.expense-entry{display:flex;align-items:flex-start;flex-wrap:wrap;gap:7px;margin:8px 0}
+.expense-entry details{flex:1 0 14em;padding:7px 0}
+#expense-history-list details{margin:10px 0}
+#expenses-dialog summary{cursor:pointer}
