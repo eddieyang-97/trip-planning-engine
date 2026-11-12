@@ -89,6 +89,7 @@ export function configureExpenses(transport:{
     review.replaceChildren();
     needsReview=false;
     if(!editing||!ledger)return;
+    const reviewedLedger=ledger;
     const latest=ledger.expenses.find(expense=>expense.id===editing?.id);
     if(latest?.revision===editing.revision)return;
     needsReview=true;
@@ -97,6 +98,7 @@ export function configureExpenses(transport:{
       return;
     }
     const accept=action('Keep my draft',()=>{
+      if(ledger!==reviewedLedger)return;
       editing=latest;
       renderPeople(payer.value,new Set(included()));
       updatePreview();
@@ -154,6 +156,7 @@ export function configureExpenses(transport:{
     if(!tripId)return;
     const request=++sequence;
     ledger=null;
+    reviewLatest();
     render();
     updateControls();
     refresh.disabled=true;

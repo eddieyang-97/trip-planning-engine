@@ -136,18 +136,38 @@ test('a stale expense draft survives refresh and a changed correction requires r
   await expect(review).toContainText('Drew · £10.00');
   await expect(page.getByLabel('Amount (£)')).toHaveValue('11');
   await expect(save).toBeDisabled();
+  const pageErrors=[];
+  page.on('pageerror',error=>pageErrors.push(error.message));
+  let releaseRefresh;
+  const holdRefresh=new Promise(resolve=>{releaseRefresh=resolve;});
+  await page.route('**/itinerary-api/get_trip_expenses',async route=>{
+    await holdRefresh;
+    await route.continue();
+  },{times:1});
+  try{
+    await refresh.click();
+    await expect(page.locator('#expenses-status')).toHaveText('Loading expenses…');
+    await expect(review.getByRole('button',{name:'Keep my draft'})).toBeHidden();
+    await expect(save).toBeDisabled();
+    await expect(page.getByLabel('Amount (£)')).toHaveValue('11');
+    await app.call('save_trip_expense',{tripId,expenseId:other.expenseId,expectedRevision:3,
+      expense:{...fixture,title:'Updated during refresh',amountMinor:1050}});
+  }finally{releaseRefresh();}
+  await expect(review).toContainText('Updated during refresh · £10.50');
+  await expect(save).toBeDisabled();
   await review.getByRole('button',{name:'Keep my draft'}).click();
   await save.click();
   await expect(page.locator('#expense-list')).toContainText('Expense from another tab · £11.00');
 
   await page.getByRole('button',{name:'Correct Expense from another tab'}).click();
   await page.getByLabel('Amount (£)').fill('12');
-  await app.call('void_trip_expense',{tripId,expenseId:other.expenseId,expectedRevision:4});
+  await app.call('void_trip_expense',{tripId,expenseId:other.expenseId,expectedRevision:5});
   await refresh.click();
   await expect(review).toContainText('This expense was voided');
   await expect(page.getByLabel('Amount (£)')).toHaveValue('12');
   await expect(save).toBeDisabled();
   const ledger=await app.core.callFromWeb('get_trip_expenses',{tripId},app.owner);
-  expect(ledger.revision).toBe(5);
+  expect(ledger.revision).toBe(6);
   expect(ledger.expenses.map(expense=>expense.title)).toEqual(['Dinner draft']);
+  expect(pageErrors).toEqual([]);
 });
