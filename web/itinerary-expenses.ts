@@ -1,6 +1,7 @@
 import {equalShares,parsePounds,type ExpenseShare} from '../src/expense-split.js';
 import type {Expense,ExpenseLedger} from '../src/trip-expenses.js';
 import type {Traveler} from '../src/itinerary-travelers.js';
+import {isTemporaryReadError} from './itinerary-read-response.js';
 
 const gbp=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'});
 const money=(pennies:number)=>gbp.format(pennies/100);
@@ -34,9 +35,19 @@ export function configureExpenses(transport:{
   const history=get<HTMLDetailsElement>('expense-history');
   const status=get('expenses-status');
   const error=get('expenses-error');
+  const review=get('expense-review');
   let tripId:string|null=null,ledger:ExpenseLedger|null=null,editing:Expense|null=null;
-  let sequence=0,saving=false;
+  let sequence=0,saving=false,needsRefresh=false,needsReview=false;
+  let uncertainSave:Record<string,unknown>|null=null;
 
+  function updateControls(){
+    close.disabled=saving;
+    refresh.disabled=saving;
+    submit.disabled=saving||(!uncertainSave&&(!ledger||needsRefresh||needsReview));
+    for(const field of form.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select')){
+      field.disabled=saving||!!uncertainSave;
+    }
+  }
   function reportError(message:string){
     error.textContent=message;
     if(!form.hidden)error.scrollIntoView({block:'nearest'});
@@ -64,11 +75,38 @@ export function configureExpenses(transport:{
   }
   function clearForm(){
     editing=null;
+    needsRefresh=false;
+    needsReview=false;
+    uncertainSave=null;
     form.reset();
     form.hidden=true;
     payer.replaceChildren();
     choices.replaceChildren();
     preview.replaceChildren();
+    review.replaceChildren();
+  }
+  function reviewLatest(){
+    review.replaceChildren();
+    needsReview=false;
+    if(!editing||!ledger)return;
+    const latest=ledger.expenses.find(expense=>expense.id===editing?.id);
+    if(latest?.revision===editing.revision)return;
+    needsReview=true;
+    if(!latest){
+      review.append(element('p','This expense was voided. You can review your draft, then cancel the correction.'));
+      return;
+    }
+    const accept=action('Keep my draft',()=>{
+      editing=latest;
+      renderPeople(payer.value,new Set(included()));
+      updatePreview();
+      reviewLatest();
+      updateControls();
+      status.textContent='Draft kept. Review the form and save when ready.';
+      title.focus();
+    });
+    review.append(element('h4','This expense changed. Review the latest saved version.'),element('p',`${latest.title} · ${money(latest.amountMinor)}`),
+      element('p',`${latest.paidOn} · Paid by ${travelerName(latest.payerId)}`),shareList(latest.shares),accept);
   }
   function render(){
     const roster=ledger?.travelers??[];
@@ -117,6 +155,7 @@ export function configureExpenses(transport:{
     const request=++sequence;
     ledger=null;
     render();
+    updateControls();
     refresh.disabled=true;
     error.textContent='';
     status.textContent='Loading expenses…';
@@ -124,11 +163,23 @@ export function configureExpenses(transport:{
       const result=await transport.read(tripId);
       if(sequence!==request)return;
       ledger=result;
+      needsRefresh=false;
       status.textContent='';
       render();
+      if(!form.hidden&&!uncertainSave){
+        renderPeople(payer.value,new Set(included()));
+        updatePreview();
+        reviewLatest();
+        if(!needsReview)status.textContent='Expenses refreshed. Review your draft before saving.';
+      }else if(uncertainSave){
+        status.textContent='Retry the previous save to check its outcome. Your draft is still here.';
+      }
     }catch(cause){
-      if(sequence===request){status.textContent='';error.textContent=errorText(cause);}
-    }finally{if(sequence===request)refresh.disabled=false;}
+      if(sequence===request){
+        if(cause instanceof Error&&'status' in cause&&(cause.status===403||cause.status===404))clearForm();
+        status.textContent='';reportError(errorText(cause));
+      }
+    }finally{if(sequence===request)updateControls();}
   }
   const included=()=>[...choices.querySelectorAll<HTMLInputElement>('input:checked')].map(input=>input.value);
   function updatePreview(){
@@ -136,50 +187,64 @@ export function configureExpenses(transport:{
     preview.replaceChildren();
     if(pennies!==null&&ids.length)preview.append(element('p','Each traveler’s share'),shareList(equalShares(pennies,ids)));
   }
-  function openForm(expense?:Expense){
-    if(saving||!ledger?.owner)return;
-    clearForm();
-    editing=expense??null;
-    const selected=new Set(expense?.shares.map(share=>share.travelerId)??ledger.travelers.filter(person=>!person.archived).map(person=>person.id));
-    const payers=ledger.travelers.filter(person=>!person.archived||person.id===expense?.payerId);
+  function renderPeople(payerId:string,selected:Set<string>){
+    const payers=ledger!.travelers.filter(person=>!person.archived||person.id===payerId||person.id===editing?.payerId);
     payer.replaceChildren(new Option('Choose a traveler',''),...payers.map(person=>new Option(label(person),person.id)));
-    if(expense){title.value=expense.title;date.value=expense.paidOn;amount.value=(expense.amountMinor/100).toFixed(2);payer.value=expense.payerId;}
-    for(const person of ledger.travelers){
-      if(person.archived&&!selected.has(person.id))continue;
+    payer.value=payerId;
+    choices.replaceChildren();
+    for(const person of ledger!.travelers){
+      if(person.archived&&!selected.has(person.id)&&!editing?.shares.some(share=>share.travelerId===person.id))continue;
       const row=element('label'),input=element('input');
       input.type='checkbox';input.value=person.id;input.checked=selected.has(person.id);
       row.append(input,element('span',label(person)));
       choices.append(row);
     }
+  }
+  function openForm(expense?:Expense){
+    if(saving||!ledger?.owner)return;
+    clearForm();
+    editing=expense??null;
+    const selected=new Set(expense?.shares.map(share=>share.travelerId)??ledger.travelers.filter(person=>!person.archived).map(person=>person.id));
+    renderPeople(expense?.payerId??'',selected);
+    if(expense){title.value=expense.title;date.value=expense.paidOn;amount.value=(expense.amountMinor/100).toFixed(2);}
     get('expense-editor-title').textContent=expense?'Correct expense':'Add expense';
     error.textContent='';
     form.hidden=false;
+    updateControls();
     updatePreview();
     title.focus();
   }
   async function save(name:'save_trip_expense'|'void_trip_expense',payload:Record<string,unknown>){
-    if(!tripId||!ledger||saving)return;
+    if(!tripId||saving)return;
+    if(!uncertainSave&&(!ledger||needsRefresh||needsReview))return;
     const request=sequence;
-    saving=true;close.disabled=true;submit.disabled=true;refresh.disabled=true;
+    const args=uncertainSave??{...payload,tripId,expectedRevision:ledger!.revision};
+    saving=true;
+    updateControls();
     error.textContent='';
     try{
-      await transport.mutate(name,{...payload,tripId,expectedRevision:ledger.revision});
+      await transport.mutate(name,args);
       if(sequence!==request)return;
       clearForm();
       await load();
       if(ledger&&dialog.open)status.textContent=name==='void_trip_expense'?'Expense voided.':'Expense saved.';
-    }catch(cause){if(sequence===request)reportError(errorText(cause));}
-    finally{saving=false;close.disabled=false;submit.disabled=false;refresh.disabled=false;}
+    }catch(cause){
+      if(sequence!==request)return;
+      uncertainSave=name==='save_trip_expense'&&isTemporaryReadError(cause)?args:null;
+      needsRefresh=cause instanceof Error&&'code' in cause&&cause.code==='REVISION_CONFLICT';
+      reportError(errorText(cause));
+    }finally{saving=false;updateControls();}
   }
   launch.onclick=()=>{dialog.showModal();void load();};
   close.onclick=()=>dialog.close();
-  refresh.onclick=()=>{clearForm();void load();};
+  refresh.onclick=()=>{void load();};
   add.onclick=()=>openForm();
   get('expense-cancel').onclick=()=>{if(!saving){clearForm();add.focus();}};
   amount.oninput=updatePreview;
   choices.onchange=updatePreview;
   form.onsubmit=event=>{
     event.preventDefault();
+    if(uncertainSave){void save('save_trip_expense',{});return;}
     const amountMinor=parsePounds(amount.value),travelerIds=included();
     if(amountMinor===null){reportError('Enter a positive amount in pounds with up to two decimal places.');return;}
     if(!travelerIds.length){reportError('Choose at least one traveler for the split.');return;}

@@ -198,3 +198,5 @@ dialog.research-capture{overflow:hidden}
 .expense-entry details{flex:1 0 14em;padding:7px 0}
 #expense-history-list details{margin:10px 0}
 #expenses-dialog summary{cursor:pointer}
+#expense-review:not(:empty){margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff}
+#expense-review h4{margin:0 0 8px}

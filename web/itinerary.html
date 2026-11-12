@@ -48,6 +48,7 @@
   <p id="expenses-error" class="form-error" role="alert"></p>
   <form id="expense-form" hidden aria-labelledby="expense-editor-title">
     <h3 id="expense-editor-title">Add expense</h3>
+    <div id="expense-review" aria-live="polite"></div>
     <label>Description<input id="expense-title" required maxlength="120" placeholder="e.g. Weekend lodge"></label>
     <div class="form-grid"><label>Date paid<input id="expense-date" type="date" required></label><label>Amount (£)<input id="expense-amount" type="text" inputmode="decimal" maxlength="10" required placeholder="0.00"></label></div>
     <label>Paid by<select id="expense-payer" required></select></label>
