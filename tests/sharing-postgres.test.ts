@@ -18,7 +18,7 @@ test('pooled PostgreSQL serializes invitation claims and denies revoked membersh
   try{
     await admin.query(`create schema ${schema}`);
     db=pooledDatabase(new pg.Pool({connectionString:url.href,max:4,options:`-c search_path=${schema}`,statement_timeout:10000}));
-    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql','013_stay_comparison.sql','014_dining_comparison.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
+    for(const file of ['001_initial.sql','003_policy_notes.sql','004_itinerary.sql','005_live_search.sql','006_itinerary_sharing.sql','007_itinerary_editors.sql','008_itinerary_view_links.sql','009_itinerary_comments.sql','010_account_profiles.sql','011_trip_lifecycle.sql','012_decision_archive.sql','013_stay_comparison.sql','014_dining_comparison.sql','015_trip_travelers.sql'])await db.execute(await readFile(new URL(`../migrations/${file}`,import.meta.url),'utf8'));
     const core=new Core(db,false),owner=randomUUID(),a=randomUUID(),b=randomUUID(),key=()=>({idempotencyKey:randomUUID()});
     const trip=(await core.callFromWeb('create_trip',{...flaineTrip,...key()},owner)).tripId;
     const invite=await core.callFromWeb('create_itinerary_invite',{tripId:trip,label:'Concurrent fixture',...key()},owner);
@@ -66,5 +66,18 @@ test('pooled PostgreSQL serializes invitation claims and denies revoked membersh
     assert.equal((await readItineraryViewLink(db,{token:viewLink.token})).trip.id,trip);
     await core.callFromWeb('revoke_itinerary_access',{tripId:trip,inviteId:viewLink.inviteId,...key()},owner);
     await assert.rejects(readItineraryViewLink(db,{token:viewLink.token}),denied,'fresh pooled anonymous read observes committed revocation');
+
+    const traveler=await core.callFromWeb('manage_trip_traveler',{tripId:trip,expectedRevision:1,change:{action:'add',name:'Fixture traveler'},...key()},owner);
+    const competing=await Promise.allSettled([
+      core.callFromWeb('manage_trip_traveler',{tripId:trip,expectedRevision:2,change:{action:'archive',id:traveler.travelerId},...key()},owner),
+      core.callFromWeb('add_itinerary_item',{tripId:trip,expectedRevision:2,item:{...shared,status:'tentative',bookingNote:'',travelerIds:[traveler.travelerId]},...key()},owner),
+    ]);
+    assert.equal(competing.filter(result=>result.status==='fulfilled').length,1);
+    assert.equal(competing.filter(result=>result.status==='rejected'&&result.reason instanceof DomainError&&result.reason.code==='REVISION_CONFLICT').length,1);
+    const savedPlan=await core.callFromWeb('get_itinerary',{tripId:trip},owner);
+    assert.equal(savedPlan.revision,3);
+    assert.equal(savedPlan.history.length,2);
+    assert.equal(savedPlan.items.length,savedPlan.travelers[0].archived?0:1);
+    if(savedPlan.items.length)assert.deepEqual(savedPlan.items[0].payload.travelerIds,[traveler.travelerId]);
   }finally{await db?.close();await admin.query(`drop schema if exists ${schema} cascade`);await admin.end();}
 });

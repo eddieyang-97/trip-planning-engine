@@ -32,6 +32,10 @@ test('fresh bootstrap denies browser roles even with permissive default grants; 
     await db.execute('create role anon; create role authenticated; alter default privileges in schema public grant all on tables to anon,authenticated');
     await migrate(db);await migrate(db);
     await assertProtected(db);
+    for(const role of roles){
+      for(const privilege of privileges)assert.equal((await db.query("select has_table_privilege($1,'trip_travelers',$2) as allowed",[role,privilege])).rows[0]!.allowed,false);
+      await assert.rejects(asRole(db,role,'select * from trip_travelers'),denied);
+    }
     const unprotected=await db.query("select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p') and not c.relrowsecurity");
     assert.deepEqual(unprotected.rows,[],'Bootstrap metadata is part of the application security boundary');
   }finally{await db.close();}

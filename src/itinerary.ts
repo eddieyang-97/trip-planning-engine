@@ -7,6 +7,7 @@ import {activeMember} from './itinerary-sharing.js';
 import {sharedItinerary} from './itinerary-public.js';
 import {listDiningDecisions,diningItemSourceLinks} from './dining.js';
 import {listStayDecisions,stayItemSourceLinks} from './stays.js';
+import {changeTraveler,readTravelers,travelerChange,travelerIds,validateTravelers} from './itinerary-travelers.js';
 
 const localTime=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable();
 const zone=z.string().max(80).refine(value=>{try{new Intl.DateTimeFormat('en',{timeZone:value});return true;}catch{return false;}},'Use a valid time zone').nullable();
@@ -16,6 +17,7 @@ const itemFields={
   startDate:z.iso.date().nullable(),startTime:localTime,endDate:z.iso.date().nullable(),endTime:localTime,
   timeZone:zone,endTimeZone:zone,location:z.string().trim().max(250),url:link,
   mapLocations:z.array(z.strictObject({label:z.string().trim().min(1).max(250),latitude:z.number().finite().min(-85).max(85),longitude:z.number().finite().min(-180).max(180)})).max(2).optional(),
+  travelerIds:travelerIds.optional(),
   notes:z.string().trim().max(4000),openQuestion:z.string().trim().max(1000),
   status:z.enum(['tentative','user_reported_booked']),bookingNote:z.string().trim().max(1000),
 };
@@ -47,9 +49,13 @@ export const itinerarySchemas={
 const {status:_status,bookingNote:_bookingNote,...sharedFields}=itemFields;
 export const sharedItineraryItemSchema=z.strictObject(sharedFields).superRefine(validateSchedule);
 // These narrower writes are web-only. They cannot submit booking status or private notes.
-export const editorItinerarySchemas={
+const editorItinerarySchemas={
   add_shared_itinerary_item:z.strictObject({...edit,item:sharedItineraryItemSchema}),
   update_shared_itinerary_item:z.strictObject({...edit,itemId:uuid,item:sharedItineraryItemSchema}),
+};
+export const webItinerarySchemas={
+  ...editorItinerarySchemas,
+  manage_trip_traveler:z.strictObject({...edit,change:travelerChange}),
 };
 function fail(code:string,message:string):never{throw new DomainError(code,message);}
 export async function itineraryAccess(tx:Queryable,tripId:string,userId:string,write:boolean,fromWeb:boolean){
@@ -60,23 +66,27 @@ export async function itineraryAccess(tx:Queryable,tripId:string,userId:string,w
   if(!role||write&&role!=='owner'&&(!fromWeb||role!=='editor'))fail('FORBIDDEN_OR_NOT_FOUND','Access denied or trip not found');
   return {trip,role};
 }
-export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerarySchemas|keyof typeof editorItinerarySchemas,a:any,userId:string,fromWeb=false) {
+export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerarySchemas|keyof typeof webItinerarySchemas,a:any,userId:string,fromWeb=false) {
   const read=name==='get_itinerary',shared=Object.hasOwn(editorItinerarySchemas,name);
   const {trip,role}=await itineraryAccess(tx,a.tripId,userId,!read,fromWeb),owner=role==='owner';
   if(!read&&!owner&&!shared&&(name==='add_itinerary_item'||name==='update_itinerary_item'))fail('FORBIDDEN_OR_NOT_FOUND','Use the shared itinerary editor. Booking status and private notes belong to the owner.');
+  if(name==='manage_trip_traveler'&&!owner)fail('FORBIDDEN_OR_NOT_FOUND','Only the trip owner can manage travelers.');
   if(read){
     const items=(await tx.query('select * from itinerary_items where trip_id=$1 and removed_at is null order by position,id',[a.tripId])).rows;
-    if(!owner)return sharedItinerary(trip,items,role);
+    const travelers=await readTravelers(tx,a.tripId,owner);
+    if(!owner)return sharedItinerary(trip,items,role,travelers);
     const stayLinks=[...await stayItemSourceLinks(tx,a.tripId),...await diningItemSourceLinks(tx,a.tripId)];
     for(const item of items){const sourceLink=stayLinks.find(link=>link.itemId===item.id);if(sourceLink)item.sourceLink=sourceLink;}
-    return {trip,role,revision:trip.itinerary_revision,items,
+    return {trip,role,revision:trip.itinerary_revision,items,travelers,
       history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows,
       research:await itineraryResearch(tx,a.tripId),stayResearch:await listStayDecisions(tx,a.tripId,userId),diningResearch:await listDiningDecisions(tx,a.tripId,userId)};
   }
   if(a.expectedRevision!==trip.itinerary_revision)fail('REVISION_CONFLICT','The plan changed. Reload it before saving your edit.');
+  if(name==='manage_trip_traveler')return changeTraveler(tx,a.tripId,trip.itinerary_revision+1,userId,a.change);
   let before:any=null,after:any=null,itemId=a.itemId,action='';
   if(name==='add_itinerary_item'||name==='add_shared_itinerary_item') {
     const item=shared?itineraryItemSchema.parse({...a.item,status:'tentative',bookingNote:''}):a.item;
+    await validateTravelers(tx,a.tripId,item.travelerIds??[]);
     const count=(await tx.query('select count(*)::int as n,coalesce(max(position),0)::int as last from itinerary_items where trip_id=$1',[a.tripId])).rows[0]!;
     if(count.n>=500)fail('BUDGET_EXCEEDED','This pilot supports 500 items per trip, including removed items.');
     itemId=randomUUID();after={payload:item,position:count.last+1};action='added';
@@ -88,8 +98,10 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
     if(name==='update_itinerary_item'||name==='update_shared_itinerary_item') {
       const item=shared?itineraryItemSchema.parse({...a.item,status:row.payload.status,bookingNote:row.payload.bookingNote}):a.item;
       // Older assistant clients omit optional fields from their cached tool schema.
-      // Omission must not erase saved pins; an explicit [] still removes them.
+      // Omission preserves pins and assignments; an explicit [] clears them.
       if(!Object.hasOwn(a.item,'mapLocations')&&row.payload.mapLocations)item.mapLocations=row.payload.mapLocations;
+      if(!Object.hasOwn(a.item,'travelerIds')&&row.payload.travelerIds)item.travelerIds=row.payload.travelerIds;
+      await validateTravelers(tx,a.tripId,item.travelerIds??[],row.payload.travelerIds);
       action='edited';after={payload:item,position:row.position};
       await tx.query('update itinerary_items set payload=$2,updated_at=now() where id=$1',[itemId,JSON.stringify(item)]);
     }else if(name==='remove_itinerary_item') {

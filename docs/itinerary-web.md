@@ -30,6 +30,12 @@ Day-level **Add** in Overview and Details prefills only the chosen start date. T
 
 Collapsing a section does not discard its values. **Use start time zone for end** explicitly copies a selected zone once, without changing dates/times or automatically following later start-zone changes. Distinct flight zones remain independent. Editor writes continue to exclude booking status and private notes; new editor items remain tentative, and updating a shared item preserves the owner's booking facts. Viewers and account-free links receive no Add/Edit controls. This [#52 increment](https://github.com/eddieyang-97/trip-planning-engine/issues/52) changes browser interaction only; hosted/device acceptance still needs separate verification.
 
+## Travelers and split plans
+
+Owners add, rename, archive or restore travelers in **Trip options → Manage travelers** (under **More** on phones). Owners and signed-in editors assign itinerary items through **Who is this for?**. Leave every box unchecked for a whole-trip item. Signed-in readers can use **Show itinerary for** to see a traveler's assignments alongside whole-trip items in Overview, Details and Map. The filter is for browsing and resets when switching trips or reloading.
+
+Travelers are separate from login accounts and sharing. Duplicate names are shown with roster positions for disambiguation. Account-free view links keep the itinerary but omit traveler names and assignments. Archiving keeps an existing assignment, hides the name from members and prevents new assignments until restored. This uses migration 015 and the existing itinerary revision and history. See [participant semantics](data-semantics-review.md) and [#8](https://github.com/eddieyang-97/trip-planning-engine/issues/8).
+
 ## Apple Calendar export — current feature guide
 
 The itinerary provides one-item, all-item and selected-subset `.ics` snapshots, using existing trip access and private-field filtering. For the authoritative user flow, schedule/DST rules, temporary download tickets, limitations and dated acceptance evidence, see [Apple Calendar export](calendar-export.md) and the preserved [15 October combined release record](release-calendar-comments-2026-10-15.md). Saved-trip/native-device acceptance is tracked in [delivery status](implementation.md).

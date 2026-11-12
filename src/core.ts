@@ -5,7 +5,7 @@ import { canonical, criteriaSchema, DomainError, evaluate, identity, mutation, o
 import type { Database, Queryable } from './database.js';
 import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
-import { dispatchItinerary, itinerarySchemas,editorItinerarySchemas,itineraryAccess } from './itinerary.js';
+import { dispatchItinerary, itinerarySchemas,webItinerarySchemas,itineraryAccess } from './itinerary.js';
 import {queueLiveSearch} from './live-search.js';
 import {projectLiveCoverage} from './live-coverage.js';
 import {dispatchSharing,sharingSchemas} from './itinerary-sharing.js';
@@ -26,7 +26,7 @@ export const schemas = {
   ...lifecycleSchemas,
   ...decisionLifecycleSchemas,
   ...itinerarySchemas,
-  ...editorItinerarySchemas,
+  ...webItinerarySchemas,
   ...sharingSchemas,
   ...commentSchemas,
   ...policySchemas,
@@ -119,12 +119,12 @@ export class Core {
   async call(name: ToolName, input: unknown, actor: Actor): Promise<Record<string, any>> {
     // Existing assistant write grants do not authorize sharing with other accounts.
     // Invitation management stays on the directly authenticated web surface for this MVP.
-    if(Object.hasOwn(sharingSchemas,name)||Object.hasOwn(editorItinerarySchemas,name))fail('FORBIDDEN_OR_NOT_FOUND','Manage shared itineraries in the web app with your travel account.');
+    if(Object.hasOwn(sharingSchemas,name)||Object.hasOwn(webItinerarySchemas,name))fail('FORBIDDEN_OR_NOT_FOUND','Manage shared itineraries in the web app with your travel account.');
     return this.execute(name,input,actor,true);
   }
   // Server-only entry point after direct-session authentication. Never exposed as an MCP argument.
   async callFromWeb(name:ToolName,input:unknown,verifiedUserId:string):Promise<Record<string,any>> {
-    if(!['list_trips','create_trip',...Object.keys(staySchemas),...Object.keys(diningSchemas),...Object.keys(decisionLifecycleSchemas),...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(editorItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
+    if(!['list_trips','create_trip',...Object.keys(staySchemas),...Object.keys(diningSchemas),...Object.keys(decisionLifecycleSchemas),...Object.keys(lifecycleSchemas),...Object.keys(itinerarySchemas),...Object.keys(webItinerarySchemas),...Object.keys(sharingSchemas),...Object.keys(commentSchemas)].includes(name))fail('FORBIDDEN_OR_NOT_FOUND','Operation unavailable on this web surface');
     return this.execute(name,input,{userId:uuid.parse(verifiedUserId),clientId:'direct-web-session'},false);
   }
   private async execute(name:ToolName,input:unknown,actor:Actor,checkGrant:boolean):Promise<Record<string,any>> {
@@ -179,7 +179,8 @@ export class Core {
         }
         // Recheck invitation state on retries: a cached acceptance never overrides revocation.
         if(name==='accept_itinerary_invite')return work();
-        if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name)||Object.hasOwn(commentSchemas,name))await itineraryAccess(tx,args.tripId,actor.userId,true,!checkGrant);
+        if(name==='manage_trip_traveler'&&scopedTrip?.owner_id!==actor.userId)fail('FORBIDDEN_OR_NOT_FOUND','Only the trip owner can manage travelers.');
+        if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(webItinerarySchemas,name)||Object.hasOwn(commentSchemas,name))await itineraryAccess(tx,args.tripId,actor.userId,true,!checkGrant);
         return old.response;
       }
       const result = await work();
@@ -210,7 +211,7 @@ export class Core {
     if(Object.hasOwn(lifecycleSchemas,name))return dispatchLifecycle(tx,name as keyof typeof lifecycleSchemas,a,actor);
     if(Object.hasOwn(commentSchemas,name))return dispatchComments(tx,name as keyof typeof commentSchemas,a,actor.userId,fromWeb);
     if(Object.hasOwn(sharingSchemas,name))return dispatchSharing(tx,name as keyof typeof sharingSchemas,a,actor.userId);
-    if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(editorItinerarySchemas,name))return dispatchItinerary(tx,name as keyof typeof itinerarySchemas|keyof typeof editorItinerarySchemas,a,actor.userId,fromWeb);
+    if(Object.hasOwn(itinerarySchemas,name)||Object.hasOwn(webItinerarySchemas,name))return dispatchItinerary(tx,name as keyof typeof itinerarySchemas|keyof typeof webItinerarySchemas,a,actor.userId,fromWeb);
     if (Object.hasOwn(policySchemas,name)) return dispatchPolicy(tx,name as keyof typeof policySchemas,a,actor.userId);
     if (name === 'list_trips') return { trips: (await tx.query(`select t.id,t.payload,t.created_at,t.itinerary_revision,t.archived_at,t.lifecycle_revision,
       case when t.owner_id=$1 then 'owner' else (select m.role from itinerary_members m where m.trip_id=t.id and m.user_id=$1 and m.revoked_at is null) end as role from trips t
