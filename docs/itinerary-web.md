@@ -36,6 +36,12 @@ Owners add, rename, archive or restore travelers in **Trip options → Manage tr
 
 Travelers are separate from login accounts and sharing. Duplicate names are shown with roster positions for disambiguation. Account-free view links keep the itinerary but omit traveler names and assignments. Archiving keeps an existing assignment, hides the name from members and prevents new assignments until restored. This uses migration 015 and the existing itinerary revision and history. See [participant semantics](data-semantics-review.md) and [#8](https://github.com/eddieyang-97/trip-planning-engine/issues/8).
 
+## Trip expenses
+
+Open **Expenses** under **More** on a phone. Owners record an expense in pounds, pick the payer and choose who shares the cost. The form previews each share before saving. Equal splits allocate any leftover pennies by stable traveler ID, so the shares always add up to the amount paid. The balance shows what each traveler paid, their share and what they owe or are owed.
+
+Signed-in trip members can see current expenses and balances. Owners can correct or void an entry and review recent changes, including earlier amounts and shares. This uses a separate ledger revision and keeps expenses out of shared links and calendar files. An expense is a report of a payment already made outside the app. See [#72](https://github.com/eddieyang-97/trip-planning-engine/issues/72).
+
 ## Apple Calendar export — current feature guide
 
 The itinerary provides one-item, all-item and selected-subset `.ics` snapshots, using existing trip access and private-field filtering. For the authoritative user flow, schedule/DST rules, temporary download tickets, limitations and dated acceptance evidence, see [Apple Calendar export](calendar-export.md) and the preserved [15 October combined release record](release-calendar-comments-2026-10-15.md). Saved-trip/native-device acceptance is tracked in [delivery status](implementation.md).

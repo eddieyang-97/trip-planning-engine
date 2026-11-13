@@ -39,6 +39,8 @@ jobs:
       - run: npm ci --include=dev
       - run: npm run check
       - run: npm run build
+      # npm test disables V8's Wasm code GC to avoid a native crash during
+      # PGlite fixture teardown on Node 24. See nodejs/node#66366.
       - run: npm test
 
       - name: Install pinned Chromium headless shell
