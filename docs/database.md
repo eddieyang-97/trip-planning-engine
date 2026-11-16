@@ -1,6 +1,6 @@
 # Database ER diagrams
 
-Updated 23 October 2026. The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–014 extension index below** for later changes, including research archive and stay/dining comparison, and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
+The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–016 extension index below** for later changes, including research archive, stay/dining comparison, traveler assignments and the GBP expense journal, and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
 
 Entity names match SQL table names, shown in uppercase for readability. Attributes are selected fields, not complete DDL. `PK` marks a primary-key component; `FK` marks a foreign-key component. Solid lines identify a child through its parent key; dashed lines are non-identifying relationships. Both represent enforced foreign keys here; dashed does **not** mean planned. A circle allows zero, a bar means one, and a crow's foot means many. See [Mermaid's notation reference](https://mermaid.js.org/syntax/entityRelationshipDiagram.html).
 
@@ -234,7 +234,8 @@ erDiagram
 Update the relevant ER diagram when an applied migration changes relationships. Keep local/proposed extensions labelled until deployment and acceptance evidence are recorded.
 
 <a id="changes-since-the-001006-er-baseline-007012"></a>
-## Changes since the 001–006 ER baseline (007–014)
+<a id="changes-since-the-001006-er-baseline-007014"></a>
+## Changes since the 001–006 ER baseline (007–016)
 
 The diagrams above intentionally preserve the relationships visible in the 14 October baseline. Consult the SQL migrations for the authoritative current schema; these extensions are recorded here to avoid mistaking the old viewer-only diagram for the present model.
 
@@ -246,6 +247,10 @@ The diagrams above intentionally preserve the relationships visible in the 14 Oc
 | [010 — profiles](../migrations/010_account_profiles.sql) | Adds `account_profiles`, keyed by external Supabase account UUID, with display name, optional legacy handle, bounded avatar data, revision and timestamp. | [Profile guide](account-profiles.md) documents a 16 October hosted release and recorded schema-version 10 startup; profile names do not grant roles. |
 | [011 — lifecycle](../migrations/011_trip_lifecycle.sql) | Archive actor/time, lifecycle review revision, hashed confirmations, deletion/retry guards and independent quota counters. | [Lifecycle guide](trip-lifecycle.md) records retention, migration and acceptance; schema rollback cannot restore deleted content. |
 | [012 — research archive](../migrations/012_decision_archive.sql) | Nullable archive actor/time on decisions, plus protected archive/restore events keyed by decision/revision. Existing research remains active and untouched. | [Semantics and rollback constraints](data-semantics-review.md#research-archive-issue-24); no quota or booking changes. |
+| [013 — stays](../migrations/013_stay_comparison.sql) | Typed stay decisions and `stay_itinerary_links` pin exact reviewed evidence to an itinerary item. | [Accommodation contract](accommodation-comparison.md); source and recorded hosted evidence are separate. |
+| [014 — dining](../migrations/014_dining_comparison.sql) | Typed dining decisions and `dining_itinerary_links` pin exact reviewed evidence to an itinerary item. | [Dining contract](dining-comparison.md); a link is not a restaurant booking. |
+| [015 — travelers](../migrations/015_trip_travelers.sql) | Trip-scoped stable traveler UUIDs, names, archive timestamps and traveler lifecycle event types. Item assignments are stored in validated itinerary item payloads. | [Traveler UI and privacy](itinerary-web.md#travelers-and-split-plans); source/CI verified, hosted/real-phone acceptance separate. |
+| [016 — expenses](../migrations/016_trip_expenses.sql) | Append-only `trip_expense_events` keyed by (trip, ledger revision), storing payer and exact integer-penny shares in validated JSON detail. | [Expense UI](itinerary-web.md#trip-expenses) and [semantics](data-semantics-review.md); source/CI verified, hosted acceptance separate. |
 
 Application migrations are applied by [`src/database.ts`](../src/database.ts) and versioned in **`app_schema_migrations`**; the Supabase connector's separate migration history is not necessarily the app's applied migration ledger. Inspect read-only schema metadata if drift is suspected; do not reapply production DDL through the connector without a coordinated approved change. The live Supabase project is not a test database.
 
@@ -289,3 +294,27 @@ erDiagram
 ```
 
 See [domain semantics](data-semantics-review.md#sourced-dining-comparison-issue-10-27-october-2026), [migration](../migrations/014_dining_comparison.sql) and [delivery status](implementation.md).
+
+## Traveler roster — migration 015 (source-merged)
+
+[015_trip_travelers.sql](../migrations/015_trip_travelers.sql) adds `trip_travelers`: each row has a stable UUID, owning `trip_id`, mutable display name and nullable `archived_at`. A traveler is *not* a login account or trip member. Names need not be unique; archiving preserves the UUID and existing itinerary assignments. New assignments to archived travelers are rejected unless already present on the item. An omitted or empty `travelerIds` array means a whole-trip itinerary item. These assignment IDs are in the validated item JSON payload rather than a separate SQL join table; do not mistake them for foreign keys. Traveler lifecycle changes are recorded in `itinerary_events` and advance the itinerary revision.
+
+```mermaid
+erDiagram
+    TRIPS ||--o{ TRIP_TRAVELERS : represents
+    TRIPS ||--o{ ITINERARY_ITEMS : schedules
+    TRIPS ||--o{ ITINERARY_EVENTS : audits
+```
+
+The application validates assignment IDs against the trip roster. Signed-in members can see permitted assignments, with archived names redacted; anonymous links omit the roster and assignment IDs. Rows cascade with trip deletion. The table has RLS enabled and direct PUBLIC/anon/authenticated access revoked. See [traveler flow](itinerary-web.md#travelers-and-split-plans) and [PR #71](https://github.com/eddieyang-97/trip-planning-engine/pull/71). Source/CI validation is **not** evidence of hosted schema 015 or real-device acceptance.
+
+## GBP expense journal — migration 016 (source-merged)
+
+[016_trip_expenses.sql](../migrations/016_trip_expenses.sql) adds `trip_expense_events` with a composite primary key `(trip_id, revision)`. Each immutable event records an `expense_id`, actor, `recorded`/`corrected`/`voided` action, GBP currency, positive integer `amount_minor`, validated `detail` JSON (title, paid date, payer ID and exact shares), and timestamp. The current ledger is derived from the newest event per expense, excluding voided entries. The ledger revision is independent of itinerary revisions; it is checked on writes under the trip lock with mutation idempotency. The active expense count is capped in the application.
+
+```mermaid
+erDiagram
+    TRIPS ||--o{ TRIP_EXPENSE_EVENTS : records
+```
+
+Payer and share traveler UUIDs in `detail` are application-validated references to `trip_travelers`, **not SQL foreign keys**. The deterministic algorithm assigns extra pennies in sorted UUID order, preserving the original paid total; a payer need not share the expense. Owners may record, correct, void and inspect recent journal events. Signed-in members see only current expenses and balances; account-free links, exports and MCP tools do not expose this ledger. The table has RLS enabled and direct PUBLIC/anon/authenticated access revoked. Trip deletion cascades to the journal. See [expense flow](itinerary-web.md#trip-expenses), [domain semantics](data-semantics-review.md) and [PR #73](https://github.com/eddieyang-97/trip-planning-engine/pull/73). Source/CI validation is **not** evidence of hosted schema 016 or real-user acceptance.
