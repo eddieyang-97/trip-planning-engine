@@ -46,6 +46,13 @@
   <p id="expense-roster-hint" class="field-hint" hidden>Add travelers under Manage travelers to start splitting expenses.</p>
   <p id="expenses-status" class="muted" role="status"></p>
   <p id="expenses-error" class="form-error" role="alert"></p>
+  <div id="expense-recovery" hidden>
+    <p>The last expense change may have been saved. Retry it to confirm the outcome, or discard the pending request and any draft and check the ledger before making another change.</p>
+    <div class="expense-actions">
+      <button id="expense-retry" type="button">Retry original save</button>
+      <button id="expense-discard-retry" class="subtle" type="button">Discard retry and refresh</button>
+    </div>
+  </div>
   <form id="expense-form" hidden aria-labelledby="expense-editor-title">
     <h3 id="expense-editor-title">Add expense</h3>
     <div id="expense-review" aria-live="polite"></div>

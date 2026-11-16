@@ -43,10 +43,10 @@ test('owner records a GBP split and a signed-in friend sees balances on a phone'
   await page.getByRole('button',{name:'Save expense',exact:true}).click();
   await expect(page.locator('#expenses-error')).toContainText('did not respond');
   await page.getByRole('button',{name:'Refresh expenses',exact:true}).click();
-  await expect(page.locator('#expenses-status')).toContainText('Retry the previous save');
+  await expect(page.locator('#expense-recovery')).toBeVisible();
   await expect(page.getByLabel('Amount (£)')).toHaveValue('10.01');
   const retry=page.waitForRequest(request=>request.url().endsWith('/itinerary-api/save_trip_expense'));
-  await page.getByRole('button',{name:'Save expense',exact:true}).click();
+  await page.getByRole('button',{name:'Retry original save',exact:true}).click();
   expect((await retry).postDataJSON().idempotencyKey).toBe(sent.idempotencyKey);
   await expect(page.locator('#expense-list')).toContainText('Fixture activity · £10.01');
   await expect(page.locator('#expense-balances li')).toHaveCount(2);
@@ -84,6 +84,93 @@ test('owner records a GBP split and a signed-in friend sees balances on a phone'
   expect(await anonymous.evaluate(async id=>(await fetch('/itinerary-api/get_trip_expenses',{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tripId:id}),
   })).status,tripId)).toBe(401);
+});
+
+test('an uncertain correction can only be retried as the original operation',async({page,context,app})=>{
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort('blockedbyclient'));
+  const {tripId}=app;
+  const {travelerId}=await app.call('manage_trip_traveler',{tripId,expectedRevision:2,change:{action:'add',name:'Alex'}});
+  const expense={paidOn:'2027-01-01',payerId:travelerId,currency:'GBP',amountMinor:1000,travelerIds:[travelerId]};
+  const lodge=await app.call('save_trip_expense',{tripId,expectedRevision:0,expense:{...expense,title:'Lodge'}});
+  const activity=await app.call('save_trip_expense',{tripId,expectedRevision:1,expense:{...expense,title:'Activity'}});
+  const read=()=>app.core.callFromWeb('get_trip_expenses',{tripId},app.owner);
+  await page.goto(`${app.origin}/itinerary?trip=${tripId}`);
+  await page.getByLabel('Local development token').fill(app.ownerToken);
+  await page.getByRole('button',{name:'Open local trips',exact:true}).click();
+  await expect(page.locator('#trip-title')).toBeVisible();
+  await openDisclosure(page,'plan-more');
+  await page.getByRole('button',{name:'Expenses',exact:true}).click();
+  const save=page.getByRole('button',{name:'Save expense',exact:true});
+  const correct=page.getByRole('button',{name:'Correct Lodge',exact:true});
+  const voidActivity=page.getByRole('button',{name:'Void Activity',exact:true});
+  const retry=page.getByRole('button',{name:'Retry original save',exact:true});
+  const discard=page.getByRole('button',{name:'Discard retry and refresh',exact:true});
+  const voidRequests=[];
+  page.on('request',request=>{
+    if(request.url().endsWith('/itinerary-api/void_trip_expense'))voidRequests.push(request.postDataJSON());
+  });
+  await correct.click();
+  await page.getByLabel('Amount (£)').fill('11');
+  await page.route('**/itinerary-api/save_trip_expense',route=>route.abort('failed'),{times:1});
+  await save.click();
+  await expect(discard).toBeVisible();
+  await expect(page.locator('button[aria-label="Void Activity"]')).toBeDisabled();
+  await expect(page.locator('button[aria-label="Correct Lodge"]')).toBeDisabled();
+  await expect(page.locator('#expense-add')).toBeDisabled();
+  await expect(save).toBeDisabled();
+  await expect(page.locator('#expense-recovery')).toContainText('The last expense change may have been saved');
+  expect(voidRequests).toEqual([]);
+  expect((await read()).revision).toBe(2);
+
+  await discard.click();
+  await expect(voidActivity).toBeEnabled();
+  page.once('dialog',dialog=>dialog.accept());
+  await voidActivity.click();
+  await expect(page.locator('#expenses-status')).toHaveText('Expense voided.');
+  expect(voidRequests).toEqual([expect.objectContaining({expenseId:activity.expenseId,expectedRevision:2})]);
+  const afterVoid=await read();
+  expect(afterVoid.revision).toBe(3);
+  expect(afterVoid.history.filter(event=>event.id===lodge.expenseId)).toEqual([
+    expect.objectContaining({action:'recorded',amountMinor:1000}),
+  ]);
+
+  await correct.click();
+  await page.getByLabel('Amount (£)').fill('12');
+  let original;
+  await page.route('**/itinerary-api/save_trip_expense',async route=>{
+    original=route.request().postDataJSON();
+    const result=await route.fetch();
+    expect(result.ok()).toBe(true);
+    await route.abort('failed');
+  },{times:1});
+  await save.click();
+  await expect(retry).toBeVisible();
+  // Closing and reopening the ledger must retain the original action and key.
+  await page.keyboard.press('Escape');
+  if(!await page.getByRole('button',{name:'Expenses',exact:true}).isVisible())await openDisclosure(page,'plan-more');
+  await page.getByRole('button',{name:'Expenses',exact:true}).click();
+  const retryRequest=page.waitForRequest(request=>request.url().endsWith('/itinerary-api/save_trip_expense'));
+  await retry.click();
+  expect((await retryRequest).postDataJSON()).toEqual(original);
+  await expect(page.locator('#expense-list')).toContainText('Lodge · £12.00');
+  const afterRetry=await read();
+  expect(afterRetry.revision).toBe(4);
+  expect(afterRetry.expenses).toEqual([expect.objectContaining({id:lodge.expenseId,amountMinor:1200})]);
+  expect(afterRetry.history.filter(event=>event.action==='corrected')).toHaveLength(1);
+
+  // A void can also commit before its response is lost. Its retry must use the same target and key.
+  await page.route('**/itinerary-api/void_trip_expense',async route=>{
+    const result=await route.fetch();
+    expect(result.ok()).toBe(true);
+    await route.abort('failed');
+  },{times:1});
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Void Lodge',exact:true}).click();
+  await page.getByRole('button',{name:'Retry original void',exact:true}).click();
+  await expect(page.locator('#expense-list')).toContainText('No expenses recorded yet.');
+  expect(voidRequests.at(-1)).toEqual(voidRequests.at(-2));
+  expect(voidRequests.at(-1).expenseId).toBe(lodge.expenseId);
+  expect((await read()).revision).toBe(5);
 });
 
 test('a stale expense draft survives refresh and a changed correction requires review',async({page,context,app})=>{
