@@ -44,6 +44,8 @@ Signed-in trip members can see current expenses and balances. Owners can correct
 
 If a save or void loses its response, **Retry original save** or **Retry original void** checks that same request. **Discard retry and refresh** clears the pending request and any unsaved draft and reloads the ledger so you can check what was saved.
 
+The 16 November 2026 hosted check used a fictional ten-traveler trip and separate signed-in browser sessions at phone width. The owner verified the splits, balances and audit history. The member read the saved balances, and refreshing the ledger after revocation returned access denied. See the [hosted acceptance record](https://github.com/eddieyang-97/trip-planning-engine/issues/72#issuecomment-6922541519).
+
 ## Apple Calendar export — current feature guide
 
 The itinerary provides one-item, all-item and selected-subset `.ics` snapshots, using existing trip access and private-field filtering. For the authoritative user flow, schedule/DST rules, temporary download tickets, limitations and dated acceptance evidence, see [Apple Calendar export](calendar-export.md) and the preserved [15 October combined release record](release-calendar-comments-2026-10-15.md). Saved-trip/native-device acceptance is tracked in [delivery status](implementation.md).
