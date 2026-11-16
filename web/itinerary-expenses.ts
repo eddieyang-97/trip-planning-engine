@@ -7,6 +7,10 @@ const gbp=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'});
 const money=(pennies:number)=>gbp.format(pennies/100);
 const get=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const errorText=(error:unknown)=>error instanceof Error?error.message:'Unable to load trip expenses.';
+type ExpenseMutation={
+  name:'save_trip_expense'|'void_trip_expense';
+  args:Record<string,unknown>;
+};
 function element<K extends keyof HTMLElementTagNameMap>(tag:K,value=''){
   const node=document.createElement(tag);
   node.textContent=value;
@@ -15,7 +19,7 @@ function element<K extends keyof HTMLElementTagNameMap>(tag:K,value=''){
 
 export function configureExpenses(transport:{
   read:(tripId:string)=>Promise<ExpenseLedger>;
-  mutate:(name:'save_trip_expense'|'void_trip_expense',args:Record<string,unknown>)=>Promise<unknown>;
+  mutate:(name:ExpenseMutation['name'],args:ExpenseMutation['args'])=>Promise<unknown>;
 }){
   const launch=get<HTMLButtonElement>('trip-expenses');
   const dialog=get<HTMLDialogElement>('expenses-dialog');
@@ -36,16 +40,28 @@ export function configureExpenses(transport:{
   const status=get('expenses-status');
   const error=get('expenses-error');
   const review=get('expense-review');
+  const recovery=get('expense-recovery');
+  const retry=get<HTMLButtonElement>('expense-retry');
+  const discard=get<HTMLButtonElement>('expense-discard-retry');
+  const cancel=get<HTMLButtonElement>('expense-cancel');
   let tripId:string|null=null,ledger:ExpenseLedger|null=null,editing:Expense|null=null;
   let sequence=0,saving=false,needsRefresh=false,needsReview=false;
-  let uncertainSave:Record<string,unknown>|null=null;
+  let uncertainMutation:ExpenseMutation|null=null;
 
   function updateControls(){
     close.disabled=saving;
     refresh.disabled=saving;
-    submit.disabled=saving||(!uncertainSave&&(!ledger||needsRefresh||needsReview));
+    const blocked=saving||uncertainMutation!==null;
+    submit.disabled=blocked||!ledger||needsRefresh||needsReview;
+    cancel.disabled=blocked;
+    add.disabled=blocked;
+    recovery.hidden=uncertainMutation===null;
+    retry.disabled=saving;
+    discard.disabled=saving;
+    retry.textContent=uncertainMutation?.name==='void_trip_expense'?'Retry original void':'Retry original save';
+    for(const button of list.querySelectorAll('button'))button.disabled=blocked;
     for(const field of form.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select')){
-      field.disabled=saving||!!uncertainSave;
+      field.disabled=blocked;
     }
   }
   function reportError(message:string){
@@ -77,7 +93,7 @@ export function configureExpenses(transport:{
     editing=null;
     needsRefresh=false;
     needsReview=false;
-    uncertainSave=null;
+    uncertainMutation=null;
     form.reset();
     form.hidden=true;
     payer.replaceChildren();
@@ -136,8 +152,8 @@ export function configureExpenses(transport:{
       row.append(details);
       if(ledger.owner){
         const edit=action('Correct',()=>openForm(expense)),voidButton=action('Void',()=>{
-          if(saving||!window.confirm(`Void “${expense.title}”? It will stop counting towards balances and stay in the expense history.`))return;
-          void save('void_trip_expense',{expenseId:expense.id});
+          if(saving||uncertainMutation||needsRefresh||!window.confirm(`Void “${expense.title}”? It will stop counting towards balances and stay in the expense history.`))return;
+          startMutation('void_trip_expense',{expenseId:expense.id});
         });
         edit.setAttribute('aria-label',`Correct ${expense.title}`);
         voidButton.setAttribute('aria-label',`Void ${expense.title}`);
@@ -169,13 +185,11 @@ export function configureExpenses(transport:{
       needsRefresh=false;
       status.textContent='';
       render();
-      if(!form.hidden&&!uncertainSave){
+      if(!form.hidden&&!uncertainMutation){
         renderPeople(payer.value,new Set(included()));
         updatePreview();
         reviewLatest();
         if(!needsReview)status.textContent='Expenses refreshed. Review your draft before saving.';
-      }else if(uncertainSave){
-        status.textContent='Retry the previous save to check its outcome. Your draft is still here.';
       }
     }catch(cause){
       if(sequence===request){
@@ -204,7 +218,7 @@ export function configureExpenses(transport:{
     }
   }
   function openForm(expense?:Expense){
-    if(saving||!ledger?.owner)return;
+    if(saving||uncertainMutation||!ledger?.owner)return;
     clearForm();
     editing=expense??null;
     const selected=new Set(expense?.shares.map(share=>share.travelerId)??ledger.travelers.filter(person=>!person.archived).map(person=>person.id));
@@ -217,23 +231,25 @@ export function configureExpenses(transport:{
     updatePreview();
     title.focus();
   }
-  async function save(name:'save_trip_expense'|'void_trip_expense',payload:Record<string,unknown>){
-    if(!tripId||saving)return;
-    if(!uncertainSave&&(!ledger||needsRefresh||needsReview))return;
+  function startMutation(name:ExpenseMutation['name'],payload:Record<string,unknown>){
+    if(!tripId||saving||uncertainMutation||!ledger?.owner||needsRefresh||needsReview)return;
+    void sendMutation({name,args:{...payload,tripId,expectedRevision:ledger.revision,idempotencyKey:crypto.randomUUID()}});
+  }
+  async function sendMutation(mutation:ExpenseMutation){
+    if(saving)return;
     const request=sequence;
-    const args=uncertainSave??{...payload,tripId,expectedRevision:ledger!.revision};
     saving=true;
     updateControls();
     error.textContent='';
     try{
-      await transport.mutate(name,args);
+      await transport.mutate(mutation.name,mutation.args);
       if(sequence!==request)return;
       clearForm();
       await load();
-      if(ledger&&dialog.open)status.textContent=name==='void_trip_expense'?'Expense voided.':'Expense saved.';
+      if(ledger&&dialog.open)status.textContent=mutation.name==='void_trip_expense'?'Expense voided.':'Expense saved.';
     }catch(cause){
       if(sequence!==request)return;
-      uncertainSave=name==='save_trip_expense'&&isTemporaryReadError(cause)?args:null;
+      uncertainMutation=isTemporaryReadError(cause)?mutation:null;
       needsRefresh=cause instanceof Error&&'code' in cause&&cause.code==='REVISION_CONFLICT';
       reportError(errorText(cause));
     }finally{saving=false;updateControls();}
@@ -242,22 +258,30 @@ export function configureExpenses(transport:{
   close.onclick=()=>dialog.close();
   refresh.onclick=()=>{void load();};
   add.onclick=()=>openForm();
-  get('expense-cancel').onclick=()=>{if(!saving){clearForm();add.focus();}};
+  cancel.onclick=()=>{if(!saving&&!uncertainMutation){clearForm();add.focus();}};
+  retry.onclick=()=>{if(uncertainMutation)void sendMutation(uncertainMutation);};
+  discard.onclick=()=>{
+    if(saving||!uncertainMutation)return;
+    clearForm();
+    void load();
+  };
   amount.oninput=updatePreview;
   choices.onchange=updatePreview;
   form.onsubmit=event=>{
     event.preventDefault();
-    if(uncertainSave){void save('save_trip_expense',{});return;}
+    if(saving||uncertainMutation)return;
     const amountMinor=parsePounds(amount.value),travelerIds=included();
     if(amountMinor===null){reportError('Enter a positive amount in pounds with up to two decimal places.');return;}
     if(!travelerIds.length){reportError('Choose at least one traveler for the split.');return;}
     const expense={title:title.value,paidOn:date.value,payerId:payer.value,currency:'GBP',amountMinor,travelerIds};
-    void save('save_trip_expense',{...(editing?{expenseId:editing.id}:{}),expense});
+    startMutation('save_trip_expense',{...(editing?{expenseId:editing.id}:{}),expense});
   };
   dialog.addEventListener('cancel',event=>{if(saving)event.preventDefault();});
   dialog.addEventListener('close',()=>{
     if(dialog.open)return;
-    sequence++;ledger=null;clearForm();render();
+    sequence++;ledger=null;
+    if(!uncertainMutation)clearForm();
+    render();
     history.open=false;status.textContent='';error.textContent='';
   });
   return {update(nextTripId:string|null){
