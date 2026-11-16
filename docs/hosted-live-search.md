@@ -69,6 +69,17 @@ Example criteria (full valid payload; preferences are an explicit example for re
 
 Other newly supported examples: JFK/EWR → LAX for two adults, 2 April 2027, `inbound:null`; CDG → FCO for one adult, 10–15 March 2027. These are input examples, not performed searches. Prices are requested in GBP regardless of route. The JSON return date is nullable; observations use `inbound:[]` for one-way and the saved-research view omits return actions.
 
+## Import research from another flight tool
+
+1. Read the existing flight decision with `get_decision`. Review its current criteria, observations and search coverage before looking for gaps through other available tools.
+2. Use `save_external_flight_offer` with `decisionId`, `expectedRevision`, a reusable idempotency key and one structured `offer` at a time. Record source and observation time, flight segments, seller and fare, the original amount/currency/basis, and any known cabin, baggage, restrictions and unresolved fees. A price may cover only the outbound leg, only the return leg, the round trip, or an unknown scope. Use the requested adult count to state applicability and set `exactPartyQuoted:false` if party coverage is unclear.
+3. Supply a public HTTPS URL with `external.linkType:research` or `seller_handoff` when available. Omit both when no public link is available. Only submit evidence whose storage and private redisplay are permitted. Leave out private links, session credentials, traveler details and raw tool responses. The service stores the link and never follows it.
+4. Use `compare_candidates` with IDs from either source, and reuse the existing shortlist and conditional-selection tools. Read `get_decision` to recover the evidence and share the saved `webUrl` with the owner. It opens the active decision in the itinerary’s flight research section.
+
+Imports are `assistant_sourced_unverified`. Comparison preserves the reported price but gives it no complete-cost or budget credit, even if a party price was reported. Availability, baggage, and coverage can remain unresolved. The source's reported unavailability can block selection. Structured route, dates, connection limit, applicable adults, and departure cutoff are validated against the current decision. Cabin is recorded as evidence because flight criteria have no structured cabin requirement. The server never runs an external connector or verifies its source terms.
+
+An identical retry returns the original receipt. Equivalent normalized evidence under a new key with the current revision reuses the observation. Changes in seller, fare details, schedule or observation time preserve distinct evidence. The current web view displays recent observations and pinned selections. Older evidence remains available through paginated MCP read-back.
+
 ## Provider trade-off and cost
 
 [SerpApi documentation](https://serpapi.com/google-flights-api) supports comma-separated airports, passenger/date/cabin/stops parameters, one-way/return types and return expansion tokens. [Flight results](https://serpapi.com/google-flights-results) provide schedule, price and extension text. That is adequate for this bounded discovery increment; a second provider/service is not justified. Seller/fare endpoints trade an extra metered call per chosen pair for detail but do not establish snowboard inventory; the earlier seller stage is deliberately replaced by another itinerary expansion.

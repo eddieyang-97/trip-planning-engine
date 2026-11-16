@@ -31,6 +31,7 @@ export type Criteria = z.infer<typeof criteriaSchema>;
 
 const segment = z.strictObject({
   operatingFlight: z.string().min(1).max(30), origin: airport, destination: airport,
+  airline: z.string().trim().min(1).max(120).optional(),
   departure: z.iso.datetime({ offset: true }), arrival: z.iso.datetime({ offset: true }),
   departureTimeZone:z.string().nullable().optional(),arrivalTimeZone:z.string().nullable().optional(),
 }).refine(x => Date.parse(x.arrival) > Date.parse(x.departure), 'Arrival must follow departure')
@@ -40,7 +41,7 @@ const leg = z.array(segment).min(1).max(3).refine(items => items.every((s, i) =>
   const prev = items[i - 1];
   return !prev || (prev.destination === s.origin && Date.parse(prev.arrival) < Date.parse(s.departure));
 }), 'Connections must join airports and move forward in time');
-export const offerSchema = z.strictObject({
+const offerFields = z.strictObject({
   outbound: leg, inbound: z.union([leg,z.array(segment).length(0)]).default([]),
   adults: z.number().int().min(1).max(9), currency: z.string().regex(/^[A-Z]{3}$/),
   priceMinor: amount.nullable(), priceBasis: z.enum(['party', 'per_person', 'unknown']),
@@ -60,16 +61,57 @@ export const offerSchema = z.strictObject({
     baggage:z.strictObject({outbound:z.array(z.string().max(400)).max(10),inbound:z.array(z.string().max(400)).max(10)}),
     restrictions:z.array(z.string().max(400)).max(10),
   }).optional(),
-}).refine(x => !x.discovery || (x.discovery.priceScope==='round_trip')===!!x.inbound.length, 'Discovery price scope must match the journey')
-  .refine(x => x.expiresAt === null || Date.parse(x.expiresAt) > Date.parse(x.observedAt), 'Invalid expiry')
-  .refine(x => !x.inbound.length || Date.parse(x.inbound[0]!.departure) > Date.parse(x.outbound.at(-1)!.arrival), 'Return must follow outbound arrival');
+});
+const journeyChecks = (x: Pick<z.infer<typeof offerFields>, 'discovery'|'inbound'|'outbound'|'expiresAt'|'observedAt'>, ctx:z.RefinementCtx) => {
+  if(x.discovery && (x.discovery.priceScope==='round_trip')!==!!x.inbound.length)
+    ctx.addIssue({code:'custom',message:'Discovery price scope must match the journey'});
+  if(x.expiresAt!==null && Date.parse(x.expiresAt)<=Date.parse(x.observedAt))
+    ctx.addIssue({code:'custom',message:'Invalid expiry'});
+  if(x.inbound.length && Date.parse(x.inbound[0]!.departure)<=Date.parse(x.outbound.at(-1)!.arrival))
+    ctx.addIssue({code:'custom',message:'Return must follow outbound arrival'});
+};
+export const offerSchema = offerFields.superRefine(journeyChecks);
 export type Offer = z.infer<typeof offerSchema>;
+const evidenceLines = z.array(z.string().trim().min(1).max(400)).max(10).default([]);
+const sourceLink = z.url().max(2000).refine(value => {
+  const url = URL.parse(value);
+  return url?.protocol==='https:' && !url.username && !url.password && !url.hash
+    && ![...url.searchParams.keys()].some(key => /token|secret|password|signature|session|api[_-]?key|booking[_-]?(ref|code)|^pnr$/i.test(key));
+}, 'Use a public HTTPS link without credentials or session parameters');
+export const externalFlightOfferSchema = offerFields.extend({
+  sourceUrl: sourceLink.nullable().default(null),
+  external: z.strictObject({
+    source: z.string().trim().min(1).max(120).describe('External source that reported this offer; may differ from the seller'),
+    linkType: z.enum(['research','seller_handoff']).nullable().default(null),
+    cabin: z.enum(['economy','premium_economy','business','first','mixed','unknown']).default('unknown'),
+    priceScope: z.enum(['outbound','inbound','round_trip','unknown']).default('unknown').describe('Which leg or legs the observed price covers'),
+    availability: z.enum(['reported_available','reported_unavailable','unknown']).default('unknown'),
+    baggage: z.strictObject({outbound:evidenceLines,inbound:evidenceLines}).default({outbound:[],inbound:[]}),
+    restrictions: evidenceLines,
+    unresolvedFees: evidenceLines,
+    coverageLimitations: evidenceLines,
+  }),
+}).omit({discovery:true}).superRefine(journeyChecks)
+  .refine(x => (x.sourceUrl===null)===(x.external.linkType===null), 'Supply both the public link and its type, or omit both')
+  .refine(x => x.inbound.length || (!['inbound','round_trip'].includes(x.external.priceScope) && !x.external.baggage.inbound.length), 'Return evidence requires a return leg');
+export type ExternalFlightOffer = z.infer<typeof externalFlightOfferSchema>;
+export type FlightEvidence = Offer | ExternalFlightOffer;
 // Enrich newly stored evidence only; old immutable payloads remain untouched and can still be evaluated.
-export function normalizeOfferTimes(offer:Offer):Offer {
-  const normalize=(leg:Offer['outbound'])=>leg.map(s=>({...s,departureTimeZone:airportTimeZone(s.origin),arrivalTimeZone:airportTimeZone(s.destination)}));
-  return {...offer,outbound:normalize(offer.outbound),inbound:normalize(offer.inbound)};
+export function normalizeOfferTimes(offer:FlightEvidence):FlightEvidence {
+  const external='external' in offer;
+  const normalize=(leg:Offer['outbound'])=>leg.map(s=>({...s,departureTimeZone:airportTimeZone(s.origin),arrivalTimeZone:airportTimeZone(s.destination),
+    ...(external?{departure:utcInstant(s.departure),arrival:utcInstant(s.arrival)}:{})}));
+  const schedule={outbound:normalize(offer.outbound),inbound:normalize(offer.inbound)};
+  if(!external)return {...offer,...schedule};
+  return {...offer,...schedule,observedAt:utcInstant(offer.observedAt),expiresAt:offer.expiresAt&&utcInstant(offer.expiresAt)};
 }
-export type Provenance = 'synthetic' | 'user_reported' | 'provider_reported';
+function utcInstant(value:string):string {
+  // Compare instants consistently across source offsets without losing fractional precision.
+  const fraction=/\.(\d+)/.exec(value)?.[1]?.replace(/0+$/,'');
+  const seconds=new Date(value).toISOString().replace(/\.\d+Z$/,'');
+  return fraction?`${seconds}.${fraction}Z`:`${seconds}Z`;
+}
+export type Provenance = 'synthetic' | 'user_reported' | 'provider_reported' | 'assistant_sourced_unverified';
 export type Permission = 'read' | 'write' | 'search';
 export interface Actor { userId: string; clientId: string; grantVersion?: string }
 export class DomainError extends Error {
@@ -81,17 +123,18 @@ export function canonical(value: unknown): string {
     .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
   return JSON.stringify(value);
 }
-export function identity(offer: Offer): string {
+export function identity(offer: FlightEvidence): string {
   return canonical(['airport-local-v2',[offer.outbound, offer.inbound].map(leg => leg.map(s =>
     [s.operatingFlight, s.origin, s.destination, airportLocal(s.departure,s.origin)?.date
       ?? `unresolved-zone:${new Date(s.departure).toISOString()}`]))]);
 }
-export function evaluate(offer: Offer, criteria: Criteria, now = new Date()) {
+export function evaluate(offer: FlightEvidence, criteria: Criteria, now = new Date()) {
   const checks: { constraint: string; verdict: 'pass' | 'fail' | 'unknown'; reason: string }[] = [];
   const add = (constraint: string, value: boolean | null, reason: string) => checks.push({
     constraint, verdict: value === null ? 'unknown' : value ? 'pass' : 'fail', reason,
   });
   const out = offer.outbound[0]!, back = offer.inbound[0];
+  const external='external' in offer?offer.external:null;
   const outLocal=airportLocal(out.departure,out.origin),backLocal=back?airportLocal(back.departure,back.origin):null;
   add('route', criteria.origins.includes(out.origin) && offer.outbound.at(-1)!.destination === criteria.destination
     && (criteria.inbound!==null?!!back&&back.origin===criteria.destination&&criteria.origins.includes(offer.inbound.at(-1)!.destination):!back), 'Exact airports and journey type');
@@ -102,9 +145,13 @@ export function evaluate(offer: Offer, criteria: Criteria, now = new Date()) {
   add('stops', Math.max(offer.outbound.length, offer.inbound.length) - 1 <= criteria.maxStops, 'Connections per direction');
   if (criteria.earliestOutboundLocal) add('departure_cutoff', outLocal?outLocal.time>=criteria.earliestOutboundLocal:null, 'Local time derived in the departure airport’s IANA zone');
   if (criteria.snowboardRequired) add('snowboard', offer.snowboardAllowed === 'no' ? false
-    : offer.snowboardAllowed === 'unknown' || criteria.snowboardQuantity === null || offer.snowboardQuantity === null ? null
+    : external || offer.snowboardAllowed === 'unknown' || criteria.snowboardQuantity === null || offer.snowboardQuantity === null ? null
       : offer.snowboardQuantity >= criteria.snowboardQuantity, 'Carriage for required equipment quantity, both directions');
-  const trustedBasis=offer.exactPartyQuoted&&offer.adults===criteria.adults&&offer.currency===criteria.currency;
+  if(external){
+    add('availability',external.availability==='reported_unavailable'?false:null,'Assistant-sourced availability is unverified');
+    add('source_verification',null,'External fare, baggage and coverage have not been verified by Trip Planner');
+  }
+  const trustedBasis=!external&&offer.exactPartyQuoted&&offer.adults===criteria.adults&&offer.currency===criteria.currency;
   const base = trustedBasis&&offer.priceMinor!==null
     ? offer.priceBasis==='party'?BigInt(offer.priceMinor):offer.priceBasis==='per_person'?BigInt(offer.priceMinor)*BigInt(criteria.adults):null:null;
   const board = criteria.snowboardRequired ? (trustedBasis&&criteria.snowboardQuantity!==null&&offer.snowboardQuantity===criteria.snowboardQuantity
@@ -117,7 +164,8 @@ export function evaluate(offer: Offer, criteria: Criteria, now = new Date()) {
   add('complete_cost', total === null ? null : true, 'GBP party fare plus required snowboard price for the requested journey; ground transfers excluded');
   if (criteria.groupBudgetMinor !== null) add('budget', subtotal!==null&&subtotal>BigInt(criteria.groupBudgetMinor)?false:
     total===null?null:total<=criteria.groupBudgetMinor, 'Known exact-party costs above the cap fail even when mandatory costs are missing');
-  add('freshness', offer.expiresAt === null ? null : Date.parse(offer.expiresAt) > now.getTime(), 'Supplier expiry required for a current quote');
+  add('freshness', offer.expiresAt === null ? null : Date.parse(offer.expiresAt) <= now.getTime() ? false : external ? null : true,
+    external?'External expiry is unverified':'Supplier expiry required for a current quote');
   add('observation_time', Date.parse(offer.observedAt) <= now.getTime(), 'Future observations are invalid');
   const travelMinutes = [offer.outbound, offer.inbound].filter(leg=>leg.length).reduce((n, leg) => n
     + (Date.parse(leg.at(-1)!.arrival) - Date.parse(leg[0]!.departure)) / 60000, 0);
@@ -133,7 +181,8 @@ export function evaluate(offer: Offer, criteria: Criteria, now = new Date()) {
     // An observed numeric price is useful for discussion, but cannot become a quoted total.
     observedPrice:{amountMinor:offer.priceMinor,currency:offer.currency,basis:offer.priceBasis,exactPartyQuoted:offer.exactPartyQuoted},
     schedule:{outbound:offer.outbound,inbound:offer.inbound,connections:offer.outbound.length-1+Math.max(0,offer.inbound.length-1)},
-    restrictions:{snowboard:offer.snowboardAllowed,supplierExpiry:offer.expiresAt,discovery:offer.discovery??null},
+    restrictions:{snowboard:offer.snowboardAllowed,supplierExpiry:offer.expiresAt,discovery:'discovery' in offer?offer.discovery??null:null},
+    ...(external?{externalEvidence:{...external,sourceUrl:offer.sourceUrl,seller:offer.seller,fare:offer.fare,observedAt:offer.observedAt,adults:offer.adults}}:{}),
     score: { lower: 100 * lower, upper: 100 * (lower + (total === null ? p.costWeight : 0)),
       knownWeight: total === null ? 1 - p.costWeight : 1 } };
 }

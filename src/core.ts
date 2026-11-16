@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { canonical, criteriaSchema, DomainError, evaluate, identity, mutation, offerSchema,
-  tripInput, uuid, normalizeOfferTimes, type Actor, type Criteria, type Offer, type Permission, type Provenance } from './domain.js';
+import { canonical, criteriaSchema, DomainError, evaluate, externalFlightOfferSchema, identity, mutation, offerSchema,
+  tripInput, uuid, normalizeOfferTimes, type Actor, type Criteria, type ExternalFlightOffer, type FlightEvidence, type Permission, type Provenance } from './domain.js';
 import type { Database, Queryable } from './database.js';
 import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
@@ -41,6 +41,7 @@ export const schemas = {
   start_search: z.strictObject({ ...edit, criteriaVersion: z.number().int().positive(), provider: z.enum(['fixture', 'live']) }),
   get_search_run: z.strictObject({ runId: uuid }),
   save_candidate: z.strictObject({ ...edit, offer: offerSchema }),
+  save_external_flight_offer: z.strictObject({ ...edit, offer: externalFlightOfferSchema }),
   compare_candidates: z.strictObject({ decisionId: uuid, observationIds: z.array(uuid).min(1).max(20), criteriaVersion: z.number().int().positive(), policyReferences: policyReferencesSchema }),
   compare_search_runs: z.strictObject({ previousRunId: uuid, currentRunId: uuid }),
   set_candidate_disposition: z.strictObject({ ...edit, candidateId: uuid, disposition: z.enum(['neutral', 'saved', 'rejected']) }),
@@ -89,9 +90,10 @@ async function currentSelections(tx: Queryable, actor: Actor, decisionId: string
   }
   return selections;
 }
-export async function saveOffer(tx: Queryable, decisionId: string, offer: Offer, provenance: Provenance, runId: string | null) {
+export async function saveOffer(tx: Queryable, decisionId: string, offer: FlightEvidence, provenance: Provenance, runId: string | null, createdBy: string | null = null) {
   const trip=await lockDecisionTrip(tx,decisionId);if(!trip)fail('FORBIDDEN_OR_NOT_FOUND','This trip is unavailable.');
-  await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
+  if(provenance!=='assistant_sourced_unverified')
+    await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1',[trip.id]);
   // Serialize candidate identity reconciliation, including worker writes, within this decision.
   await tx.query('select id from decisions where id=$1 for update',[decisionId]);
   const normalizedIdentity=identity(offer);
@@ -110,9 +112,15 @@ export async function saveOffer(tx: Queryable, decisionId: string, offer: Offer,
   }
   await tx.query('insert into candidates(id,decision_id,identity_key) values($1,$2,$3) on conflict(decision_id,identity_key) do nothing', [randomUUID(), decisionId, key]);
   const candidateId = (await tx.query('select id from candidates where decision_id=$1 and identity_key=$2', [decisionId, key])).rows[0]!.id;
+  const payload=JSON.stringify(normalizeOfferTimes(offer));
+  if(provenance==='assistant_sourced_unverified'){
+    const equivalent=(await tx.query(`select id from observations where candidate_id=$1 and provenance=$2 and payload=$3::jsonb
+      order by created_at,id limit 1`,[candidateId,provenance,payload])).rows[0];
+    if(equivalent)return {candidateId,observationId:equivalent.id,provenance,reusedObservation:true};
+  }
   const observationId = randomUUID();
-  await tx.query('insert into observations(id,decision_id,candidate_id,run_id,provenance,payload) values($1,$2,$3,$4,$5,$6)',
-    [observationId, decisionId, candidateId, runId, provenance, JSON.stringify(normalizeOfferTimes(offer))]);
+  await tx.query('insert into observations(id,decision_id,candidate_id,run_id,provenance,payload,created_by) values($1,$2,$3,$4,$5,$6,$7)',
+    [observationId, decisionId, candidateId, runId, provenance, payload, createdBy]);
   return { candidateId, observationId, provenance };
 }
 
@@ -188,7 +196,7 @@ export class Core {
         return old.response;
       }
       const result = await work();
-      if(tripId&&scopedTrip&&name!=='prepare_trip_action'&&name!=='delete_trip'){
+      if(tripId&&scopedTrip&&name!=='prepare_trip_action'&&name!=='delete_trip'&&!(name==='save_external_flight_offer'&&result.reusedObservation)){
         result.lifecycleRevision=(await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1 returning lifecycle_revision',[tripId])).rows[0]!.lifecycle_revision;
       }
       await tx.query('update mutation_requests set trip_id=$4 where owner_id=$1 and operation=$2 and key=$3',[actor.userId,name,args.idempotencyKey,tripId??(name==='create_trip'?result.tripId:null)]);
@@ -267,7 +275,7 @@ export class Core {
       const seen = new Set<string>();
       const changes = current.observations.map((o: any) => {
         const key = matchKey(o); seen.add(key); const prior = previous.get(key);
-        const total = (v: Offer) => criteriaChanged ? null : evaluate(v, basis.payload).totalMinor;
+        const total = (v: FlightEvidence) => criteriaChanged ? null : evaluate(v, basis.payload).totalMinor;
         const before = prior ? total(prior.payload) : null, after = total(o.payload);
         return { candidateId: o.candidate_id, observationId: o.id,
           change: prior ? 'seen_again' : 'new_or_changed_basis',
@@ -282,7 +290,8 @@ export class Core {
     if(name==='get_decision'&&decision.kind==='dining')return readDiningDecision(tx,decision.id,actor.userId);
     if(name==='get_decision'&&decision.kind==='stay')return readStayDecision(tx,decision.id,actor.userId);
     const active = await criteria(tx, decision.id);
-    if (name === 'get_decision') return { decision, archived:!!decision.archived_at, criteria: active,
+    const webPath=`/itinerary?trip=${decision.trip_id}&flight=${decision.id}&view=details`;
+    if (name === 'get_decision') return { decision, webPath, archived:!!decision.archived_at, criteria: active,
       lifecycleHistory:(await tx.query('select * from decision_lifecycle_events where decision_id=$1 order by revision desc limit 20',[decision.id])).rows,
       selections: await currentSelections(tx, actor, decision.id, active.version),
       observations: (await tx.query(`select o.*,c.disposition from observations o join candidates c on c.id=o.candidate_id
@@ -328,6 +337,14 @@ export class Core {
       }
     } else if (name === 'save_candidate') {
       result = await saveOffer(tx, decision.id, a.offer, 'user_reported', null);
+    } else if (name === 'save_external_flight_offer') {
+      const offer:ExternalFlightOffer=a.offer;
+      const conflicts=evaluate(offer,active.payload).checks.filter(check=>check.verdict==='fail'
+        && ['route','dates','party','stops','departure_cutoff','observation_time'].includes(check.constraint));
+      if(conflicts.length)fail('VALIDATION_ERROR',`Offer conflicts with this decision or observation timestamp (${conflicts.map(check=>check.constraint).join(', ')})`);
+      const saved=await saveOffer(tx,decision.id,offer,'assistant_sourced_unverified',null,actor.userId);
+      result={...saved,webPath};
+      if(saved.reusedObservation)return {...result,revision:decision.revision};
     } else if (name === 'set_candidate_disposition') {
       const updated = await tx.query('update candidates set disposition=$3 where id=$1 and decision_id=$2 returning id', [a.candidateId, decision.id, a.disposition]);
       if (!updated.rows.length) fail('FORBIDDEN_OR_NOT_FOUND', 'Access denied or resource not found');

@@ -51,7 +51,7 @@ Supabase Auth generates confirmation, magic-link sign-in and password-recovery e
 
 ## Core data overview
 
-This is the durable core relationship overview, not an exhaustive representation of the latest schema. [Database diagrams and the migration-extension index](database.md) cover the initial 001–006 baseline and subsequent 007–016 changes. [Data semantics](data-semantics-review.md) records the underlying invariants and unresolved concepts.
+This is the durable core relationship overview, not an exhaustive representation of the latest schema. [Database diagrams and the migration-extension index](database.md) cover the initial 001–006 baseline and subsequent 007–017 changes. [Data semantics](data-semantics-review.md) records the underlying invariants and unresolved concepts.
 
 ```mermaid
 erDiagram
@@ -119,7 +119,7 @@ Money uses exact integer minor units and an explicit passenger/currency basis. C
 
 Mutations carry idempotency keys; mutable decision, itinerary and policy updates also require the current revision/version. Locks and transactions serialize writes. Core reads use read-only repeatable-read snapshots, keeping revisions and related contents consistent. Airport-local evaluation and flight identity derive from reviewed airport zones; unknown zones remain unresolved. See [correctness fixes](correctness-fixes.md).
 
-Repository migrations 001–016 include the initial 001–006 baseline and extensions for editor roles (007), anonymous view links (008), item/trip comments (009), account profiles (010), trip lifecycle (011), research archive/restore (012), stay comparison (013), dining comparison (014), traveler roster and itinerary assignments (015), and the GBP trip-expense journal (016). The [database reference](database.md) distinguishes the original ER snapshots from these extensions. Dated [delivery evidence](implementation.md) and [feature guides](README.md) determine what was verified in a particular hosted release; source presence alone is not deployment proof. JSONB stores validated snapshots alongside normalized ownership/version relationships. The larger schema/interfaces in `spike/design/` remain proposals. General typed output contracts, full history pagination, structured actual booking amounts, broader passenger/baggage modeling and broader provider-data retention still need implementation; trip deletion/retention is covered by the lifecycle extension below.
+Repository migrations 001–017 include the initial 001–006 baseline and extensions for editor roles (007), anonymous view links (008), item/trip comments (009), account profiles (010), trip lifecycle (011), research archive/restore (012), stay comparison (013), dining comparison (014), traveler roster and itinerary assignments (015), the GBP trip-expense journal (016), and external flight observation provenance (017). The [database reference](database.md) distinguishes the original ER snapshots from these extensions. Dated [delivery evidence](implementation.md) and [feature guides](README.md) determine what was verified in a particular hosted release; source presence alone is not deployment proof. JSONB stores validated snapshots alongside normalized ownership/version relationships. The larger schema/interfaces in `spike/design/` remain proposals. General typed output contracts, full history pagination, structured actual booking amounts, broader passenger/baggage modeling and broader provider-data retention still need implementation; trip deletion/retention is covered by the lifecycle extension below.
 
 ## Research decision visibility
 
