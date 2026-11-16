@@ -205,13 +205,16 @@ async function loadPlan(id:string){
   try{
     if(!demo){
       if(anonymousView&&!anonymousToken)throw Error('This view link is incomplete. Ask the owner for a new link.');
-      const loaded=anonymousView?await loadViewLink(anonymousToken!):await api('get_itinerary',{tripId:id});
+      const params=new URL(location.href).searchParams;
+      const flight=params.get('trip')===id?params.get('flight'):null;
+      const flightDecisionId=flight&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(flight)?flight:undefined;
+      const loaded=anonymousView?await loadViewLink(anonymousToken!):await api('get_itinerary',{tripId:id,flightDecisionId});
       accountBoundary.check(generation);plan=loaded;
     }
     failedRead=null;lastLoadedAt=new Date();$('plan-recovery').hidden=true;
     if(anonymousView){trips=[{...plan!.trip,role:'viewer'}];$('shared-unavailable').hidden=true;}
     const url=new URL(location.href);
-    if(url.searchParams.get('trip')!==plan!.trip.id){url.searchParams.delete('stay');url.searchParams.delete('dining');}
+    if(url.searchParams.get('trip')!==plan!.trip.id){url.searchParams.delete('stay');url.searchParams.delete('dining');url.searchParams.delete('flight');}
     url.searchParams.set('trip',plan!.trip.id);history.replaceState(null,'',url);
     render();message('');
     if(!demo&&!anonymousView&&plan!.role!=='viewer'&&plan!.role!=='editor'){await stayComparison.refresh();await diningComparison.refresh();}
@@ -305,7 +308,7 @@ function render(){
     const existing=plan!.items.find(row=>row.payload.type==='flight'&&row.payload.startDate===item.startDate
       &&row.payload.startTime===item.startTime&&row.payload.endDate===item.endDate&&row.payload.endTime===item.endTime&&row.payload.location===item.location);
     openItem(existing??null,existing?undefined:item);
-  },plan.items.length===0,!demo&&!anonymousView&&!shared?{
+  },plan.items.length===0||plan.research?.decisions.some(d=>d.id===new URL(location.href).searchParams.get('flight')),!demo&&!anonymousView&&!shared?{
     list:offset=>api('list_decisions',{tripId:plan!.trip.id,status:'archived',limit:20,offset}),
     change:async(id,revision,archive)=>{
       const tripId=plan!.trip.id;

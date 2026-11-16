@@ -1,6 +1,6 @@
 # Database ER diagrams
 
-The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–016 extension index below** for later changes, including research archive, stay/dining comparison, traveler assignments and the GBP expense journal, and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
+The detailed ER diagrams preserve the recorded **001–006 baseline**, including viewer sharing; they are not exhaustive diagrams of the latest source schema. See the **007–017 extension index below** for later changes and the feature guides for dated deployment evidence. Start with the [high-level architecture](architecture.md#high-level-architecture), then use the diagrams below for relationships and keys. See [user flows](user-flows.md) for how people use the model.
 
 Entity names match SQL table names, shown in uppercase for readability. Attributes are selected fields, not complete DDL. `PK` marks a primary-key component; `FK` marks a foreign-key component. Solid lines identify a child through its parent key; dashed lines are non-identifying relationships. Both represent enforced foreign keys here; dashed does **not** mean planned. A circle allows zero, a bar means one, and a crow's foot means many. See [Mermaid's notation reference](https://mermaid.js.org/syntax/entityRelationshipDiagram.html).
 
@@ -235,7 +235,7 @@ Update the relevant ER diagram when an applied migration changes relationships. 
 
 <a id="changes-since-the-001006-er-baseline-007012"></a>
 <a id="changes-since-the-001006-er-baseline-007014"></a>
-## Changes since the 001–006 ER baseline (007–016)
+## Changes since the 001–006 ER baseline (007–017)
 
 The diagrams above intentionally preserve the relationships visible in the 14 October baseline. Consult the SQL migrations for the authoritative current schema; these extensions are recorded here to avoid mistaking the old viewer-only diagram for the present model.
 
@@ -251,6 +251,7 @@ The diagrams above intentionally preserve the relationships visible in the 14 Oc
 | [014 — dining](../migrations/014_dining_comparison.sql) | Typed dining decisions and `dining_itinerary_links` pin exact reviewed evidence to an itinerary item. | [Dining contract](dining-comparison.md); a link is not a restaurant booking. |
 | [015 — travelers](../migrations/015_trip_travelers.sql) | Trip-scoped stable traveler UUIDs, names, archive timestamps and traveler lifecycle event types. Item assignments are stored in validated itinerary item payloads. | Deployed. [Traveler UI and privacy](itinerary-web.md#travelers-and-split-plans); [#8](https://github.com/eddieyang-97/trip-planning-engine/issues/8) tracks the real-friend pilot. |
 | [016 — expenses](../migrations/016_trip_expenses.sql) | Append-only `trip_expense_events` keyed by (trip, ledger revision), storing payer and exact integer-penny shares in validated JSON detail. | Deployed and [hosted-verified](itinerary-web.md#trip-expenses) on 16 November 2026. See [expense semantics](data-semantics-review.md). |
+| [017 — external flight evidence](../migrations/017_external_flight_evidence.sql) | Extends observation provenance with assistant-sourced evidence, requiring an author, structured source metadata and no native run reference. | [Import workflow](hosted-live-search.md#import-research-from-another-flight-tool) and [semantics](data-semantics-review.md#assistant-sourced-flight-evidence). |
 
 Application migrations are applied by [`src/database.ts`](../src/database.ts) and versioned in **`app_schema_migrations`**; the Supabase connector's separate migration history is not necessarily the app's applied migration ledger. Inspect read-only schema metadata if drift is suspected; do not reapply production DDL through the connector without a coordinated approved change. The live Supabase project is not a test database.
 

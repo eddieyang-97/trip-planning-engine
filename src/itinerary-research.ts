@@ -1,9 +1,9 @@
 import type {Queryable} from './database.js';
-import type {Criteria, Offer, Provenance} from './domain.js';
+import type {Criteria, FlightEvidence, Provenance} from './domain.js';
 
 export interface ItineraryObservation {
   id:string; candidateId:string; disposition:'neutral'|'saved'|'rejected'; provenance:Provenance;
-  offer:Offer; selected:boolean; bookingReported:boolean;
+  offer:FlightEvidence; selected:boolean; bookingReported:boolean;
 }
 export interface ItineraryResearchDecision {
   id:string; title:string; revision?:number; bookingLinked?:boolean; criteriaVersion:number; criteria:Criteria;
@@ -14,16 +14,20 @@ export interface ItineraryResearch {decisions:ItineraryResearchDecision[]; trunc
 
 // Called only after trip ownership is established, within the same repeatable-read snapshot.
 // Return presentation data, never provider tokens, OAuth grants or the supplier request ledger.
-export async function itineraryResearch(tx:Queryable,tripId:string):Promise<ItineraryResearch> {
-  const decisions=(await tx.query('select d.id,d.title,d.revision,exists(select 1 from booking_records b join selections s on s.id=b.selection_id where s.decision_id=d.id) as booking_linked from decisions d where trip_id=$1 and kind=\'flight\' and archived_at is null order by title,id limit 6',[tripId])).rows;
+export async function itineraryResearch(tx:Queryable,tripId:string,flightDecisionId?:string):Promise<ItineraryResearch> {
+  const decisions=(await tx.query(`select d.id,d.title,d.revision,exists(select 1 from booking_records b join selections s on s.id=b.selection_id
+    where s.decision_id=d.id) as booking_linked from decisions d where trip_id=$1 and kind='flight' and archived_at is null
+    order by (id=$2::uuid) desc nulls last,title,id limit 6`,[tripId,flightDecisionId??null])).rows;
   const result:ItineraryResearchDecision[]=[];
   for(const decision of decisions.slice(0,5)) {
     const criteria=(await tx.query('select version,payload from criteria_versions where decision_id=$1 order by version desc limit 1',[decision.id])).rows[0]!;
     const run=(await tx.query('select id,status,criteria_version,created_at,coverage from search_runs where decision_id=$1 order by created_at desc,id desc limit 1',[decision.id])).rows[0];
-    // Keep the newest observation of each candidate/seller/fare; retain pinned selections/bookings
-    // even if they fall outside this bounded recent-evidence window.
-    const latest=`select distinct on (candidate_id,payload->>'seller',payload->>'fare') * from observations
-      where decision_id=$1 order by candidate_id,payload->>'seller',payload->>'fare',created_at desc,id desc`;
+    // Keep each distinct external observation visible in the recent window. Other evidence
+    // retains the newest row per candidate/seller/fare and provenance. Pins are independent.
+    const latest=`select distinct on (candidate_id,payload->>'seller',payload->>'fare',provenance,
+      case when provenance='assistant_sourced_unverified' then id end) * from observations where decision_id=$1
+      order by candidate_id,payload->>'seller',payload->>'fare',provenance,
+      case when provenance='assistant_sourced_unverified' then id end,created_at desc,id desc`;
     const count=(await tx.query(`select count(*)::int as n from (${latest}) recent`,[decision.id])).rows[0]!.n;
     const observations=(await tx.query(`select o.*,c.disposition from (${latest}) o
       join candidates c on c.id=o.candidate_id order by o.created_at desc,o.id desc limit 20`,[decision.id])).rows;

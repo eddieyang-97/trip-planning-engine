@@ -40,7 +40,7 @@ export const itineraryItemSchema=z.strictObject(itemFields).superRefine((item,ct
 export type ItineraryItem=z.infer<typeof itineraryItemSchema>;
 const edit={...mutation,tripId:uuid,expectedRevision:z.number().int().positive()};
 export const itinerarySchemas={
-  get_itinerary:z.strictObject({tripId:uuid}),
+  get_itinerary:z.strictObject({tripId:uuid,flightDecisionId:uuid.optional()}),
   add_itinerary_item:z.strictObject({...edit,item:itineraryItemSchema}),
   update_itinerary_item:z.strictObject({...edit,itemId:uuid,item:itineraryItemSchema}),
   remove_itinerary_item:z.strictObject({...edit,itemId:uuid}),
@@ -79,7 +79,7 @@ export async function dispatchItinerary(tx:Queryable,name:keyof typeof itinerary
     for(const item of items){const sourceLink=stayLinks.find(link=>link.itemId===item.id);if(sourceLink)item.sourceLink=sourceLink;}
     return {trip,role,revision:trip.itinerary_revision,items,travelers,
       history:(await tx.query('select * from itinerary_events where trip_id=$1 order by revision desc limit 50',[a.tripId])).rows,
-      research:await itineraryResearch(tx,a.tripId),stayResearch:await listStayDecisions(tx,a.tripId,userId),diningResearch:await listDiningDecisions(tx,a.tripId,userId)};
+      research:await itineraryResearch(tx,a.tripId,a.flightDecisionId),stayResearch:await listStayDecisions(tx,a.tripId,userId),diningResearch:await listDiningDecisions(tx,a.tripId,userId)};
   }
   if(a.expectedRevision!==trip.itinerary_revision)fail('REVISION_CONFLICT','The plan changed. Reload it before saving your edit.');
   if(name==='manage_trip_traveler')return changeTraveler(tx,a.tripId,trip.itinerary_revision+1,userId,a.change);

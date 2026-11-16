@@ -10,7 +10,8 @@ export function configureItineraryChrome(){
     research.hidden=!visible;toggle.hidden=!allowed;toggle.textContent=visible?'Hide research':'Show research';toggle.setAttribute('aria-expanded',String(visible));
   }
   toggle.addEventListener('click',()=>{override=research.hidden===true;visibility();if(!research.hidden){research.open=true;research.querySelector<HTMLElement>('summary')!.focus();}});
-  function researchDefault(){const url=new URL(location.href);return !phone.matches||url.searchParams.get('trip')===tripId&&(url.searchParams.has('stay')||url.searchParams.has('dining'));}
+  function researchLinked(){const params=new URL(location.href).searchParams;return params.get('trip')===tripId&&['stay','dining','flight'].some(kind=>params.has(kind));}
+  function researchDefault(){return !phone.matches||researchLinked();}
   function defaults(){switcher.open=!phone.matches;more.open=!phone.matches;tripActions.open=phone.matches;research.open=researchDefault();}
   defaults();phone.addEventListener('change',defaults);
   $('trip-list').addEventListener('click',event=>{if(phone.matches&&(event.target as HTMLElement).closest('button'))switcher.open=false;});
@@ -37,7 +38,7 @@ export function configureItineraryChrome(){
   const observer=new MutationObserver(researchSummary);
   for(const id of ['research','stay-research','dining-research'])observer.observe($(id),{attributes:true,attributeFilter:['hidden']});
   return {update(next:{tripId:string|null;tripCount:number;status:string;researchAllowed:boolean;activeFlights:boolean;switching:boolean}){
-    if(tripId!==next.tripId){tripId=next.tripId;override=null;const url=new URL(location.href);if(url.searchParams.get('trip')===tripId&&(url.searchParams.has('stay')||url.searchParams.has('dining')))override=true;research.open=researchDefault();if(phone.matches)more.open=false;}
+    if(tripId!==next.tripId){tripId=next.tripId;override=researchLinked()?true:null;research.open=researchDefault();if(phone.matches)more.open=false;}
     switcher.hidden=!next.switching;
     $('trip-switcher-count').textContent=`${next.tripCount} ${next.status==='all'?'total':next.status}`;
     allowed=next.researchAllowed;activeFlights=next.activeFlights;researchSummary();
