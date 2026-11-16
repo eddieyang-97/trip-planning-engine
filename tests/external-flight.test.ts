@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import pg from 'pg';
 import {Core} from '../src/core.js';
 import {embedded,migrate,pooledDatabase,type Database} from '../src/database.js';
-import {DomainError} from '../src/domain.js';
+import {DomainError,evaluate} from '../src/domain.js';
 import {externalFlightCriteria,externalFlightOffer,externalFlightTrip} from './fixtures/external-flight.js';
 
 const key=()=>({idempotencyKey:randomUUID()});
@@ -34,8 +34,13 @@ test('external flight ingestion keeps immutable evidence, rejects incompatible w
       {...offer,outbound:[{...offer.outbound[0],departure:'2026-12-17T18:30:00Z'}]},
       {...offer,observedAt:'2099-10-01T09:00:00Z'},
     ])await assert.rejects(save({...args,offer:invalid}),hasCode('VALIDATION_ERROR'));
+    for(const query of ['session_id=fictional-private','auth=fictional-private','authorization=Bearer%20fictional',
+      '%61uth=fictional-private','route=LGW-GVA']){
+      await assert.rejects(save({...args,offer:{...offer,sourceUrl:`https://seller.example/flight?${query}`}}),{name:'ZodError'});
+    }
     for(const invalid of [
-      {...offer,sourceUrl:'https://seller.example/flight?session_id=fictional-private'},
+      {...offer,sourceUrl:'https://seller.example/flight#fictional-private'},
+      {...offer,sourceUrl:'https://user:fictional-private@seller.example/flight'},
       {...offer,sourceUrl:'broken URL'},
       {...offer,sourceUrl:null},{...offer,external:{...offer.external,cabin:'invented'}},
       {...offer,inbound:[{...offer.inbound[0],departure:'2026-12-18T17:00:00Z'}]},
@@ -55,8 +60,9 @@ test('external flight ingestion keeps immutable evidence, rejects incompatible w
     assert.equal((await db.query('select lifecycle_revision from trips where id=$1',[trip.tripId])).rows[0]!.lifecycle_revision,saved.lifecycleRevision);
 
     const changedAt={...offer,observedAt:'2026-10-02T09:00:00Z'};
-    const changedFare={...offer,currency:'GBP',snowboardAllowed:'yes' as const,snowboardQuantity:1,snowboardTotalMinor:0,
-      external:{...offer.external,priceScope:'round_trip' as const,restrictions:['Refund conditional']}};
+    const changedFare={...offer,currency:'GBP',expiresAt:'2099-01-01T00:00:00Z',
+      snowboardAllowed:'yes' as const,snowboardQuantity:1,snowboardTotalMinor:0,
+      external:{...offer.external,restrictions:['Refund conditional']}};
     const race=await Promise.allSettled([changedAt,changedFare].map(changed=>save({...args,...key(),offer:changed,expectedRevision:saved.revision})));
     const winner=race.find(result=>result.status==='fulfilled');assert.ok(winner);
     const loser=race.find(result=>result.status==='rejected');assert.ok(loser);
@@ -70,6 +76,20 @@ test('external flight ingestion keeps immutable evidence, rejects incompatible w
       assert.equal(row.candidate_id,saved.candidateId);assert.equal(row.created_by,owner.userId);assert.equal(row.run_id,null);
     }
     assert.equal(read.observations.find((row:any)=>row.id===saved.observationId).payload.observedAt,offer.observedAt);
+    const legacyCase=read.observations.find((row:any)=>row.payload.currency==='GBP');
+    const {external,...legacyPayload}=legacyCase.payload;
+    assert.deepEqual(external.reportedPrice,{amountMinor:42000,currency:'GBP',basis:'party',exactPartyQuoted:true});
+    // Pre-017 readers ignore the external object and still evaluate the outer fields.
+    // Prove this fixture would pass those checks if the reported price leaked into them.
+    const legacyCriteria={...externalFlightCriteria,groupBudgetMinor:50000};
+    const unsafePayload={...legacyPayload,priceMinor:42000,priceBasis:'party' as const,exactPartyQuoted:true};
+    const unsafe=evaluate(unsafePayload,legacyCriteria);
+    assert.equal(unsafe.totalMinor,42000);assert.equal(unsafe.eligibility,'eligible');
+    const safe=evaluate(legacyPayload,legacyCriteria);
+    assert.equal(safe.totalMinor,null);assert.equal(safe.knownSubtotalMinor,null);assert.equal(safe.eligibility,'conditional');
+    assert.equal(safe.checks.find(check=>check.constraint==='budget')?.verdict,'unknown');
+    await assert.rejects(db.query('update observations set payload=$2 where id=$1',
+      [legacyCase.id,JSON.stringify({...unsafePayload,external})]),{code:'23514'});
     const comparison=await core.call('compare_candidates',{decisionId,criteriaVersion:1,observationIds:read.observations.map((row:any)=>row.id)},owner);
     for(const result of comparison.results){
       assert.equal(result.totalMinor,null);assert.equal(result.knownSubtotalMinor,null);assert.equal(result.eligibility,'conditional');

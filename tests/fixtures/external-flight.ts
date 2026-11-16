@@ -11,7 +11,7 @@ export function externalFlightOffer():ExternalFlightOffer {
       departure:'2026-12-20T20:45:00+01:00',arrival:'2026-12-20T21:25:00Z'}],
     adults:4,currency:'JPY',priceMinor:42000,priceBasis:'party',exactPartyQuoted:true,
     snowboardAllowed:'unknown',snowboardQuantity:null,snowboardTotalMinor:null,
-    seller:'Fictional Ticket Shop',fare:'Example Saver',sourceUrl:'https://seller.example/flight?route=LGW-GVA',
+    seller:'Fictional Ticket Shop',fare:'Example Saver',sourceUrl:'https://seller.example/flights/lgw-gva',
     observedAt:'2026-10-01T09:00:00Z',expiresAt:null,notes:[],
     external:{source:'Fictional Connector',linkType:'seller_handoff',cabin:'economy',priceScope:'outbound',availability:'reported_available',
       baggage:{outbound:['One cabin bag reported'],inbound:[]},restrictions:['Non-refundable fare reported'],

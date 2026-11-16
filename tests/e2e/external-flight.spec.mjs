@@ -80,7 +80,7 @@ test('assistant imports flight research, opens the comparison on web, and reads 
     await expect(external).toContainText('Selected in research');
     await external.locator('summary').click();
     for(const expected of ['Fictional Ticket Shop · via Fictional Connector','¥42,000','Outbound price',
-      'Full-party total unverified','Return baggage: Unknown','Checked bag fee unknown','Only one seller checked'])
+      'Party fare · Exact-party basis reported','Full-party total unverified','Return baggage: Unknown','Checked bag fee unknown','Only one seller checked'])
       await expect(external).toContainText(expected);
     await expect(external.getByRole('link',{name:'Open reported seller handoff'})).toHaveAttribute('href',offer.sourceUrl);
     await expect(research.getByText('Synthetic example.',{exact:false}).first()).toBeVisible();
@@ -101,7 +101,9 @@ test('assistant imports flight research, opens the comparison on web, and reads 
     expect(read.observations).toHaveLength(4);
     expect(pinned.id).toBe(selected.selectionId);
     expect(pinned.observation).toMatchObject({id:saved.observationId,provenance:saved.provenance,disposition:'saved',
-      payload:{...offer,outbound:[{...offer.outbound[0],arrival:'2026-12-18T20:10:00Z'}],
+      payload:{...offer,priceMinor:null,priceBasis:'unknown',exactPartyQuoted:false,
+        external:{...offer.external,reportedPrice:{amountMinor:42000,currency:'JPY',basis:'party',exactPartyQuoted:true}},
+        outbound:[{...offer.outbound[0],arrival:'2026-12-18T20:10:00Z'}],
         inbound:[{...offer.inbound[0],departure:'2026-12-20T19:45:00Z'}]}});
     expect(pinned.evaluation).toEqual(selected.assessment);
     for(const table of ['booking_records','itinerary_items','provider_attempts','live_search_usage'])

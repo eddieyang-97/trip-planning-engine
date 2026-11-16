@@ -85,10 +85,11 @@ function researchCard(observations:ItineraryObservation[],onDraft:(item:Itinerar
   const body=el('tbody');
   for(const observation of [...observations].sort((a,b)=>a.offer.seller.localeCompare(b.offer.seller)||b.offer.observedAt.localeCompare(a.offer.observedAt))) {
     const offer=observation.offer,row=el('tr');
-    const formatter=new Intl.NumberFormat('en-GB',{style:'currency',currency:offer.currency});
-    const amount=offer.priceMinor===null?'Unknown':formatter.format(offer.priceMinor/10**(formatter.resolvedOptions().maximumFractionDigits??2));
     const external='external' in offer?offer.external:null;
-    const basis=el('td',`${offer.priceBasis==='unknown'?'Basis unknown':offer.priceBasis==='party'?'Party fare':'Per person'} · ${offer.exactPartyQuoted?'Exact-party basis reported; availability unverified':'Exact-party quote unverified'}`);
+    const price=external?.reportedPrice??{amountMinor:offer.priceMinor,currency:offer.currency,basis:offer.priceBasis,exactPartyQuoted:offer.exactPartyQuoted};
+    const formatter=new Intl.NumberFormat('en-GB',{style:'currency',currency:price.currency});
+    const amount=price.amountMinor===null?'Unknown':formatter.format(price.amountMinor/10**(formatter.resolvedOptions().maximumFractionDigits??2));
+    const basis=el('td',`${price.basis==='unknown'?'Basis unknown':price.basis==='party'?'Party fare':'Per person'} · ${price.exactPartyQuoted?'Exact-party basis reported; availability unverified':'Exact-party quote unverified'}`);
     if('external' in offer)basis.append(externalDetails(offer));
     row.append(el('td',external?`${offer.seller} · via ${external.source}`:offer.seller),el('td',amount),basis,el('td',`${stamp(offer.observedAt)} UK`));body.append(row);
   }

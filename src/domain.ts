@@ -75,9 +75,8 @@ export type Offer = z.infer<typeof offerSchema>;
 const evidenceLines = z.array(z.string().trim().min(1).max(400)).max(10).default([]);
 const sourceLink = z.url().max(2000).refine(value => {
   const url = URL.parse(value);
-  return url?.protocol==='https:' && !url.username && !url.password && !url.hash
-    && ![...url.searchParams.keys()].some(key => /token|secret|password|signature|session|api[_-]?key|booking[_-]?(ref|code)|^pnr$/i.test(key));
-}, 'Use a public HTTPS link without credentials or session parameters');
+  return url?.protocol==='https:' && !url.username && !url.password && !url.search && !url.hash;
+}, 'Use a public HTTPS link without credentials, query parameters or a fragment');
 export const externalFlightOfferSchema = offerFields.extend({
   sourceUrl: sourceLink.nullable().default(null),
   external: z.strictObject({
@@ -95,7 +94,22 @@ export const externalFlightOfferSchema = offerFields.extend({
   .refine(x => (x.sourceUrl===null)===(x.external.linkType===null), 'Supply both the public link and its type, or omit both')
   .refine(x => x.inbound.length || (!['inbound','round_trip'].includes(x.external.priceScope) && !x.external.baggage.inbound.length), 'Return evidence requires a return leg');
 export type ExternalFlightOffer = z.infer<typeof externalFlightOfferSchema>;
-export type FlightEvidence = Offer | ExternalFlightOffer;
+type ObservedFlightPrice = {
+  amountMinor: Offer['priceMinor']; currency: Offer['currency']; basis: Offer['priceBasis']; exactPartyQuoted: boolean;
+};
+export type ExternalFlightEvidence = Omit<ExternalFlightOffer,'priceMinor'|'priceBasis'|'exactPartyQuoted'|'external'> & {
+  priceMinor: null; priceBasis: 'unknown'; exactPartyQuoted: false;
+  external: ExternalFlightOffer['external'] & {reportedPrice: ObservedFlightPrice};
+};
+export type FlightEvidence = Offer | ExternalFlightEvidence;
+
+export function externalFlightEvidence(offer:ExternalFlightOffer):ExternalFlightEvidence {
+  const {priceMinor,priceBasis,exactPartyQuoted,external,...details}=offer;
+  // Pre-017 readers only see the outer pricing fields. Those fields must stay unknown
+  // even when the source reports a party price in the decision's currency.
+  return {...details,priceMinor:null,priceBasis:'unknown',exactPartyQuoted:false,
+    external:{...external,reportedPrice:{amountMinor:priceMinor,currency:details.currency,basis:priceBasis,exactPartyQuoted}}};
+}
 // Enrich newly stored evidence only; old immutable payloads remain untouched and can still be evaluated.
 export function normalizeOfferTimes(offer:FlightEvidence):FlightEvidence {
   const external='external' in offer;
@@ -179,7 +193,7 @@ export function evaluate(offer: FlightEvidence, criteria: Criteria, now = new Da
     knownSubtotalMinor,knownSubtotalOverflow:subtotal!==null&&knownSubtotalMinor===null,
     totalMinor: total, currency: criteria.currency, travelMinutes,
     // An observed numeric price is useful for discussion, but cannot become a quoted total.
-    observedPrice:{amountMinor:offer.priceMinor,currency:offer.currency,basis:offer.priceBasis,exactPartyQuoted:offer.exactPartyQuoted},
+    observedPrice:external?.reportedPrice??{amountMinor:offer.priceMinor,currency:offer.currency,basis:offer.priceBasis,exactPartyQuoted:offer.exactPartyQuoted},
     schedule:{outbound:offer.outbound,inbound:offer.inbound,connections:offer.outbound.length-1+Math.max(0,offer.inbound.length-1)},
     restrictions:{snowboard:offer.snowboardAllowed,supplierExpiry:offer.expiresAt,discovery:'discovery' in offer?offer.discovery??null:null},
     ...(external?{externalEvidence:{...external,sourceUrl:offer.sourceUrl,seller:offer.seller,fare:offer.fare,observedAt:offer.observedAt,adults:offer.adults}}:{}),

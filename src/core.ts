@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { canonical, criteriaSchema, DomainError, evaluate, externalFlightOfferSchema, identity, mutation, offerSchema,
-  tripInput, uuid, normalizeOfferTimes, type Actor, type Criteria, type ExternalFlightOffer, type FlightEvidence, type Permission, type Provenance } from './domain.js';
+import { canonical, criteriaSchema, DomainError, evaluate, externalFlightEvidence, externalFlightOfferSchema, identity, mutation, offerSchema,
+  tripInput, uuid, normalizeOfferTimes, type Actor, type Criteria, type FlightEvidence, type Permission, type Provenance } from './domain.js';
 import type { Database, Queryable } from './database.js';
 import type { FlightProvider } from './providers.js';
 import { dispatchPolicy, policySchemas, policyReferencesSchema, readPolicyReferences } from './policies.js';
@@ -338,7 +338,7 @@ export class Core {
     } else if (name === 'save_candidate') {
       result = await saveOffer(tx, decision.id, a.offer, 'user_reported', null);
     } else if (name === 'save_external_flight_offer') {
-      const offer:ExternalFlightOffer=a.offer;
+      const offer=externalFlightEvidence(a.offer);
       const conflicts=evaluate(offer,active.payload).checks.filter(check=>check.verdict==='fail'
         && ['route','dates','party','stops','departure_cutoff','observation_time'].includes(check.constraint));
       if(conflicts.length)fail('VALIDATION_ERROR',`Offer conflicts with this decision or observation timestamp (${conflicts.map(check=>check.constraint).join(', ')})`);
