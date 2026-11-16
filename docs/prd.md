@@ -84,7 +84,7 @@ Ship independently useful increments rather than making accommodation and dining
 | One-off Apple Calendar .ics exports for individual/all/selected items | Automatic sync or subscriptions |
 | General-purpose **bounded MCP flight discovery** for supported airports, future dates and adult counts, with honest provenance/coverage; expand in F1–F3 | Comprehensive market/flexible-date aggregation, fare alerts, guaranteed bookable prices, flight ticketing |
 | External booking links and explicitly recorded booking status | Native supplier booking, payments, cancellations or ticket issuance pending explicit integration gates |
-| Later trip-aware expense ledger tied to participants and itinerary items | P2P money movement, escrow, direct Splitwise API reliance or automated settlement |
+| Trip-aware expense ledger tied to travelers, with optional itinerary links planned | P2P money movement, escrow, direct Splitwise API reliance or automated settlement |
 
 Provider access, display/retention rights and cost determine which live research integrations are viable. Manual accommodation, restaurant and itinerary entries are valuable independently of any external API.
 
@@ -245,9 +245,13 @@ The product should support bookings in stages, separately by supplier and travel
 
 **Booking acceptance gates:** validate reprice/offer expiry; party-wide accommodation configuration, taxes, deposit and cancellation disclosure; dining date, time, party size and any guarantee; flight-specific fare/baggage caveats; explicit consent; idempotent create and timeout recovery; booking retrieval, cancellation/error states and revocation/privacy. Test the provider's real production permissions and realistic after-sales path before enabling a checkout button. Any unsupported stage falls back cleanly to handoff/manual reporting.
 
-### Trip expenses and settlement ledger (later deliverable)
+<a id="trip-expenses-and-settlement-ledger-later-deliverable"></a>
 
-Build a **trip-aware** cost-sharing ledger rather than a generic Splitwise clone: link expenses to existing trip members/represented participants and optional bookings or itinerary items, so split groups, different attendance and different return dates are reflected correctly. This is a later product increment **after** itinerary reliability, stay/dining comparisons and booking handoff. No supplier payment, person-to-person transfer, automatic card charge, debt collection or escrow is included in the initial expense feature.
+### Trip expenses and settlement ledger
+
+The first manual slice shipped after stable traveler IDs were available. Organizers record actual GBP expenses, split them equally among selected travelers, and correct or void entries with an audit history. Signed-in trip members can read the current expenses and balances. See the [shipped behavior](itinerary-web.md#trip-expenses) and [acceptance record](https://github.com/eddieyang-97/trip-planning-engine/issues/72).
+
+The broader ledger should use trip travelers and optional links to bookings or itinerary items to reflect who shared each cost. The requirements below cover the fuller ledger, including later increments. Expenses record payments made outside the app.
 
 - **Record an expense:** title, category, payer, date, original amount and currency, optional source receipt/link, itinerary/booking link, notes and participants included in the split. Record **actual paid** amounts separately from estimated or selected itinerary costs. A reservation confirmation does not automatically become an expense.
 - **Allocate fairly:** equal split across selected participants, custom fixed amounts, percentages or weighted shares; partial participation (e.g. only six people attended an activity) is explicit. Allow reimbursement owed to someone who is represented but not a registered account. Validate that participant shares sum exactly to the source amount with deterministic minor-unit rounding.
@@ -256,7 +260,7 @@ Build a **trip-aware** cost-sharing ledger rather than a generic Splitwise clone
 - **Accuracy and governance:** store immutable expense/payment event history or reversible adjustment records, actor, timestamp and revisions; support corrections without silently rewriting another member's balance. Apply organizer/editor permissions and privacy filtering; anonymous itinerary viewers do not see private expense details by default. Export a human-readable ledger and CSV for reconciliation; receipts are optional and access-controlled.
 - **API independence:** own our ledger. Splitwise's [self-service API terms](https://github.com/splitwise/api-docs/blob/main/splitwise.yaml) restrict commercial use and competing implementations; do not build the feature on that API without a separately negotiated license.
 
-**Example acceptance:** Center Parcs has ten travelers, one payer for a £2,000 lodge (ten equal £200 shares), and another payer for a £240 activity attended by six (six £40 shares). A seventh nonattendee owes no share for that activity. The product computes consistent balances, suggests settlement transfers, and records a partial repayment without creating a payment or mutating booked itinerary items. A refund or edited expense is auditable and balances recompute correctly. Validate unequal/custom shares, minor-unit rounding, two currencies, invitation/participant separation, permissions and concurrent edits before calling the expense ledger accepted.
+**Acceptance for later increments:** Extend the ten-traveler Center Parcs fixture to verify custom shares, two currencies, settlement suggestions, an externally reported partial repayment and an auditable refund. Balances must reconcile per currency, and these actions must preserve booked itinerary items. Continue to verify participant identity, permissions and concurrent edits.
 
 ### Map presentation and pin semantics
 
@@ -460,7 +464,7 @@ The roadmap records **product choices**, not deployed features or guaranteed del
 
 The live queue—including [accommodation #9](https://github.com/eddieyang-97/trip-planning-engine/issues/9), [dining #10](https://github.com/eddieyang-97/trip-planning-engine/issues/10), [logistics #8](https://github.com/eddieyang-97/trip-planning-engine/issues/8), optional [import #7](https://github.com/eddieyang-97/trip-planning-engine/issues/7), and deferred [agent research #31/#33](https://github.com/eddieyang-97/trip-planning-engine/issues/33)—lives in [GitHub Issues](https://github.com/eddieyang-97/trip-planning-engine/issues). The latest priority, dependencies and acceptance evidence should be read from those Issues, not an independently maintained roadmap table. These are distinct from the long-term requirements in this PRD and the [verified delivery state](implementation.md).
 
-**Later / conditional (not active Issues until a bounded deliverable is approved):** repeat-search material-change detection and provider integrations; booking handoff and confirmation reconciliation; trip-aware expense ledger with partial repayments; richer collaboration; native reservations only with approved provider access; fare alerts, market-wide flight comparison, ticketing and support/servicing. Manual/sourced stay and dining research must remain viable without integrations. The earlier flight pilot remains the historical proof of feasibility, not a present limit on F1's target supported inputs.
+**Later / conditional (not active Issues until a bounded deliverable is approved):** repeat-search material-change detection and provider integrations; booking handoff and confirmation reconciliation; expense extensions such as partial repayments; richer collaboration; native reservations only with approved provider access; fare alerts, market-wide flight comparison, ticketing and support/servicing. Manual/sourced stay and dining research must remain viable without integrations. The earlier flight pilot remains the historical proof of feasibility, not a present limit on F1's target supported inputs.
 
 **Risk-based gates (not feature epics):**
 - **Before wider access:** close or explicitly accept relevant live database security findings; confirm account/role/privacy boundaries and provider cost ceilings.
@@ -486,7 +490,7 @@ Stay comparison covers Airbnb-style whole homes as well as hotel-room combinatio
 | How do we handle real bookings? | Selected, requested, user-reported booked and externally verified are separate states; external click-through never confirms | Import/manual booking tests |
 | Should booking happen in-app? | Potentially, in three levels: external handoff now, approved reservation APIs conditionally, full payments/servicing only with capacity and compliance | Partner access, unit economics, legal review and real supplier confirmation/servicing tests |
 | Which booking vertical first? | Accommodation first candidate if an approved partner is viable; restaurants can be easier per reservation but lack universal coverage; airline ticketing deferred | Compare Booking.com/Expedia/OpenTable-style programs and actual production eligibility |
-| Should we include shared expenses? | Yes, as a later trip-aware ledger after comparison and booking handoff; expense ≠ booking ≠ repayment | Test Center Parcs attendance-weighted split, custom shares, FX, privacy, rounding and partial repayment before launch |
+| Should we include shared expenses? | Manual GBP expenses, equal splits and balances shipped using stable traveler IDs. Expenses, bookings and repayments are separate records. | [#72](https://github.com/eddieyang-97/trip-planning-engine/issues/72) verified the first slice. Custom shares, FX and partial repayment need separate acceptance. |
 | Should we use Splitwise's API or move money? | No initial dependency on Splitwise or in-app money transfer; maintain independent expense records and external settlement tracking | Revisit only after licensing and payment/regulatory due diligence |
 | How should Apple Calendar work? | One-off .ics individual/all/selected export, no automatic sync; hosted device acceptance still needed | iPhone/iPad validation; see [calendar-export.md](calendar-export.md) |
 | Which account/hosting model? | Verified account identity across web and authorized MCP; existing Render/Supabase direction, no assumed paid upgrade | Continue operational and security validation |

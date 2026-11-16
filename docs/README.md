@@ -35,8 +35,8 @@ Use this index to find the authoritative guide for each topic. Start with curren
 | [Hosted flight search](hosted-live-search.md) | Bounded generalized F1/F2 live acceptance, F3 conditional ChatGPT selection/read-back, client gaps, limits and historical pilot evidence |
 | [Guarded releases](releases.md) | CI/branch safeguards, verified manual post-deploy smoke, Supabase connector boundaries, worker draining and Render auto-deploy |
 | [Itinerary web app](itinerary-web.md) | Manual organizer, deployed saved-research view and remaining cross-surface acceptance |
-| [Traveler-specific plans](itinerary-web.md#travelers-and-split-plans) | Source-merged roster and itinerary assignments, authorized filtering, and anonymous-link privacy; see #8 for remaining acceptance |
-| [Trip expenses](itinerary-web.md#trip-expenses) | Source-merged GBP expense ledger, exact equal splits and member privacy; see #72 for remaining acceptance |
+| [Traveler-specific plans](itinerary-web.md#travelers-and-split-plans) | Deployed roster and itinerary assignments, authorized filtering, and anonymous-link privacy; see #8 for the remaining real-friend pilot |
+| [Trip expenses](itinerary-web.md#trip-expenses) | Deployed GBP expense ledger, exact equal splits and hosted organizer/member acceptance with fictional data |
 | [Calendar and comments hosted release](release-calendar-comments-2026-10-15.md) | Historical 15 October deployment, hosted smoke checks and acceptance limits |
 | [Apple Calendar export](calendar-export.md) | Deployed individual/all/subset .ics export; saved-trip/native device acceptance pending |
 | [Browser regression testing](browser-testing.md) | Built-app sharing/retry/revocation and lodging MCP → web review journeys; isolated setup and sanitized failure cases |
