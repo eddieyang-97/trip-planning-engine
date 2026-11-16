@@ -42,6 +42,8 @@ Open **Expenses** under **More** on a phone. Owners record an expense in pounds,
 
 Signed-in trip members can see current expenses and balances. Owners can correct or void an entry and review recent changes, including earlier amounts and shares. This uses a separate ledger revision and keeps expenses out of shared links and calendar files. An expense is a report of a payment already made outside the app. See [#72](https://github.com/eddieyang-97/trip-planning-engine/issues/72).
 
+If a save or void loses its response, **Retry original save** or **Retry original void** checks that same request. **Discard retry and refresh** clears the pending request and any unsaved draft and reloads the ledger so you can check what was saved.
+
 ## Apple Calendar export — current feature guide
 
 The itinerary provides one-item, all-item and selected-subset `.ics` snapshots, using existing trip access and private-field filtering. For the authoritative user flow, schedule/DST rules, temporary download tickets, limitations and dated acceptance evidence, see [Apple Calendar export](calendar-export.md) and the preserved [15 October combined release record](release-calendar-comments-2026-10-15.md). Saved-trip/native-device acceptance is tracked in [delivery status](implementation.md).

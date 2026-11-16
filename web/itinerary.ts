@@ -245,7 +245,7 @@ const travelers=configureTravelers(async({tripId,revision},change)=>{
   await mutate('manage_trip_traveler',{tripId,expectedRevision:revision,change});
   if(plan?.trip.id===tripId)await loadPlan(tripId);
 },renderSchedule);
-const expenses=configureExpenses({read:tripId=>api('get_trip_expenses',{tripId}),mutate});
+const expenses=configureExpenses({read:tripId=>api('get_trip_expenses',{tripId}),mutate:api});
 const members=configureMembers($('trip-members'),api);
 const diningComparison=configureDiningComparison($('dining-research'),{api,mutate,reload:loadPlan,message});
 const stayComparison=configureStayComparison($('stay-research'),{api,mutate,reload:loadPlan,message});
