@@ -1,10 +1,18 @@
-import {equalShares,parsePounds,type ExpenseShare} from '../src/expense-split.js';
+import {defaultExpenseCurrency,equalShares,expenseCurrencies,maxExpenseMinor,parseExpenseAmount,
+  type ExpenseCurrency,type ExpenseShare} from '../src/expense-split.js';
 import type {Expense,ExpenseLedger} from '../src/trip-expenses.js';
 import type {Traveler} from '../src/itinerary-travelers.js';
 import {isTemporaryReadError} from './itinerary-read-response.js';
 
-const gbp=new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'});
-const money=(pennies:number)=>gbp.format(pennies/100);
+const currencies=Object.keys(expenseCurrencies) as ExpenseCurrency[];
+const formatters=new Map(currencies.map(currency=>{
+  const digits=expenseCurrencies[currency];
+  return [currency,new Intl.NumberFormat('en-GB',{style:'currency',currency,
+    currencyDisplay:currency===defaultExpenseCurrency?'symbol':'code',
+    minimumFractionDigits:digits,maximumFractionDigits:digits})];
+}));
+const majorAmount=(amountMinor:number,currency:ExpenseCurrency)=>amountMinor/10**expenseCurrencies[currency];
+const money=(amountMinor:number,currency:ExpenseCurrency)=>formatters.get(currency)!.format(majorAmount(amountMinor,currency));
 const get=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const errorText=(error:unknown)=>error instanceof Error?error.message:'Unable to load trip expenses.';
 type ExpenseMutation={
@@ -30,12 +38,15 @@ export function configureExpenses(transport:{
   const submit=get<HTMLButtonElement>('expense-save');
   const title=get<HTMLInputElement>('expense-title');
   const date=get<HTMLInputElement>('expense-date');
+  const currencyField=get<HTMLSelectElement>('expense-currency');
   const amount=get<HTMLInputElement>('expense-amount');
   const payer=get<HTMLSelectElement>('expense-payer');
   const choices=get('expense-travelers');
   const preview=get('expense-preview');
   const list=get('expense-list');
   const balances=get('expense-balances');
+  const suggestions=get('expense-suggestions');
+  const summaries=get('expense-summaries');
   const history=get<HTMLDetailsElement>('expense-history');
   const status=get('expenses-status');
   const error=get('expenses-error');
@@ -47,6 +58,8 @@ export function configureExpenses(transport:{
   let tripId:string|null=null,ledger:ExpenseLedger|null=null,editing:Expense|null=null;
   let sequence=0,saving=false,needsRefresh=false,needsReview=false;
   let uncertainMutation:ExpenseMutation|null=null;
+  for(const code of currencies)currencyField.add(new Option(code,code,code===defaultExpenseCurrency,code===defaultExpenseCurrency));
+  const selectedCurrency=()=>currencyField.value as ExpenseCurrency;
 
   function updateControls(){
     close.disabled=saving;
@@ -79,9 +92,9 @@ export function configureExpenses(transport:{
     const person=ledger?.travelers.find(row=>row.id===id);
     return person?label(person):'Traveler';
   }
-  function shareList(shares:ExpenseShare[]){
+  function shareList(shares:ExpenseShare[],currency:ExpenseCurrency){
     const items=element('ul');
-    for(const share of shares)items.append(element('li',`${travelerName(share.travelerId)} · ${money(share.amountMinor)}`));
+    for(const share of shares)items.append(element('li',`${travelerName(share.travelerId)} · ${money(share.amountMinor,currency)}`));
     return items;
   }
   function action(text:string,run:()=>void){
@@ -123,8 +136,29 @@ export function configureExpenses(transport:{
       status.textContent='Draft kept. Review the form and save when ready.';
       title.focus();
     });
-    review.append(element('h4','This expense changed. Review the latest saved version.'),element('p',`${latest.title} · ${money(latest.amountMinor)}`),
-      element('p',`${latest.paidOn} · Paid by ${travelerName(latest.payerId)}`),shareList(latest.shares),accept);
+    review.append(element('h4','This expense changed. Review the latest saved version.'),element('p',`${latest.title} · ${money(latest.amountMinor,latest.currency)}`),
+      element('p',`${latest.paidOn} · Paid by ${travelerName(latest.payerId)}`),shareList(latest.shares,latest.currency),accept);
+  }
+  function renderSummaries(groups:ExpenseLedger['currencySummaries']){
+    for(const {currency,balances:rows,suggestions:transfers} of groups){
+      const balanceList=element('ul');
+      for(const balance of rows){
+        const row=element('li');
+        let summary='No balance';
+        if(balance.balanceMinor>0)summary=`Gets back ${money(balance.balanceMinor,currency)}`;
+        if(balance.balanceMinor<0)summary=`Owes ${money(-balance.balanceMinor,currency)}`;
+        row.append(element('strong',`${travelerName(balance.travelerId)} · ${summary}`),
+          element('small',`Paid ${money(balance.paidMinor,currency)} · Share ${money(balance.shareMinor,currency)}`));
+        balanceList.append(row);
+      }
+      balances.append(element('h4',currency),balanceList);
+
+      const transferList=element('ul');
+      for(const {fromTravelerId,toTravelerId,amountMinor} of transfers){
+        transferList.append(element('li',`${travelerName(fromTravelerId)} pays ${travelerName(toTravelerId)} · ${money(amountMinor,currency)}`));
+      }
+      suggestions.append(element('h4',currency),transfers.length?transferList:element('p','No repayment suggested.'));
+    }
   }
   function render(){
     const roster=ledger?.travelers??[];
@@ -132,23 +166,18 @@ export function configureExpenses(transport:{
     get('expense-roster-hint').hidden=!ledger?.owner||!add.hidden;
     list.replaceChildren();
     balances.replaceChildren();
+    suggestions.replaceChildren();
+    summaries.hidden=!ledger?.currencySummaries.length;
     get('expense-history-list').replaceChildren();
     history.hidden=!ledger?.history.length;
     if(!ledger)return;
-    const used=new Set(ledger.expenses.flatMap(expense=>[expense.payerId,...expense.shares.map(share=>share.travelerId)]));
-    for(const balance of ledger.balances){
-      if(!used.has(balance.travelerId))continue;
-      const row=element('li');
-      const summary=balance.balanceMinor>0?`Gets back ${money(balance.balanceMinor)}`:balance.balanceMinor<0?`Owes ${money(-balance.balanceMinor)}`:'Settled';
-      row.append(element('strong',`${travelerName(balance.travelerId)} · ${summary}`),element('small',`Paid ${money(balance.paidMinor)} · Share ${money(balance.shareMinor)}`));
-      balances.append(row);
-    }
+    renderSummaries(ledger.currencySummaries);
     if(!ledger.expenses.length)list.append(element('p','No expenses recorded yet.'));
     for(const expense of ledger.expenses){
       const row=element('div'),details=element('details');
       row.className='expense-entry';
-      details.append(element('summary',`${expense.title} · ${money(expense.amountMinor)}`),
-        element('p',`${expense.paidOn} · Paid by ${travelerName(expense.payerId)}`),shareList(expense.shares));
+      details.append(element('summary',`${expense.title} · ${money(expense.amountMinor,expense.currency)}`),
+        element('p',`${expense.paidOn} · Paid by ${travelerName(expense.payerId)}`),shareList(expense.shares,expense.currency));
       row.append(details);
       if(ledger.owner){
         const edit=action('Correct',()=>openForm(expense)),voidButton=action('Void',()=>{
@@ -163,8 +192,8 @@ export function configureExpenses(transport:{
     }
     for(const event of ledger.history){
       const details=element('details');
-      details.append(element('summary',`${event.action[0]!.toUpperCase()+event.action.slice(1)} · ${event.title} · ${money(event.amountMinor)}`),
-        element('p',`${new Date(event.createdAt).toLocaleString('en-GB')} · Paid by ${travelerName(event.payerId)}`),shareList(event.shares));
+      details.append(element('summary',`${event.action[0]!.toUpperCase()+event.action.slice(1)} · ${event.title} · ${money(event.amountMinor,event.currency)}`),
+        element('p',`${new Date(event.createdAt).toLocaleString('en-GB')} · Paid by ${travelerName(event.payerId)}`),shareList(event.shares,event.currency));
       get('expense-history-list').append(details);
     }
   }
@@ -200,9 +229,11 @@ export function configureExpenses(transport:{
   }
   const included=()=>[...choices.querySelectorAll<HTMLInputElement>('input:checked')].map(input=>input.value);
   function updatePreview(){
-    const pennies=parsePounds(amount.value),ids=included();
+    const currency=selectedCurrency();
+    const amountMinor=parseExpenseAmount(amount.value,currency),ids=included();
+    amount.placeholder=(0).toFixed(expenseCurrencies[currency]);
     preview.replaceChildren();
-    if(pennies!==null&&ids.length)preview.append(element('p','Each traveler’s share'),shareList(equalShares(pennies,ids)));
+    if(amountMinor!==null&&ids.length)preview.append(element('p','Each traveler’s share'),shareList(equalShares(amountMinor,ids),currency));
   }
   function renderPeople(payerId:string,selected:Set<string>){
     const payers=ledger!.travelers.filter(person=>!person.archived||person.id===payerId||person.id===editing?.payerId);
@@ -223,7 +254,12 @@ export function configureExpenses(transport:{
     editing=expense??null;
     const selected=new Set(expense?.shares.map(share=>share.travelerId)??ledger.travelers.filter(person=>!person.archived).map(person=>person.id));
     renderPeople(expense?.payerId??'',selected);
-    if(expense){title.value=expense.title;date.value=expense.paidOn;amount.value=(expense.amountMinor/100).toFixed(2);}
+    if(expense){
+      title.value=expense.title;
+      date.value=expense.paidOn;
+      currencyField.value=expense.currency;
+      amount.value=majorAmount(expense.amountMinor,expense.currency).toFixed(expenseCurrencies[expense.currency]);
+    }
     get('expense-editor-title').textContent=expense?'Correct expense':'Add expense';
     error.textContent='';
     form.hidden=false;
@@ -266,14 +302,21 @@ export function configureExpenses(transport:{
     void load();
   };
   amount.oninput=updatePreview;
+  currencyField.onchange=updatePreview;
   choices.onchange=updatePreview;
   form.onsubmit=event=>{
     event.preventDefault();
     if(saving||uncertainMutation)return;
-    const amountMinor=parsePounds(amount.value),travelerIds=included();
-    if(amountMinor===null){reportError('Enter a positive amount in pounds with up to two decimal places.');return;}
+    const currency=selectedCurrency();
+    const amountMinor=parseExpenseAmount(amount.value,currency),travelerIds=included();
+    if(amountMinor===null){
+      const digits=expenseCurrencies[currency];
+      const precision=digits?` with up to ${digits} decimal places`:' as a whole number';
+      reportError(`Enter a positive ${currency} amount${precision}, up to ${money(maxExpenseMinor,currency)}.`);
+      return;
+    }
     if(!travelerIds.length){reportError('Choose at least one traveler for the split.');return;}
-    const expense={title:title.value,paidOn:date.value,payerId:payer.value,currency:'GBP',amountMinor,travelerIds};
+    const expense={title:title.value,paidOn:date.value,payerId:payer.value,currency,amountMinor,travelerIds};
     startMutation('save_trip_expense',{...(editing?{expenseId:editing.id}:{}),expense});
   };
   dialog.addEventListener('cancel',event=>{if(saving)event.preventDefault();});

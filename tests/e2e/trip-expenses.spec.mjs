@@ -24,7 +24,7 @@ test('owner records a GBP split and a signed-in friend sees balances on a phone'
   await page.getByRole('button',{name:'Add expense',exact:true}).click();
   await page.getByLabel('Description').fill('Fixture activity');
   await page.getByLabel('Date paid').fill('2027-01-02');
-  await page.getByLabel('Amount (£)').fill('10.01');
+  await page.getByLabel('Amount', {exact:true}).fill('10.01');
   await page.getByLabel('Paid by').selectOption({label:'Alex'});
   await page.getByRole('checkbox',{name:'Drew',exact:true}).uncheck();
   await expect(page.locator('#expense-preview li')).toHaveCount(2);
@@ -44,7 +44,7 @@ test('owner records a GBP split and a signed-in friend sees balances on a phone'
   await expect(page.locator('#expenses-error')).toContainText('did not respond');
   await page.getByRole('button',{name:'Refresh expenses',exact:true}).click();
   await expect(page.locator('#expense-recovery')).toBeVisible();
-  await expect(page.getByLabel('Amount (£)')).toHaveValue('10.01');
+  await expect(page.getByLabel('Amount', {exact:true})).toHaveValue('10.01');
   const retry=page.waitForRequest(request=>request.url().endsWith('/itinerary-api/save_trip_expense'));
   await page.getByRole('button',{name:'Retry original save',exact:true}).click();
   expect((await retry).postDataJSON().idempotencyKey).toBe(sent.idempotencyKey);
@@ -66,7 +66,7 @@ test('owner records a GBP split and a signed-in friend sees balances on a phone'
   await friend.screenshot({path:testInfo.outputPath('expense-balances-phone.png')});
 
   await page.getByRole('button',{name:'Correct Fixture activity'}).click();
-  await page.getByLabel('Amount (£)').fill('12');
+  await page.getByLabel('Amount', {exact:true}).fill('12');
   await page.getByRole('button',{name:'Save expense',exact:true}).click();
   await expect(page.locator('#expense-list')).toContainText('Fixture activity · £12.00');
   await page.getByText('Recent expense history').click();
@@ -84,6 +84,76 @@ test('owner records a GBP split and a signed-in friend sees balances on a phone'
   expect(await anonymous.evaluate(async id=>(await fetch('/itinerary-api/get_trip_expenses',{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tripId:id}),
   })).status,tripId)).toBe(401);
+});
+
+test('owner records and corrects foreign currency expenses and a member sees separate suggested repayments',async({page,context,app},testInfo)=>{
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort('blockedbyclient'));
+  const {tripId}=app;
+  const travelers=[];
+  for(const [index,name] of ['Alex','Casey'].entries()){
+    const {travelerId}=await app.call('manage_trip_traveler',{tripId,expectedRevision:2+index,change:{action:'add',name}});
+    travelers.push(travelerId);
+  }
+  async function openExpenses(target,token){
+    await target.goto(`${app.origin}/itinerary?trip=${tripId}`);
+    await target.getByLabel('Local development token').fill(token);
+    await target.getByRole('button',{name:'Open local trips',exact:true}).click();
+    await expect(target.locator('#trip-title')).toBeVisible();
+    await openDisclosure(target,'plan-more');
+    await target.getByRole('button',{name:'Expenses',exact:true}).click();
+  }
+  await page.setViewportSize({width:1280,height:900});
+  await openExpenses(page,app.ownerToken);
+  await expect(page.getByText('No expenses recorded yet.',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Suggested repayments'})).toBeHidden();
+  await app.call('save_trip_expense',{tripId,expectedRevision:0,expense:{
+    title:'Fictional lodge',paidOn:'2027-01-01',payerId:travelers[0],currency:'GBP',amountMinor:2000,travelerIds:travelers,
+  }});
+  await page.getByRole('button',{name:'Refresh expenses'}).click();
+  await expect(page.locator('#expense-list')).toContainText('Fictional lodge · £20.00');
+  await page.getByRole('button',{name:'Add expense',exact:true}).click();
+  const currency=page.getByRole('combobox',{name:'Currency',exact:true});
+  const amount=page.getByLabel('Amount',{exact:true});
+  await expect(currency).toHaveValue('GBP');
+  await currency.selectOption('EUR');
+  await page.getByLabel('Description').fill('Fictional dinner');
+  await page.getByLabel('Date paid').fill('2027-01-02');
+  await page.getByLabel('Paid by').selectOption({label:'Casey'});
+  await amount.fill('20.00');
+  await expect(page.locator('#expense-preview li').first()).toContainText('EUR 10.00');
+  await page.getByRole('button',{name:'Save expense',exact:true}).click();
+  const suggestions=page.locator('#expense-suggestions');
+  await expect(suggestions.getByRole('listitem')).toHaveText(['Alex pays Casey · EUR 10.00','Casey pays Alex · £10.00']);
+  await page.screenshot({path:testInfo.outputPath('expense-currencies-desktop.png')});
+
+  const friend=await context.newPage();
+  await friend.setViewportSize({width:390,height:844});
+  await openExpenses(friend,app.viewerToken);
+  await expect(friend.locator('#expense-suggestions').getByRole('listitem')).toHaveText([
+    'Alex pays Casey · EUR 10.00','Casey pays Alex · £10.00',
+  ]);
+  await expect(friend.locator('#expense-balances').getByRole('heading')).toHaveText(['EUR','GBP']);
+  await expect(friend.getByRole('button',{name:'Add expense',exact:true})).toBeHidden();
+  await expect(friend.locator('#expense-history')).toBeHidden();
+  await friend.setViewportSize({width:320,height:800});
+  expect(await friend.locator('#expenses-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
+  await friend.screenshot({path:testInfo.outputPath('expense-currencies-mobile.png')});
+
+  await page.getByRole('button',{name:'Correct Fictional dinner'}).click();
+  await expect(currency).toHaveValue('EUR');
+  await expect(amount).toHaveValue('20.00');
+  await currency.selectOption('JPY');
+  const save=page.getByRole('button',{name:'Save expense',exact:true});
+  await save.click();
+  await expect(page.locator('#expenses-error')).toContainText('Enter a positive JPY amount as a whole number');
+  await amount.fill('2000');
+  await save.click();
+  await expect(suggestions.getByRole('listitem')).toHaveText(['Casey pays Alex · £10.00','Alex pays Casey · JPY 1,000']);
+  await page.getByText('Recent expense history').click();
+  await expect(page.locator('#expense-history-list')).toContainText('Recorded · Fictional dinner · EUR 20.00');
+  await expect(page.locator('#expense-history-list')).toContainText('Corrected · Fictional dinner · JPY 2,000');
+  await friend.getByRole('button',{name:'Refresh expenses'}).click();
+  await expect(friend.locator('#expense-suggestions').getByRole('heading')).toHaveText(['GBP','JPY']);
 });
 
 test('an uncertain correction can only be retried as the original operation',async({page,context,app})=>{
@@ -110,7 +180,7 @@ test('an uncertain correction can only be retried as the original operation',asy
     if(request.url().endsWith('/itinerary-api/void_trip_expense'))voidRequests.push(request.postDataJSON());
   });
   await correct.click();
-  await page.getByLabel('Amount (£)').fill('11');
+  await page.getByLabel('Amount', {exact:true}).fill('11');
   await page.route('**/itinerary-api/save_trip_expense',route=>route.abort('failed'),{times:1});
   await save.click();
   await expect(discard).toBeVisible();
@@ -135,7 +205,7 @@ test('an uncertain correction can only be retried as the original operation',asy
   ]);
 
   await correct.click();
-  await page.getByLabel('Amount (£)').fill('12');
+  await page.getByLabel('Amount', {exact:true}).fill('12');
   let original;
   await page.route('**/itinerary-api/save_trip_expense',async route=>{
     original=route.request().postDataJSON();
@@ -193,7 +263,7 @@ test('a stale expense draft survives refresh and a changed correction requires r
   await page.getByRole('button',{name:'Add expense',exact:true}).click();
   await page.getByLabel('Description').fill('Dinner draft');
   await page.getByLabel('Date paid').fill('2027-01-02');
-  await page.getByLabel('Amount (£)').fill('42.25');
+  await page.getByLabel('Amount', {exact:true}).fill('42.25');
   await page.getByLabel('Paid by').selectOption({label:'Casey'});
   await page.getByRole('checkbox',{name:'Drew',exact:true}).uncheck();
   const other=await app.call('save_trip_expense',{tripId,expectedRevision:0,expense:fixture});
@@ -204,14 +274,14 @@ test('a stale expense draft survives refresh and a changed correction requires r
   await expect(page.locator('#expenses-status')).toContainText('Review your draft before saving');
   await expect(page.getByLabel('Description')).toHaveValue('Dinner draft');
   await expect(page.getByLabel('Date paid')).toHaveValue('2027-01-02');
-  await expect(page.getByLabel('Amount (£)')).toHaveValue('42.25');
+  await expect(page.getByLabel('Amount', {exact:true})).toHaveValue('42.25');
   await expect(page.getByLabel('Paid by')).toHaveValue(travelers[1]);
   await expect(page.getByRole('checkbox',{name:'Drew',exact:true})).not.toBeChecked();
   await save.click();
   await expect(page.locator('#expense-list')).toContainText('Dinner draft · £42.25');
 
   await page.getByRole('button',{name:'Correct Expense from another tab'}).click();
-  await page.getByLabel('Amount (£)').fill('11');
+  await page.getByLabel('Amount', {exact:true}).fill('11');
   await app.call('save_trip_expense',{tripId,expenseId:other.expenseId,expectedRevision:2,
     expense:{...fixture,title:'Latest saved expense',amountMinor:1000,paidOn:'2027-01-03',payerId:travelers[1],travelerIds:[travelers[2]]}});
   await save.click();
@@ -221,7 +291,7 @@ test('a stale expense draft survives refresh and a changed correction requires r
   await expect(review).toContainText('Latest saved expense · £10.00');
   await expect(review).toContainText('2027-01-03 · Paid by Casey');
   await expect(review).toContainText('Drew · £10.00');
-  await expect(page.getByLabel('Amount (£)')).toHaveValue('11');
+  await expect(page.getByLabel('Amount', {exact:true})).toHaveValue('11');
   await expect(save).toBeDisabled();
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(error.message));
@@ -236,7 +306,7 @@ test('a stale expense draft survives refresh and a changed correction requires r
     await expect(page.locator('#expenses-status')).toHaveText('Loading expenses…');
     await expect(review.getByRole('button',{name:'Keep my draft'})).toBeHidden();
     await expect(save).toBeDisabled();
-    await expect(page.getByLabel('Amount (£)')).toHaveValue('11');
+    await expect(page.getByLabel('Amount', {exact:true})).toHaveValue('11');
     await app.call('save_trip_expense',{tripId,expenseId:other.expenseId,expectedRevision:3,
       expense:{...fixture,title:'Updated during refresh',amountMinor:1050}});
   }finally{releaseRefresh();}
@@ -247,11 +317,11 @@ test('a stale expense draft survives refresh and a changed correction requires r
   await expect(page.locator('#expense-list')).toContainText('Expense from another tab · £11.00');
 
   await page.getByRole('button',{name:'Correct Expense from another tab'}).click();
-  await page.getByLabel('Amount (£)').fill('12');
+  await page.getByLabel('Amount', {exact:true}).fill('12');
   await app.call('void_trip_expense',{tripId,expenseId:other.expenseId,expectedRevision:5});
   await refresh.click();
   await expect(review).toContainText('This expense was voided');
-  await expect(page.getByLabel('Amount (£)')).toHaveValue('12');
+  await expect(page.getByLabel('Amount', {exact:true})).toHaveValue('12');
   await expect(save).toBeDisabled();
   const ledger=await app.core.callFromWeb('get_trip_expenses',{tripId},app.owner);
   expect(ledger.revision).toBe(6);

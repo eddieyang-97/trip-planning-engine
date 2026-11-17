@@ -57,13 +57,21 @@
     <h3 id="expense-editor-title">Add expense</h3>
     <div id="expense-review" aria-live="polite"></div>
     <label>Description<input id="expense-title" required maxlength="120" placeholder="e.g. Weekend lodge"></label>
-    <div class="form-grid"><label>Date paid<input id="expense-date" type="date" required></label><label>Amount (£)<input id="expense-amount" type="text" inputmode="decimal" maxlength="10" required placeholder="0.00"></label></div>
+    <label>Date paid<input id="expense-date" type="date" required></label>
+    <div class="form-grid"><label>Currency<select id="expense-currency" required></select></label><label>Amount<input id="expense-amount" type="text" inputmode="decimal" maxlength="13" required></label></div>
     <label>Paid by<select id="expense-payer" required></select></label>
     <fieldset class="expense-split"><legend>Split equally between</legend><div id="expense-travelers"></div></fieldset>
     <div id="expense-preview" aria-live="polite"></div>
     <div class="expense-actions"><button id="expense-save" type="submit">Save expense</button><button id="expense-cancel" class="subtle" type="button">Cancel</button></div>
   </form>
-  <section class="expense-section" aria-labelledby="expense-balances-title"><h3 id="expense-balances-title">Balances</h3><ul id="expense-balances"></ul></section>
+  <div id="expense-summaries" hidden>
+    <section class="expense-section" aria-labelledby="expense-suggestions-title">
+      <h3 id="expense-suggestions-title">Suggested repayments</h3>
+      <p class="field-hint">Based on recorded expenses. Make and track any repayments outside Trip Planner.</p>
+      <div id="expense-suggestions"></div>
+    </section>
+    <section class="expense-section" aria-labelledby="expense-balances-title"><h3 id="expense-balances-title">Balances</h3><div id="expense-balances"></div></section>
+  </div>
   <section class="expense-section" aria-labelledby="expense-list-title"><h3 id="expense-list-title">Recorded expenses</h3><div id="expense-list"></div></section>
   <details id="expense-history" class="expense-section" hidden><summary>Recent expense history</summary><div id="expense-history-list"></div></details>
 </dialog>
