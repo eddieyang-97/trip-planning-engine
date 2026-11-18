@@ -291,7 +291,7 @@ function render(){
   $('empty-trip-copy').textContent=tripStatus==='archived'?'Choose Active to return to your current plans. Archived trips keep their content and shared access.':'Create a trip, then add the pieces as you decide. Unknown details can wait.';
   $('first-trip').hidden=tripStatus==='archived';
   travelers.update(plan&&!demo&&!anonymousView?{tripId:plan.trip.id,revision:plan.revision,owner:plan.role==='owner',travelers:plan.travelers??[]}:null);
-  expenses.update(plan&&!demo&&!anonymousView?plan.trip.id:null);
+  expenses?.update(plan&&!demo&&!anonymousView?plan.trip.id:null);
   if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();itineraryMap.reset();return;}
   const p=plan.trip.payload;
   if(!anonymousView&&!demo)void members.load(plan.trip.id);

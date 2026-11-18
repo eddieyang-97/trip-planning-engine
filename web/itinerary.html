@@ -58,7 +58,8 @@
     <div id="expense-review" aria-live="polite"></div>
     <label>Description<input id="expense-title" required maxlength="120" placeholder="e.g. Weekend lodge"></label>
     <label>Date paid<input id="expense-date" type="date" required></label>
-    <div class="form-grid"><label>Currency<select id="expense-currency" required></select></label><label>Amount<input id="expense-amount" type="text" inputmode="decimal" maxlength="13" required></label></div>
+    <div class="form-grid"><label>Currency<select id="expense-currency" required></select></label><label>Amount<input id="expense-amount" type="text" inputmode="decimal" maxlength="13" aria-describedby="expense-amount-format" required></label></div>
+    <p id="expense-amount-format" class="field-hint">Use a dot or comma for decimals. Omit thousands separators.</p>
     <label>Paid by<select id="expense-payer" required></select></label>
     <fieldset class="expense-split"><legend>Split equally between</legend><div id="expense-travelers"></div></fieldset>
     <div id="expense-preview" aria-live="polite"></div>

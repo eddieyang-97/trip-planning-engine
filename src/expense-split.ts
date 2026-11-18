@@ -11,7 +11,7 @@ export type ExpenseCurrency=keyof typeof expenseCurrencies;
 export const defaultExpenseCurrency='GBP' satisfies ExpenseCurrency;
 
 export function parseExpenseAmount(value:string,currency:ExpenseCurrency){
-  const match=/^(\d{1,9})(?:\.(\d{1,3}))?$/.exec(value.trim());
+  const match=/^(\d{1,9})(?:[.,](\d{1,3}))?$/.exec(value.trim());
   const digits=expenseCurrencies[currency];
   const fraction=match?.[2]??'';
   if(!match||fraction.length>digits)return null;

@@ -28,11 +28,15 @@ async function setup(db:Database,count:number){
 test('expense input and equal shares use exact currency minor units',()=>{
   assert.equal(parseExpenseAmount('2000','GBP'),200000);
   assert.equal(parseExpenseAmount('2.1','EUR'),210);
+  assert.equal(parseExpenseAmount('12,34','EUR'),1234);
   assert.equal(parseExpenseAmount('100000000','JPY'),100000000);
   assert.equal(parseExpenseAmount('0.001','KWD'),1);
   assert.equal(parseExpenseAmount('1.2','KWD'),1200);
-  for(const amount of ['0','-1','1.001','£2','1e3','1000000.01'])assert.equal(parseExpenseAmount(amount,'GBP'),null);
+  for(const amount of ['0','-1','1.001','1,001','1,200.34','1.200,34','1,200,00','£2','1e3','1000000.01']){
+    assert.equal(parseExpenseAmount(amount,'GBP'),null);
+  }
   assert.equal(parseExpenseAmount('10.0','JPY'),null);
+  assert.equal(parseExpenseAmount('10,0','JPY'),null);
   assert.equal(parseExpenseAmount('100000001','JPY'),null);
   assert.equal(parseExpenseAmount('1.2345','KWD'),null);
   assert.deepEqual(equalShares(100,['c','b','a']),[{travelerId:'a',amountMinor:34},{travelerId:'b',amountMinor:33},{travelerId:'c',amountMinor:33}]);

@@ -1,6 +1,36 @@
 import {test,expect} from './fixture.mjs';
 import {openDisclosure} from './navigation.mjs';
 
+test('the itinerary loads when an older HTML page receives the newer expense script',async({page,context,app})=>{
+  await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort('blockedbyclient'));
+  await page.route(url=>url.pathname==='/itinerary',async route=>{
+    const response=await route.fetch();
+    // The old HTML lacks these controls, while the bundle URL stays the same.
+    const body=(await response.text()).replace(/id="expense-(currency|suggestions|summaries)"/g,'id="legacy-expense-$1"');
+    await route.fulfill({response,body});
+  },{times:1});
+  const pageErrors=[];
+  page.on('pageerror',error=>pageErrors.push(error.message));
+  async function openTrip(){
+    await page.getByLabel('Local development token').fill(app.ownerToken);
+    await page.getByRole('button',{name:'Open local trips',exact:true}).click();
+    await expect(page.locator('#trip-title')).toContainText('Sharing browser fixture');
+  }
+  await page.goto(`${app.origin}/itinerary?trip=${app.tripId}`);
+  expect(pageErrors).toEqual([]);
+  await expect(page.locator('#expense-currency,#expense-suggestions,#expense-summaries')).toHaveCount(0);
+  await openTrip();
+  await expect(page.locator('#trip-expenses')).toBeHidden();
+  expect(pageErrors).toEqual([]);
+
+  await page.reload();
+  await openTrip();
+  await openDisclosure(page,'plan-more');
+  await page.getByRole('button',{name:'Expenses',exact:true}).click();
+  await expect(page.getByText('No expenses recorded yet.',{exact:true})).toBeVisible();
+  expect(pageErrors).toEqual([]);
+});
+
 test('owner records a GBP split and a signed-in friend sees balances on a phone',async({page,context,app},testInfo)=>{
   await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort('blockedbyclient'));
   const {tripId}=app;
@@ -86,7 +116,7 @@ test('owner records a GBP split and a signed-in friend sees balances on a phone'
   })).status,tripId)).toBe(401);
 });
 
-test('owner records and corrects foreign currency expenses and a member sees separate suggested repayments',async({page,context,app},testInfo)=>{
+test('owner records a comma-decimal expense and a member sees separate suggested repayments',async({page,context,app},testInfo)=>{
   await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort('blockedbyclient'));
   const {tripId}=app;
   const travelers=[];
@@ -119,18 +149,20 @@ test('owner records and corrects foreign currency expenses and a member sees sep
   await page.getByLabel('Description').fill('Fictional dinner');
   await page.getByLabel('Date paid').fill('2027-01-02');
   await page.getByLabel('Paid by').selectOption({label:'Casey'});
-  await amount.fill('20.00');
-  await expect(page.locator('#expense-preview li').first()).toContainText('EUR 10.00');
+  await amount.fill('20,02');
+  await expect(page.locator('#expense-preview li').first()).toContainText('EUR 10.01');
   await page.getByRole('button',{name:'Save expense',exact:true}).click();
   const suggestions=page.locator('#expense-suggestions');
-  await expect(suggestions.getByRole('listitem')).toHaveText(['Alex pays Casey · EUR 10.00','Casey pays Alex · £10.00']);
+  await expect(suggestions.getByRole('listitem')).toHaveText(['Alex pays Casey · EUR 10.01','Casey pays Alex · £10.00']);
+  const persisted=await app.core.callFromWeb('get_trip_expenses',{tripId,currencyAware:true},app.owner);
+  expect(persisted.expenses.find(expense=>expense.currency==='EUR')).toMatchObject({amountMinor:2002});
   await page.screenshot({path:testInfo.outputPath('expense-currencies-desktop.png')});
 
   const friend=await context.newPage();
   await friend.setViewportSize({width:390,height:844});
   await openExpenses(friend,app.viewerToken);
   await expect(friend.locator('#expense-suggestions').getByRole('listitem')).toHaveText([
-    'Alex pays Casey · EUR 10.00','Casey pays Alex · £10.00',
+    'Alex pays Casey · EUR 10.01','Casey pays Alex · £10.00',
   ]);
   await expect(friend.locator('#expense-balances').getByRole('heading')).toHaveText(['EUR','GBP']);
   await expect(friend.getByRole('button',{name:'Add expense',exact:true})).toBeHidden();
@@ -141,7 +173,7 @@ test('owner records and corrects foreign currency expenses and a member sees sep
 
   await page.getByRole('button',{name:'Correct Fictional dinner'}).click();
   await expect(currency).toHaveValue('EUR');
-  await expect(amount).toHaveValue('20.00');
+  await expect(amount).toHaveValue('20.02');
   await currency.selectOption('JPY');
   const save=page.getByRole('button',{name:'Save expense',exact:true});
   await save.click();
@@ -150,7 +182,7 @@ test('owner records and corrects foreign currency expenses and a member sees sep
   await save.click();
   await expect(suggestions.getByRole('listitem')).toHaveText(['Casey pays Alex · £10.00','Alex pays Casey · JPY 1,000']);
   await page.getByText('Recent expense history').click();
-  await expect(page.locator('#expense-history-list')).toContainText('Recorded · Fictional dinner · EUR 20.00');
+  await expect(page.locator('#expense-history-list')).toContainText('Recorded · Fictional dinner · EUR 20.02');
   await expect(page.locator('#expense-history-list')).toContainText('Corrected · Fictional dinner · JPY 2,000');
   await friend.getByRole('button',{name:'Refresh expenses'}).click();
   await expect(friend.locator('#expense-suggestions').getByRole('heading')).toHaveText(['GBP','JPY']);

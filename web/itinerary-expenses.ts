@@ -29,6 +29,15 @@ export function configureExpenses(transport:{
   read:(tripId:string)=>Promise<ExpenseLedger>;
   mutate:(name:ExpenseMutation['name'],args:ExpenseMutation['args'])=>Promise<unknown>;
 }){
+  const currencyControls={
+    currencyField:document.querySelector<HTMLSelectElement>('#expense-currency'),
+    suggestions:document.getElementById('expense-suggestions'),
+    summaries:document.getElementById('expense-summaries'),
+  };
+  // During a rolling deploy the older itinerary HTML can load this bundle.
+  if(!currencyControls.currencyField||!currencyControls.suggestions||!currencyControls.summaries)return null;
+  const {currencyField,suggestions,summaries}=currencyControls;
+
   const launch=get<HTMLButtonElement>('trip-expenses');
   const dialog=get<HTMLDialogElement>('expenses-dialog');
   const form=get<HTMLFormElement>('expense-form');
@@ -38,15 +47,12 @@ export function configureExpenses(transport:{
   const submit=get<HTMLButtonElement>('expense-save');
   const title=get<HTMLInputElement>('expense-title');
   const date=get<HTMLInputElement>('expense-date');
-  const currencyField=get<HTMLSelectElement>('expense-currency');
   const amount=get<HTMLInputElement>('expense-amount');
   const payer=get<HTMLSelectElement>('expense-payer');
   const choices=get('expense-travelers');
   const preview=get('expense-preview');
   const list=get('expense-list');
   const balances=get('expense-balances');
-  const suggestions=get('expense-suggestions');
-  const summaries=get('expense-summaries');
   const history=get<HTMLDetailsElement>('expense-history');
   const status=get('expenses-status');
   const error=get('expenses-error');
