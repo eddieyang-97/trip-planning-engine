@@ -14,6 +14,11 @@ async function openTrip(page,app,token=app.ownerToken){
 const save=page=>page.locator('#item-dialog').getByRole('button',{name:'Save to itinerary',exact:true}).click();
 const close=page=>page.getByRole('button',{name:'Close item editor',exact:true}).click();
 const field=(page,name)=>page.locator(`#item-form [name="${name}"]`);
+const overviewEdit=(page,title=originalTitle)=>page.locator('#overview-day-2027-01-01').getByRole('button',{name:`Edit ${title}`,exact:true});
+const removeFromEditor=page=>page.locator('#item-dialog').getByRole('button',{name:'Remove item',exact:true});
+const removalDialog=page=>page.getByRole('dialog',{name:'Remove from the plan?',exact:true});
+const keepItem=page=>removalDialog(page).getByRole('button',{name:'Keep item',exact:true});
+const confirmRemoval=page=>removalDialog(page).getByRole('button',{name:'Remove item',exact:true});
 async function visibleSave(page){
   const box=await page.locator('#item-form button[type=submit]').boundingBox();
   expect(box).not.toBeNull();expect(box.y).toBeGreaterThanOrEqual(0);expect(box.y+box.height).toBeLessThanOrEqual(page.viewportSize().height);
@@ -29,6 +34,7 @@ test('contextual Add saves the chosen day, keeps unknowns empty and supports uns
   await expect(field(page,'startDate')).toHaveValue('2027-01-02');
   for(const id of ['item-schedule','item-notes','item-booking','map-place-editor'])await expect(page.locator(`#${id}`)).not.toHaveAttribute('open');
   await expect(page.locator('#research-draft')).toBeHidden();
+  await expect(removeFromEditor(page)).toBeHidden();
   await visibleSave(page);
   await page.screenshot({path:info.outputPath('simple-editor-phone.png')});
   await field(page,'title').fill('Fictional village walk');await field(page,'startTime').fill('10:30');
@@ -96,10 +102,128 @@ test('collapsed validation is reachable and copying a timezone is explicit',asyn
   await visibleSave(page);await openDisclosure(page,'item-schedule');await visibleSave(page);await close(page);
 });
 
+test('Overview removal keeps the mobile draft on cancel and records only the confirmed removal',async({page,app})=>{
+  const before=await plan(app);
+  const otherTitle='Fictional item to keep';
+  const other=await call(app,'add_itinerary_item',{tripId:app.tripId,expectedRevision:before.revision,
+    item:{...before.items[0].payload,title:otherTitle,status:'tentative',bookingNote:''}});
+  await page.setViewportSize({width:320,height:568});
+  await openTrip(page,app);await overviewEdit(page).click();
+  const remove=removeFromEditor(page),editor=page.locator('#item-dialog');
+  const cancel=editor.getByRole('button',{name:'Cancel',exact:true});
+  const saveButton=editor.getByRole('button',{name:'Save to itinerary',exact:true});
+  await expect(page.locator('#view-overview')).toHaveAttribute('aria-pressed','true');
+  await expect(remove).toBeVisible();
+  for(const width of [320,390,1280]){
+    await page.setViewportSize({width,height:568});
+    await visibleSave(page);
+    const [r,c,s]=await Promise.all([remove.boundingBox(),cancel.boundingBox(),saveButton.boundingBox()]);
+    expect(r.x).toBeLessThan(c.x);
+    expect(c.y).toBe(s.y);
+    expect(c.x+c.width).toBeLessThan(s.x);
+    expect(r.y+r.height<=c.y||r.x+r.width<c.x).toBe(true);
+    expect(r.y).toBeGreaterThanOrEqual(0);
+    expect(r.height).toBeGreaterThanOrEqual(44);
+    if(width===1280)expect(r.y).toBe(s.y);
+  }
+  await page.setViewportSize({width:320,height:568});
+  await field(page,'title').fill('Unsaved draft title');
+  await field(page,'notes').fill('Unsaved practical notes');
+  await remove.focus();
+  await page.keyboard.press('Tab');await expect(cancel).toBeFocused();
+  await page.keyboard.press('Tab');await expect(saveButton).toBeFocused();
+  await page.keyboard.press('Shift+Tab');await page.keyboard.press('Shift+Tab');await expect(remove).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(removalDialog(page)).toHaveAccessibleDescription(/Fictional mountain stay.*does not cancel a reservation/i);
+  await expect(keepItem(page)).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(remove).toBeFocused();
+  await page.keyboard.press('Enter');await page.keyboard.press('Escape');
+  await expect(remove).toBeFocused();
+  await expect(field(page,'title')).toHaveValue('Unsaved draft title');
+  await expect(field(page,'notes')).toHaveValue('Unsaved practical notes');
+  expect((await plan(app)).revision).toBe(other.revision);
+
+  let releaseRemoval;
+  const holdRemoval=new Promise(resolve=>{releaseRemoval=resolve;});
+  await page.route('**/itinerary-api/remove_itinerary_item',async route=>{await holdRemoval;await route.continue();});
+  await remove.click();
+  try{
+    await confirmRemoval(page).click();
+    await expect(confirmRemoval(page)).toBeDisabled();
+    await expect(keepItem(page)).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(removalDialog(page)).toBeVisible();
+    await expect(editor).toHaveAttribute('open','');
+  }finally{releaseRemoval();}
+  await expect(removalDialog(page)).toBeHidden();
+  await expect(editor).toBeHidden();
+  await expect(page.locator('#view-overview')).toBeFocused();
+  await expect(page.locator('#overview')).not.toContainText(originalTitle);
+  await expect(page.locator('#overview')).toContainText(otherTitle);
+  await expect(page.locator('#status')).toHaveText('Removed from the plan. No reservation was cancelled.');
+  await page.locator('#view-details').click();
+  await openDisclosure(page,'history-section');
+  const historyEvent=page.locator('#history .history-event').filter({hasText:`Removed: ${originalTitle}`});
+  await expect(historyEvent).toBeVisible();
+  const saved=await plan(app);
+  expect(saved.revision).toBe(other.revision+1);
+  expect(saved.items.map(row=>row.id)).toEqual([other.itemId]);
+  expect(saved.history.map(event=>event.action)).toEqual(['removed','added','added']);
+  expect(saved.history[0]).toMatchObject({item_id:app.itemId,actor_id:app.owner,before_payload:{payload:before.items[0].payload},after_payload:null});
+  expect((await app.db.query('select payload,removed_at from itinerary_items where id=$1',[app.itemId])).rows[0])
+    .toMatchObject({payload:before.items[0].payload,removed_at:expect.anything()});
+  await page.locator('#add-item').click();
+  await expect(removeFromEditor(page)).toBeHidden();
+});
+
+test('stale Overview removal leaves the draft intact and succeeds after an explicit refresh and review',async({page,app})=>{
+  const before=await plan(app);
+  await openTrip(page,app);await overviewEdit(page).click();
+  await field(page,'title').fill('Unsaved conflicting draft');
+  const title='Fictional stay updated elsewhere';
+  const edited=await call(app,'update_itinerary_item',{tripId:app.tripId,itemId:app.itemId,expectedRevision:before.revision,
+    item:{...before.items[0].payload,title}});
+  await removeFromEditor(page).click();
+  const response=page.waitForResponse('**/itinerary-api/remove_itinerary_item');
+  await confirmRemoval(page).click();
+  const rejected=await response;
+  expect(rejected.status()).toBe(409);
+  expect(rejected.request().postDataJSON()).toMatchObject({itemId:app.itemId,expectedRevision:before.revision});
+  await expect(page.locator('#remove-error')).toContainText('The plan changed. Close the dialogs and refresh');
+  await expect(confirmRemoval(page)).toBeEnabled();
+  await expect(page.locator('#status')).not.toContainText('Removed from the plan');
+  const unchanged=await plan(app);
+  expect(unchanged.revision).toBe(edited.revision);
+  expect(unchanged.items[0].payload.title).toBe(title);
+  expect(unchanged.history.map(event=>event.action)).toEqual(['edited','added']);
+  await keepItem(page).click();
+  await expect(removeFromEditor(page)).toBeFocused();
+  await expect(field(page,'title')).toHaveValue('Unsaved conflicting draft');
+  await close(page);
+  await openDisclosure(page,'plan-more');await page.locator('#refresh').click();
+  await expect(page.locator('#refresh')).toBeEnabled();
+  await overviewEdit(page,title).click();
+  await removeFromEditor(page).click();
+  await expect(removalDialog(page)).toContainText(title);
+  await confirmRemoval(page).click();
+  await expect(page.locator('#item-dialog')).toBeHidden();
+  await expect(page.locator('#overview')).not.toContainText(title);
+  const saved=await plan(app);
+  expect(saved.revision).toBe(edited.revision+1);
+  expect(saved.history.map(event=>event.action)).toEqual(['removed','edited','added']);
+});
+
 test('editor can use contextual actions without changing private booking facts; viewers have no actions',async({page,app})=>{
   await openTrip(page,app,app.viewerToken);
   await expect(page.locator('#overview .day-add,#overview .overview-edit')).toHaveCount(0);
   await page.locator('#view-details').click();await expect(page.locator('#timeline .day-add')).toHaveCount(0);
+  await expect(page.locator('#timeline').getByRole('button',{name:'Remove',exact:true})).toHaveCount(0);
+  const viewerRemoval=await page.request.post(`${app.origin}/itinerary-api/remove_itinerary_item`,{
+    headers:{Origin:app.origin,Authorization:`Bearer ${app.viewerToken}`},
+    data:{tripId:app.tripId,itemId:app.itemId,expectedRevision:2,idempotencyKey:randomUUID()}});
+  expect(viewerRemoval.status()).toBe(404);
+  expect((await plan(app)).revision).toBe(2);
   await call(app,'revoke_itinerary_access',{tripId:app.tripId,inviteId:app.inviteId});
   const invite=await call(app,'create_itinerary_invite',{tripId:app.tripId,label:'Fictional editor',role:'editor'});
   await call(app,'accept_itinerary_invite',{token:invite.token,displayName:'Fictional editor'},app.viewer);
@@ -114,6 +238,17 @@ test('editor can use contextual actions without changing private booking facts; 
   await page.locator('#overview-day-2027-01-02 .day-add').click();await field(page,'title').fill('Friend’s fictional walk');await save(page);await expect(page.locator('#item-dialog')).not.toBeVisible();
   saved=await plan(app);expect(saved.items[1].payload).toMatchObject({startDate:'2027-01-02',status:'tentative',bookingNote:''});
   expect(saved.revision).toBe(4);expect(saved.history).toHaveLength(3);
+  await overviewEdit(page,'Fictional stay updated by friend').click();
+  await removeFromEditor(page).click();
+  await expect(removalDialog(page)).not.toContainText(privateNote);
+  await confirmRemoval(page).click();
+  await expect(page.locator('#item-dialog')).toBeHidden();
+  await expect(page.locator('#overview')).not.toContainText('Fictional stay updated by friend');
+  saved=await plan(app);
+  expect(saved.revision).toBe(5);
+  expect(saved.items.map(row=>row.payload.title)).toEqual(['Friend’s fictional walk']);
+  expect(saved.history[0]).toMatchObject({action:'removed',item_id:app.itemId,actor_id:app.viewer,
+    before_payload:{payload:{status:'user_reported_booked',bookingNote:privateNote}},after_payload:null});
   const link=await call(app,'create_itinerary_view_link',{tripId:app.tripId,label:'Fictional read-only link'});
   await page.goto(`${app.origin}/itinerary#view=${link.token}`);await expect(page.locator('#trip-view')).toBeVisible();
   await expect(page.locator('#overview .day-add,#overview .overview-edit')).toHaveCount(0);await expect(page.locator('body')).not.toContainText(privateNote);

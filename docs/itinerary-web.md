@@ -28,6 +28,8 @@ Overview cards open the corresponding expanded Details card; owners and editors 
 
 Day-level **Add** in Overview and Details prefills only the chosen start date. The header Add uses the currently viewed day; Ideas and the map's Whole trip context start undated. Clearing a date keeps an unscheduled idea. The editor starts with title, type, date, optional local start time and location. End schedule/time zones, notes/link, map pins and owner-only booking details use separate disclosures, which open automatically when their saved or research-draft fields are populated. Save and Cancel remain outside the scrolling fields. Invalid fields reveal their section before receiving focus.
 
+Owners and editors can use **Remove item** when editing a saved item, including from Overview. **Keep item** returns to the editor with the draft intact. Confirming records the removal in trip history and leaves any reservation in place.
+
 Collapsing a section does not discard its values. **Use start time zone for end** explicitly copies a selected zone once, without changing dates/times or automatically following later start-zone changes. Distinct flight zones remain independent. Editor writes continue to exclude booking status and private notes; new editor items remain tentative, and updating a shared item preserves the owner's booking facts. Viewers and account-free links receive no Add/Edit controls. This [#52 increment](https://github.com/eddieyang-97/trip-planning-engine/issues/52) changes browser interaction only; hosted/device acceptance still needs separate verification.
 
 ## Travelers and split plans

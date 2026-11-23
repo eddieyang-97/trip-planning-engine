@@ -30,7 +30,10 @@ const $=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(
 const timezonePickers=configureTimezonePickers($<HTMLFormElement>('item-form'));
 const chrome=configureItineraryChrome();
 const demo=new URL(location.href).searchParams.get('demo')==='1';
-let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null,removing:Row|null=null;
+const itemDialog=$<HTMLDialogElement>('item-dialog'),removeDialog=$<HTMLDialogElement>('remove-dialog');
+const itemRemove=$<HTMLButtonElement>('item-remove');
+let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null;
+let removing:{tripId:string;itemId:string;expectedRevision:number}|null=null;
 let itemEditRevision=0;
 let pending:{signature:string;key:string}|null=null;
 let loading=false,listing=false;
@@ -377,7 +380,7 @@ function card(row:Row,index:number,count:number){
   actions.append(button('Add to calendar',()=>calendarExport.open(row.id)));
   if(item.url){const a=node('a','Open useful link ↗');a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';actions.append(a);}
   if(plan?.role!=='viewer'){
-  actions.append(button('Edit',()=>openItem(row)),button('Remove',()=>{removing=row;$('remove-title').textContent=item.title;$('remove-error').textContent='';$<HTMLDialogElement>('remove-dialog').showModal();}));
+  actions.append(button('Edit',()=>openItem(row)),button('Remove',()=>openRemove(row)));
   if(!travelers.selected)for(const direction of ['up','down'] as const){const b=button(direction==='up'?'↑':'↓',()=>void move(row,direction));b.setAttribute('aria-label',`Move ${item.title} ${direction}`);b.disabled=direction==='up'?index===0:index===count-1;actions.append(b);}
   }
   el.append(actions);return el;
@@ -397,10 +400,24 @@ function openItem(row:Row|null,draft?:ItineraryItem,day?:string){
   $<HTMLDetailsElement>('item-notes').open=!!(payload.notes||payload.url||payload.openQuestion);
   $<HTMLDetailsElement>('item-booking').open=payload.status==='user_reported_booked'||!!payload.bookingNote;
   mapEditor.set(payload.mapLocations);$<HTMLDetailsElement>('map-place-editor').open=!!payload.mapLocations?.length;
-  $('editor-title').textContent=row?'Edit this item':draft?'Review flight for your plan':'Add to the plan';$('research-draft').hidden=!draft;$('item-error').textContent='';bookingField();$<HTMLDialogElement>('item-dialog').showModal();
+  $('editor-title').textContent=row?'Edit this item':draft?'Review flight for your plan':'Add to the plan';$('research-draft').hidden=!draft;$('item-error').textContent='';bookingField();
+  itemRemove.hidden=!row||plan?.role==='viewer';itemDialog.showModal();
   $('item-dialog').querySelector('.item-editor-fields')!.scrollTop=0;
   (form.elements.namedItem('title') as HTMLInputElement).focus({preventScroll:true});
 }
+function openRemove(row:Row,expectedRevision=plan?.revision){
+  if(!plan||plan.role==='viewer'||expectedRevision===undefined||removeDialog.open)return;
+  removing={tripId:plan.trip.id,itemId:row.id,expectedRevision};
+  $('remove-title').textContent=row.payload.title;$('remove-error').textContent='';
+  removeDialog.showModal();
+}
+itemRemove.onclick=()=>{
+  if(!editing)return;
+  // The editor stays open under the confirmation. Native dialog focus
+  // restoration returns here even on browsers that do not focus clicked buttons.
+  itemRemove.focus({preventScroll:true});
+  openRemove(editing,itemEditRevision);
+};
 function addToDay(day:string){
   openItem(null,undefined,day);
   $('editor-title').textContent=day==='unscheduled'?'Add an unscheduled idea':`Add to ${date(day,{weekday:'short',day:'numeric',month:'short'})}`;
@@ -411,9 +428,16 @@ $('item-form').addEventListener('invalid',event=>{
 },true);
 $('same-item-zone').onclick=()=>{try{timezonePickers.copyStartToEnd();$('item-error').textContent='';}catch(error){$('item-error').textContent=errorText(error);}};
 async function withForm(form:HTMLFormElement,errorId:string,work:()=>Promise<void>){
-  const b=form.querySelector<HTMLButtonElement>('button[type=submit]')!;b.disabled=true;$(errorId).textContent='';
-  try{await work();}catch(error){$(errorId).textContent=errorText(error);}finally{b.disabled=false;}
+  const submit=form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+  if(submit.disabled)return;
+  const buttons=[submit,...form.querySelectorAll<HTMLButtonElement>('[data-lock-on-submit]')];
+  for(const button of buttons)button.disabled=true;
+  $(errorId).textContent='';
+  try{await work();}catch(error){$(errorId).textContent=errorText(error);}finally{for(const button of buttons)button.disabled=false;}
 }
+for(const dialog of [itemDialog,removeDialog])dialog.addEventListener('cancel',event=>{
+  if(dialog.querySelector('button[type=submit]:disabled'))event.preventDefault();
+});
 function demoChange(action:string,id:string,payload?:ItineraryItem){
   const previous=plan!.items.find(i=>i.id===id);const before=previous?{payload:previous.payload}:null;
   if(action==='added')plan!.items.push({id,payload:payload!,position:Math.max(0,...plan!.items.map(i=>i.position))+1});
@@ -440,13 +464,37 @@ $<HTMLFormElement>('item-form').onsubmit=event=>{
       const tripId=plan!.trip.id,result=await mutate(operation,{tripId,expectedRevision:itemEditRevision,...(editing?{itemId:editing.id}:{}),item});await loadPlan(tripId);
       const saved=plan?.items.find(row=>row.id===result.itemId)?.payload.mapLocations??[];
       verifyMapSave(item.mapLocations!,result,saved);}
-    $<HTMLDialogElement>('item-dialog').close();message(demo?'Example updated. Reloading restores the demo.':'Saved to your itinerary.');
+    itemDialog.close();message(demo?'Example updated. Reloading restores the demo.':'Saved to your itinerary.');
   });
 };
-$<HTMLFormElement>('remove-form').onsubmit=event=>{event.preventDefault();void withForm(event.currentTarget as HTMLFormElement,'remove-error',async()=>{
-  if(demo)demoChange('removed',removing!.id);else{await mutate('remove_itinerary_item',{tripId:plan!.trip.id,itemId:removing!.id,expectedRevision:plan!.revision});await loadPlan(plan!.trip.id);}
-  $<HTMLDialogElement>('remove-dialog').close();message('Removed from the plan. No reservation was cancelled.');
-});};
+$<HTMLFormElement>('remove-form').onsubmit=event=>{
+  event.preventDefault();
+  const target=removing;
+  if(!removeDialog.open||!target)return;
+  void withForm(event.currentTarget as HTMLFormElement,'remove-error',async()=>{
+    if(loading)throw Error('Wait for the itinerary to finish refreshing, then try again.');
+    const generation=accountBoundary.generation;
+    if(demo)demoChange('removed',target.itemId);
+    else{
+      try{await mutate('remove_itinerary_item',target);}
+      catch(error){
+        if(error instanceof Error&&'code' in error&&error.code==='REVISION_CONFLICT')
+          throw Error('The plan changed. Close the dialogs and refresh the itinerary before trying again.');
+        throw error;
+      }
+    }
+    let refreshed=true;
+    try{if(!demo)await loadPlan(target.tripId);}
+    catch(error){if(!isTemporaryReadError(error))throw error;refreshed=false;}
+    finally{
+      removeDialog.close();
+      if(itemDialog.open)itemDialog.close();
+      if(plan?.trip.id===target.tripId)$('view-'+view).focus({preventScroll:true});
+    }
+    accountBoundary.check(generation);
+    message('Removed from the plan. No reservation was cancelled.'+(refreshed?'':' Refresh to see the updated itinerary.'));
+  });
+};
 async function move(row:Row,direction:'up'|'down'){
   if(loading)return;loading=true;
   try{
