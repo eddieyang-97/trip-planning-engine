@@ -6,6 +6,12 @@ const el=<K extends keyof HTMLElementTagNameMap>(tag:K,text='',className='')=>{
   const node=document.createElement(tag);node.textContent=text;node.className=className;return node;
 };
 const stamp=(instant:string)=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}).format(new Date(instant));
+const provenanceLabels={
+  provider_reported:'Built-in search · Provider-reported evidence',
+  user_reported:'Manually saved · User-reported evidence',
+  synthetic:'Synthetic example',
+  assistant_sourced_unverified:'Assistant-sourced · Unverified evidence',
+};
 export function safeResearchUrl(value:string|null):string|null {
   if(!value)return null;
   try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;}catch{return null;}
@@ -93,7 +99,7 @@ function researchCard(observations:ItineraryObservation[],onDraft:(item:Itinerar
     const basis=el('td',`${price.basis==='unknown'?'Basis unknown':price.basis==='party'?'Party fare':'Per person'} · ${price.exactPartyQuoted?'Exact-party basis reported; availability unverified':'Exact-party quote unverified'}`);
     if('external' in offer)basis.append(externalDetails(offer));
     else {
-      basis.append(el('p',observation.provenance==='provider_reported'?'Built-in search · Provider-reported evidence':'Synthetic example','muted'));
+      basis.append(el('p',provenanceLabels[observation.provenance],'muted'));
       const source=evidenceLink(offer.sourceUrl,'Open research source ↗');if(source)basis.append(source);
     }
     row.append(el('td',external?`${offer.seller} · via ${external.source}`:offer.seller),el('td',amount),basis,el('td',`${stamp(offer.observedAt)} UK`));body.append(row);

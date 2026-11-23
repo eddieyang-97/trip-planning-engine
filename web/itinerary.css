@@ -17,7 +17,7 @@
 .research-provenance{display:block;font-size:11px;color:var(--muted)}
 .research-card .research-legs{margin:4px 0 12px;gap:16px}
 .research-card:has(>.badge) .research-legs,.research-card:has(>.research-provenance) .research-legs{margin-top:14px}
-.research-card>.badge{margin-right:6px;white-space:normal}
+.research-card>.badge{margin-right:6px;white-space:normal;overflow-wrap:anywhere}
 .research-card .seller-details{margin-top:8px;padding-top:8px}
 .research-card .seller-details>summary{padding:6px 0}
 .research-card .research-actions{justify-content:flex-end;margin-top:10px}

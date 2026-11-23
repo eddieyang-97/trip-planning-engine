@@ -66,3 +66,46 @@ test('flight research keeps the schedule compact and discloses evidence and arch
   expect(await snapshot()).toEqual(before);
   expect(externalRequests).toEqual([]);expect(errors).toEqual([]);
 });
+
+test('manually saved fares keep their provenance and long seller badges fit phones',async({page,context,app},testInfo)=>{
+  const actor={userId:app.owner,clientId:'fixture-seed-only'},core=new Core(app.db,false,false);
+  const call=(name,args)=>core.call(name,{idempotencyKey:randomUUID(),...args},actor);
+  const decision=await call('create_decision',{tripId:app.tripId,title:'Fictional manually saved flight',criteria:flaineCriteria});
+  const seller='X'.repeat(120),offer={...(await new FixtureProvider().search(flaineCriteria)).offers[1],seller};
+  const saved=await call('save_candidate',{decisionId:decision.decisionId,expectedRevision:decision.revision,offer});
+  expect(saved.provenance).toBe('user_reported');
+  const selected=await call('select_candidate',{decisionId:decision.decisionId,expectedRevision:saved.revision,
+    observationId:saved.observationId,rationale:'Fictional user-reported schedule',acknowledgeConditional:true});
+  await call('record_booking',{decisionId:decision.decisionId,expectedRevision:selected.revision,selectionId:selected.selectionId,
+    bookedAt:'2026-11-23T12:00:00Z',note:'Fictional booking report for a local browser test'});
+  const before=await core.callFromWeb('get_itinerary',{tripId:app.tripId},app.owner);
+  const mutations=(await app.db.query('select count(*)::int n from mutation_requests')).rows[0].n;
+  const externalRequests=[];
+  await context.route('**/*',route=>{
+    if(new URL(route.request().url()).origin===app.origin)return route.continue();
+    externalRequests.push(route.request().url());return route.abort();
+  });
+  await page.goto(`${app.origin}/itinerary?trip=${app.tripId}&flight=${decision.decisionId}&view=details`);
+  await page.getByLabel('Local development token').fill(app.ownerToken);
+  await page.getByRole('button',{name:'Open local trips',exact:true}).click();
+  const section=page.locator('.research-decision').filter({has:page.getByRole('heading',{name:'Fictional manually saved flight'})});
+  const card=section.getByRole('article');
+  await expect(card.locator('.badge')).toHaveText([`Booking reported · ${seller}`,`Selected in research · ${seller}`]);
+  await card.getByText('Prices & sources · 1 record',{exact:true}).click();
+  await expect.soft(card.getByRole('table')).toContainText('Manually saved · User-reported evidence');
+  await expect.soft(card).not.toContainText('Synthetic example');
+  for(const width of [320,390,1280]){
+    await page.setViewportSize({width,height:900});
+    expect.soft(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  await page.setViewportSize({width:390,height:844});
+  await section.screenshot({path:testInfo.outputPath('manual-research-long-seller.png')});
+  await expect(card.getByRole('button',{name:'Review outbound'})).toBeVisible();
+  await card.getByRole('button',{name:'Review outbound'}).click();
+  const editor=page.getByRole('dialog',{name:'Review flight for your plan'});
+  await expect(editor).toBeVisible();
+  await editor.getByRole('button',{name:'Cancel',exact:true}).click();
+  expect(await core.callFromWeb('get_itinerary',{tripId:app.tripId},app.owner)).toEqual(before);
+  expect((await app.db.query('select count(*)::int n from mutation_requests')).rows[0].n).toBe(mutations);
+  expect(externalRequests).toEqual([]);
+});
