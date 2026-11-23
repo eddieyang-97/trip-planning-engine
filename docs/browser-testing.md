@@ -21,7 +21,7 @@ There is no separate server to start. Fixtures use isolated PGlite databases, ap
 
 The built Express/frontend routes still enforce their applicable origin, authorization, private projection, revision and idempotency checks. Browser requests are restricted to fixture origins. The injected/fake identity boundary is not a production authentication bypass; individual tests assert the persisted state and mutation counts relevant to their scenario.
 
-The required GitHub Actions `test` job runs this command after build and backend/PostgreSQL tests on PRs and main pushes. [Workflow configuration](../.github/workflows/check.yml) bounds browser installation to three minutes and browser execution to four minutes within the ten-minute job. [Playwright configuration](../playwright.config.mjs) uses one worker, no retries, a 60-second per-test timeout and a three-minute suite budget. Failure-only traces/screenshots are retained for seven days; keep them fictional and sanitized.
+The required GitHub Actions `test` job runs this command after build and backend/PostgreSQL tests on PRs and main pushes. [Workflow configuration](../.github/workflows/check.yml) bounds browser installation to three minutes and browser execution to five minutes within the ten-minute job. [Playwright configuration](../playwright.config.mjs) uses one worker, no retries, a 60-second per-test timeout and a four-minute suite budget. Failure-only traces/screenshots are retained for seven days; keep them fictional and sanitized.
 
 ## What the sharing journey proves
 
