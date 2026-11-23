@@ -38,7 +38,7 @@ Travelers are separate from login accounts and sharing. Duplicate names are show
 
 ## Trip expenses
 
-Open **Expenses** under **More** on a phone. Owners enter the currency and amount actually paid, pick the payer, and choose who shares the cost. GBP is the default. Use a dot or comma for decimals and omit thousands separators. The form previews each share before saving. Equal splits allocate leftover minor units by stable traveler ID, so the shares always add up to the amount paid.
+Open **Expenses** under **More** on a phone. Owners enter the currency and amount actually paid, pick the payer, and choose who shares the cost. GBP is the default. Omit thousands separators. For three decimal places, follow the decimal separator shown in the form. For one or two decimal places, use a dot or comma. The form previews each share before saving. Equal splits allocate leftover minor units by stable traveler ID, so the shares always add up to the amount paid.
 
 Balances and suggested repayments are calculated separately for each currency. The ledger uses recorded expenses and performs no exchange-rate conversion. Suggested repayments show who could pay whom, the amount and currency. Make and track repayments outside Trip Planner.
 

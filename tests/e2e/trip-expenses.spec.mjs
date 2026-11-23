@@ -188,6 +188,56 @@ test('owner records a comma-decimal expense and a member sees separate suggested
   await expect(friend.locator('#expense-suggestions').getByRole('heading')).toHaveText(['GBP','JPY']);
 });
 
+test('KWD entry and correction use the browser decimal separator without accepting grouping',async({browser,app})=>{
+  const {tripId}=app;
+  await app.call('manage_trip_traveler',{tripId,expectedRevision:2,change:{action:'add',name:'Alex'}});
+  const read=()=>app.core.callFromWeb('get_trip_expenses',{tripId,currencyAware:true},app.owner);
+  const cases=[
+    {locale:'en-GB',grouped:'1,000',decimal:'1.234',before:0,amountMinor:1234},
+    {locale:'de-DE',grouped:'1.000',decimal:'1,235',before:1,amountMinor:1235},
+  ];
+  for(const {locale,grouped,decimal,before,amountMinor} of cases){
+    const context=await browser.newContext({locale,viewport:{width:390,height:844}});
+    try{
+      await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort('blockedbyclient'));
+      const page=await context.newPage();
+      await page.goto(`${app.origin}/itinerary?trip=${tripId}`);
+      await page.getByLabel('Local development token').fill(app.ownerToken);
+      await page.getByRole('button',{name:'Open local trips',exact:true}).click();
+      await expect(page.locator('#trip-title')).toBeVisible();
+      await openDisclosure(page,'plan-more');
+      await page.getByRole('button',{name:'Expenses',exact:true}).click();
+
+      const amount=page.getByLabel('Amount',{exact:true});
+      if(before===0){
+        await page.getByRole('button',{name:'Add expense',exact:true}).click();
+        await page.getByLabel('Description').fill('Fixture dinner');
+        await page.getByLabel('Date paid').fill('2027-01-02');
+        await page.getByRole('combobox',{name:'Currency',exact:true}).selectOption('KWD');
+        await page.getByLabel('Paid by').selectOption({label:'Alex'});
+      }else{
+        await page.getByRole('button',{name:'Correct Fixture dinner'}).click();
+        await expect(amount).toHaveValue('1,234');
+      }
+      await amount.fill(grouped);
+      await expect(page.locator('#expense-preview li')).toHaveCount(0);
+      const save=page.getByRole('button',{name:'Save expense',exact:true});
+      await save.click();
+      await expect(page.locator('#expenses-error')).toContainText('Omit thousands separators.');
+      expect((await read()).revision).toBe(before);
+
+      await amount.fill(decimal);
+      await expect(page.locator('#expense-preview li')).toContainText(`KWD ${(amountMinor/1000).toFixed(3)}`);
+      await save.click();
+      await expect(page.locator('#expenses-status')).toHaveText('Expense saved.');
+      const ledger=await read();
+      expect(ledger.revision).toBe(before+1);
+      expect(ledger.expenses).toHaveLength(1);
+      expect(ledger.expenses[0]).toMatchObject({currency:'KWD',amountMinor});
+    }finally{await context.close();}
+  }
+});
+
 test('an uncertain correction can only be retried as the original operation',async({page,context,app})=>{
   await context.route('**/*',route=>new URL(route.request().url()).origin===app.origin?route.continue():route.abort('blockedbyclient'));
   const {tripId}=app;

@@ -10,12 +10,16 @@ export const expenseCurrencies={
 export type ExpenseCurrency=keyof typeof expenseCurrencies;
 export const defaultExpenseCurrency='GBP' satisfies ExpenseCurrency;
 
-export function parseExpenseAmount(value:string,currency:ExpenseCurrency){
-  const match=/^(\d{1,9})(?:[.,](\d{1,3}))?$/.exec(value.trim());
+export function parseExpenseAmount(value:string,currency:ExpenseCurrency,decimalSeparator:'.'|','='.'){
+  const match=/^(\d{1,9})(?:([.,])(\d{1,3}))?$/.exec(value.trim());
+  if(!match)return null;
+  const [,whole,separator,fraction='']=match;
   const digits=expenseCurrencies[currency];
-  const fraction=match?.[2]??'';
-  if(!match||fraction.length>digits)return null;
-  const amountMinor=Number(match[1])*10**digits+Number(fraction.padEnd(digits,'0'));
+  if(fraction.length>digits)return null;
+  const units=Number(whole);
+  // A single thousands group can also look like a three-place fraction.
+  if(fraction.length===3&&units>0&&units<1000&&separator!==decimalSeparator)return null;
+  const amountMinor=units*10**digits+Number(fraction.padEnd(digits,'0'));
   return amountMinor>0&&amountMinor<=maxExpenseMinor?amountMinor:null;
 }
 

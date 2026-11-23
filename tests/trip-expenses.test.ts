@@ -43,6 +43,16 @@ test('expense input and equal shares use exact currency minor units',()=>{
   assert.deepEqual(equalShares(1,['b','a']).map(share=>share.amountMinor),[1,0]);
 });
 
+test('three-decimal expenses distinguish local decimals from grouping',()=>{
+  assert.equal(parseExpenseAmount('1,000','KWD','.'),null);
+  assert.equal(parseExpenseAmount('1.000','KWD',','),null);
+  assert.equal(parseExpenseAmount('1.234','KWD','.'),1234);
+  assert.equal(parseExpenseAmount('1,234','KWD',','),1234);
+  assert.equal(parseExpenseAmount('0,001','KWD','.'),1);
+  assert.equal(parseExpenseAmount('1234,567','KWD','.'),1234567);
+  assert.equal(parseExpenseAmount('12,34','EUR','.'),1234);
+});
+
 test('settlement suggestions clear every outstanding balance with deterministic transfers',()=>{
   const balances=([['b',-60],['d',25],['a',-60],['c',95],['e',0]] as const).map(([travelerId,total])=>({
     travelerId,balanceMinor:total,paidMinor:Math.max(total,0),shareMinor:Math.max(-total,0),

@@ -48,6 +48,7 @@ export function configureExpenses(transport:{
   const title=get<HTMLInputElement>('expense-title');
   const date=get<HTMLInputElement>('expense-date');
   const amount=get<HTMLInputElement>('expense-amount');
+  const amountFormat=get('expense-amount-format');
   const payer=get<HTMLSelectElement>('expense-payer');
   const choices=get('expense-travelers');
   const preview=get('expense-preview');
@@ -66,6 +67,11 @@ export function configureExpenses(transport:{
   let uncertainMutation:ExpenseMutation|null=null;
   for(const code of currencies)currencyField.add(new Option(code,code,code===defaultExpenseCurrency,code===defaultExpenseCurrency));
   const selectedCurrency=()=>currencyField.value as ExpenseCurrency;
+  const localeDecimal=new Intl.NumberFormat(navigator.language,{numberingSystem:'latn'})
+    .formatToParts(1.1).find(part=>part.type==='decimal')?.value;
+  const decimalSeparator=localeDecimal===','?',':'.';
+  const formatAmountInput=(amountMinor:number,currency:ExpenseCurrency)=>
+    majorAmount(amountMinor,currency).toFixed(expenseCurrencies[currency]).replace('.',decimalSeparator);
 
   function updateControls(){
     close.disabled=saving;
@@ -234,10 +240,17 @@ export function configureExpenses(transport:{
     }finally{if(sequence===request)updateControls();}
   }
   const included=()=>[...choices.querySelectorAll<HTMLInputElement>('input:checked')].map(input=>input.value);
+  function updateAmountFormat(){
+    const currency=selectedCurrency();
+    const digits=expenseCurrencies[currency];
+    amount.placeholder=formatAmountInput(0,currency);
+    const decimals=digits===3?`For three decimal places, use ${decimalSeparator} (for example, ${formatAmountInput(1234,currency)}). `:
+      digits?'Use a dot or comma for decimals. ':'';
+    amountFormat.textContent=`${decimals}Omit thousands separators.`;
+  }
   function updatePreview(){
     const currency=selectedCurrency();
-    const amountMinor=parseExpenseAmount(amount.value,currency),ids=included();
-    amount.placeholder=(0).toFixed(expenseCurrencies[currency]);
+    const amountMinor=parseExpenseAmount(amount.value,currency,decimalSeparator),ids=included();
     preview.replaceChildren();
     if(amountMinor!==null&&ids.length)preview.append(element('p','Each traveler’s share'),shareList(equalShares(amountMinor,ids),currency));
   }
@@ -264,12 +277,13 @@ export function configureExpenses(transport:{
       title.value=expense.title;
       date.value=expense.paidOn;
       currencyField.value=expense.currency;
-      amount.value=majorAmount(expense.amountMinor,expense.currency).toFixed(expenseCurrencies[expense.currency]);
+      amount.value=formatAmountInput(expense.amountMinor,expense.currency);
     }
     get('expense-editor-title').textContent=expense?'Correct expense':'Add expense';
     error.textContent='';
     form.hidden=false;
     updateControls();
+    updateAmountFormat();
     updatePreview();
     title.focus();
   }
@@ -308,17 +322,18 @@ export function configureExpenses(transport:{
     void load();
   };
   amount.oninput=updatePreview;
-  currencyField.onchange=updatePreview;
+  currencyField.onchange=()=>{updateAmountFormat();updatePreview();};
   choices.onchange=updatePreview;
   form.onsubmit=event=>{
     event.preventDefault();
     if(saving||uncertainMutation)return;
     const currency=selectedCurrency();
-    const amountMinor=parseExpenseAmount(amount.value,currency),travelerIds=included();
+    const amountMinor=parseExpenseAmount(amount.value,currency,decimalSeparator),travelerIds=included();
     if(amountMinor===null){
       const digits=expenseCurrencies[currency];
       const precision=digits?` with up to ${digits} decimal places`:' as a whole number';
-      reportError(`Enter a positive ${currency} amount${precision}, up to ${money(maxExpenseMinor,currency)}.`);
+      const formatHelp=digits===3?` ${amountFormat.textContent}`:'';
+      reportError(`Enter a positive ${currency} amount${precision}, up to ${money(maxExpenseMinor,currency)}.${formatHelp}`);
       return;
     }
     if(!travelerIds.length){reportError('Choose at least one traveler for the split.');return;}
