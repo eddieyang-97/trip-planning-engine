@@ -89,6 +89,7 @@ test('assistant imports flight research, opens the comparison on web, and reads 
     await external.getByRole('button',{name:'Review outbound for plan'}).click();
     const editor=page.getByRole('dialog',{name:'Review flight for your plan'});
     await expect(editor).toBeVisible();
+    await expect(editor.getByRole('button',{name:'Remove item',exact:true})).toBeHidden();
     await expect(editor.locator('[name="url"]')).toHaveValue('');
     await editor.getByRole('button',{name:'Cancel',exact:true}).click();
     expect(externalRequests).toEqual([]);expect(pageErrors).toEqual([]);
