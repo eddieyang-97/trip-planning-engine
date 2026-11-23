@@ -235,7 +235,9 @@ Update the relevant ER diagram when an applied migration changes relationships. 
 
 <a id="changes-since-the-001006-er-baseline-007012"></a>
 <a id="changes-since-the-001006-er-baseline-007014"></a>
-## Changes since the 001–006 ER baseline (007–017)
+<a id="changes-since-the-001006-er-baseline-007016"></a>
+<a id="changes-since-the-001006-er-baseline-007017"></a>
+## Changes since the 001–006 ER baseline (007–018)
 
 The diagrams above intentionally preserve the relationships visible in the 14 October baseline. Consult the SQL migrations for the authoritative current schema; these extensions are recorded here to avoid mistaking the old viewer-only diagram for the present model.
 
@@ -250,9 +252,9 @@ The diagrams above intentionally preserve the relationships visible in the 14 Oc
 | [013 — stays](../migrations/013_stay_comparison.sql) | Typed stay decisions and `stay_itinerary_links` pin exact reviewed evidence to an itinerary item. | [Accommodation contract](accommodation-comparison.md); source and recorded hosted evidence are separate. |
 | [014 — dining](../migrations/014_dining_comparison.sql) | Typed dining decisions and `dining_itinerary_links` pin exact reviewed evidence to an itinerary item. | [Dining contract](dining-comparison.md); a link is not a restaurant booking. |
 | [015 — travelers](../migrations/015_trip_travelers.sql) | Trip-scoped stable traveler UUIDs, names, archive timestamps and traveler lifecycle event types. Item assignments are stored in validated itinerary item payloads. | Deployed. [Traveler UI and privacy](itinerary-web.md#travelers-and-split-plans); [#8](https://github.com/eddieyang-97/trip-planning-engine/issues/8) tracks the real-friend pilot. |
-| [016 — expenses](../migrations/016_trip_expenses.sql) | Append-only `trip_expense_events` keyed by (trip, ledger revision), storing payer and exact integer-penny shares in validated JSON detail. | Deployed and [hosted-verified](itinerary-web.md#trip-expenses) on 16 November 2026. See [expense semantics](data-semantics-review.md). |
+| [016 — expenses](../migrations/016_trip_expenses.sql) | Append-only `trip_expense_events` keyed by (trip, ledger revision), originally limited to GBP pennies, storing payer and exact shares in validated JSON detail. | Deployed and [hosted-verified](itinerary-web.md#trip-expenses) on 16 November 2026. See [expense semantics](data-semantics-review.md). |
 | [017 — external flight evidence](../migrations/017_external_flight_evidence.sql) | Extends observation provenance with assistant-sourced evidence, requiring an author, structured source metadata and no native run reference. | [Import workflow](hosted-live-search.md#import-research-from-another-flight-tool) and [semantics](data-semantics-review.md#assistant-sourced-flight-evidence). |
-| [018 — expense currencies](../migrations/018_expense_currencies.sql) | Broadens the expense journal currency constraint to three uppercase letters. Application validation uses a [supported currency list and fixed minor-unit precision](../src/expense-split.ts). | Existing GBP rows need no backfill. |
+| [018 — expense currencies](../migrations/018_expense_currencies.sql) | Broadens the expense journal currency constraint to three uppercase letters. Application validation uses a [supported currency list and fixed minor-unit precision](../src/expense-split.ts). | Existing GBP rows need no backfill; see [delivery status](implementation.md) for release versus hosted-acceptance evidence. |
 
 Application migrations are applied by [`src/database.ts`](../src/database.ts) and versioned in **`app_schema_migrations`**; the Supabase connector's separate migration history is not necessarily the app's applied migration ledger. Inspect read-only schema metadata if drift is suspected; do not reapply production DDL through the connector without a coordinated approved change. The live Supabase project is not a test database.
 
@@ -314,11 +316,11 @@ The application validates assignment IDs against the trip roster. Signed-in memb
 
 <a id="gbp-expense-journal--migration-016-source-merged"></a>
 
-## GBP expense journal — migration 016
+## Trip expense journal — migrations 016 and 018
 
 [016_trip_expenses.sql](../migrations/016_trip_expenses.sql) adds `trip_expense_events` with a composite primary key `(trip_id, revision)`. Each immutable event records an `expense_id`, actor, `recorded`/`corrected`/`voided` action, original currency, positive integer `amount_minor`, validated `detail` JSON (title, paid date, payer ID and exact shares), and timestamp. The current ledger is derived from the newest event per expense, excluding voided entries. The ledger revision is independent of itinerary revisions and is checked on writes under the trip lock with mutation idempotency. The active expense count is capped in the application.
 
-Migration 018 changes the currency constraint in place. Once an event in another currency exists, recover by shipping a fix that retains currency-aware reads. A rollback to the GBP-only application can mislabel amounts even if all foreign expenses have since been voided. Older web pages get a reload message when their ledger projection contains a foreign currency.
+Migration 018 changes the currency constraint in place and the application validates a fixed set of supported currency codes and minor-unit precisions. Balances and suggested repayments are derived separately for each currency; no exchange-rate conversion or recorded repayment occurs. Once an event in another currency exists, recover by shipping a fix that retains currency-aware reads. A rollback to the GBP-only application can mislabel amounts even if all foreign expenses have since been voided. Older web pages get a reload message when their ledger projection contains a foreign currency.
 
 ```mermaid
 erDiagram
