@@ -38,13 +38,15 @@ Travelers are separate from login accounts and sharing. Duplicate names are show
 
 ## Trip expenses
 
-Open **Expenses** under **More** on a phone. Owners record an expense in pounds, pick the payer and choose who shares the cost. The form previews each share before saving. Equal splits allocate any leftover pennies by stable traveler ID, so the shares always add up to the amount paid. The balance shows what each traveler paid, their share and what they owe or are owed.
+Open **Expenses** under **More** on a phone. Owners enter the currency and amount actually paid, pick the payer, and choose who shares the cost. GBP is the default. Omit thousands separators. For three decimal places, follow the decimal separator shown in the form. For one or two decimal places, use a dot or comma. The form previews each share before saving. Equal splits allocate leftover minor units by stable traveler ID, so the shares always add up to the amount paid.
 
-Signed-in trip members can see current expenses and balances. Owners can correct or void an entry and review recent changes, including earlier amounts and shares. This uses a separate ledger revision and keeps expenses out of shared links and calendar files. An expense is a report of a payment already made outside the app. See [#72](https://github.com/eddieyang-97/trip-planning-engine/issues/72).
+Balances and suggested repayments are calculated separately for each currency. The ledger uses recorded expenses and performs no exchange-rate conversion. Suggested repayments show who could pay whom, the amount and currency. Make and track repayments outside Trip Planner.
+
+Signed-in trip members can see current expenses, balances and suggestions. Owners can correct or void an entry and review recent changes, including earlier amounts, currencies and shares. This uses a separate ledger revision. Expense data is private to signed-in trip members on the web, with history restricted to owners. See the original [GBP delivery](https://github.com/eddieyang-97/trip-planning-engine/issues/72).
 
 If a save or void loses its response, **Retry original save** or **Retry original void** checks that same request. **Discard retry and refresh** clears the pending request and any unsaved draft and reloads the ledger so you can check what was saved.
 
-The 16 November 2026 hosted check used a fictional ten-traveler trip and separate signed-in browser sessions at phone width. The owner verified the splits, balances and audit history. The member read the saved balances, and refreshing the ledger after revocation returned access denied. See the [hosted acceptance record](https://github.com/eddieyang-97/trip-planning-engine/issues/72#issuecomment-6922541519).
+The 16 November 2026 hosted check covered the GBP ledger using a fictional ten-traveler trip and separate signed-in browser sessions at phone width. The owner verified the splits, balances and audit history. The member read the saved balances, and refreshing the ledger after revocation returned access denied. See the [hosted acceptance record](https://github.com/eddieyang-97/trip-planning-engine/issues/72#issuecomment-6922541519).
 
 ## Apple Calendar export — current feature guide
 

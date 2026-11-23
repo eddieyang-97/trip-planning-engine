@@ -245,7 +245,7 @@ const travelers=configureTravelers(async({tripId,revision},change)=>{
   await mutate('manage_trip_traveler',{tripId,expectedRevision:revision,change});
   if(plan?.trip.id===tripId)await loadPlan(tripId);
 },renderSchedule);
-const expenses=configureExpenses({read:tripId=>api('get_trip_expenses',{tripId}),mutate:api});
+const expenses=configureExpenses({read:tripId=>api('get_trip_expenses',{tripId,currencyAware:true}),mutate:api});
 const members=configureMembers($('trip-members'),api);
 const diningComparison=configureDiningComparison($('dining-research'),{api,mutate,reload:loadPlan,message});
 const stayComparison=configureStayComparison($('stay-research'),{api,mutate,reload:loadPlan,message});
@@ -291,7 +291,7 @@ function render(){
   $('empty-trip-copy').textContent=tripStatus==='archived'?'Choose Active to return to your current plans. Archived trips keep their content and shared access.':'Create a trip, then add the pieces as you decide. Unknown details can wait.';
   $('first-trip').hidden=tripStatus==='archived';
   travelers.update(plan&&!demo&&!anonymousView?{tripId:plan.trip.id,revision:plan.revision,owner:plan.role==='owner',travelers:plan.travelers??[]}:null);
-  expenses.update(plan&&!demo&&!anonymousView?plan.trip.id:null);
+  expenses?.update(plan&&!demo&&!anonymousView?plan.trip.id:null);
   if(!plan){$('timeline').replaceChildren();$('overview').replaceChildren();itineraryMap.reset();return;}
   const p=plan.trip.payload;
   if(!anonymousView&&!demo)void members.load(plan.trip.id);
