@@ -112,13 +112,15 @@ test('Overview removal keeps the mobile draft on cancel and records only the con
   const remove=removeFromEditor(page),editor=page.locator('#item-dialog');
   const cancel=editor.getByRole('button',{name:'Cancel',exact:true});
   const saveButton=editor.getByRole('button',{name:'Save to itinerary',exact:true});
+  const footer=editor.locator('#item-form > .dialog-actions');
   await expect(page.locator('#view-overview')).toHaveAttribute('aria-pressed','true');
   await expect(remove).toBeVisible();
   for(const width of [320,390,1280]){
     await page.setViewportSize({width,height:568});
     await visibleSave(page);
-    const [r,c,s]=await Promise.all([remove.boundingBox(),cancel.boundingBox(),saveButton.boundingBox()]);
-    expect(r.x).toBeLessThan(c.x);
+    const [r,c,s,f]=await Promise.all([remove.boundingBox(),cancel.boundingBox(),saveButton.boundingBox(),footer.boundingBox()]);
+    expect(r.x,`Remove starts at the left edge at ${width}px`).toBeCloseTo(f.x,0);
+    expect(s.x+s.width,`Save ends at the right edge at ${width}px`).toBeCloseTo(f.x+f.width,0);
     expect(c.y).toBe(s.y);
     expect(c.x+c.width).toBeLessThan(s.x);
     expect(r.y+r.height<=c.y||r.x+r.width<c.x).toBe(true);
@@ -212,6 +214,23 @@ test('stale Overview removal leaves the draft intact and succeeds after an expli
   const saved=await plan(app);
   expect(saved.revision).toBe(edited.revision+1);
   expect(saved.history.map(event=>event.action)).toEqual(['removed','edited','added']);
+});
+
+test('older editor markup still opens Edit and can remove an item from Details',async({page,app})=>{
+  await page.route(/\/itinerary\?trip=/,async route=>{
+    const response=await route.fetch(),html=await response.text();
+    await route.fulfill({response,body:html.replace(/<button id="item-remove"[^>]*>.*?<\/button>/,'')});
+  });
+  await openTrip(page,app);await overviewEdit(page).click();
+  await expect(field(page,'title')).toHaveValue(originalTitle);
+  await expect(page.locator('#item-remove')).toHaveCount(0);
+  await close(page);
+  await page.locator('#view-details').click();
+  await page.locator(`#item-${app.itemId}`).getByRole('button',{name:'Remove',exact:true}).click();
+  await confirmRemoval(page).click();
+  await expect(removalDialog(page)).toBeHidden();
+  await expect(page.locator(`#item-${app.itemId}`)).toHaveCount(0);
+  expect((await plan(app)).history[0]).toMatchObject({action:'removed',item_id:app.itemId});
 });
 
 test('editor can use contextual actions without changing private booking facts; viewers have no actions',async({page,app})=>{

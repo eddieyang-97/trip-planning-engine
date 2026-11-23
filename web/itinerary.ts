@@ -31,7 +31,7 @@ const timezonePickers=configureTimezonePickers($<HTMLFormElement>('item-form'));
 const chrome=configureItineraryChrome();
 const demo=new URL(location.href).searchParams.get('demo')==='1';
 const itemDialog=$<HTMLDialogElement>('item-dialog'),removeDialog=$<HTMLDialogElement>('remove-dialog');
-const itemRemove=$<HTMLButtonElement>('item-remove');
+const itemRemove=document.querySelector<HTMLButtonElement>('#item-remove');
 let trips:Trip[]=[],plan:Plan|null=null,client:SupabaseClient|null=null,localToken='',editing:Row|null=null;
 let removing:{tripId:string;itemId:string;expectedRevision:number}|null=null;
 let itemEditRevision=0;
@@ -401,7 +401,8 @@ function openItem(row:Row|null,draft?:ItineraryItem,day?:string){
   $<HTMLDetailsElement>('item-booking').open=payload.status==='user_reported_booked'||!!payload.bookingNote;
   mapEditor.set(payload.mapLocations);$<HTMLDetailsElement>('map-place-editor').open=!!payload.mapLocations?.length;
   $('editor-title').textContent=row?'Edit this item':draft?'Review flight for your plan':'Add to the plan';$('research-draft').hidden=!draft;$('item-error').textContent='';bookingField();
-  itemRemove.hidden=!row||plan?.role==='viewer';itemDialog.showModal();
+  if(itemRemove)itemRemove.hidden=!row||plan?.role==='viewer';
+  itemDialog.showModal();
   $('item-dialog').querySelector('.item-editor-fields')!.scrollTop=0;
   (form.elements.namedItem('title') as HTMLInputElement).focus({preventScroll:true});
 }
@@ -411,7 +412,7 @@ function openRemove(row:Row,expectedRevision=plan?.revision){
   $('remove-title').textContent=row.payload.title;$('remove-error').textContent='';
   removeDialog.showModal();
 }
-itemRemove.onclick=()=>{
+if(itemRemove)itemRemove.onclick=()=>{
   if(!editing)return;
   // The editor stays open under the confirmation. Native dialog focus
   // restoration returns here even on browsers that do not focus clicked buttons.
