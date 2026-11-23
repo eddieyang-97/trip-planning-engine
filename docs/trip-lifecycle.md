@@ -14,6 +14,16 @@ history, invitations, membership and editing access. An archived banner appears
 when opened, including through an existing view link. Restore returns the trip
 to Active. Opening it or passing its end date never restores/archives it.
 
+**Edit trip details** is available to owners in Trip options on desktop or More
+on phones. The owner can also use `update_trip` with a write-authorized MCP
+client. It updates the display name and destination of an active or archived
+trip in place. Shared views show the new values on their next read. Dates,
+traveler assumptions, research criteria, and archive status stay as saved.
+Use the lifecycle revision from the same read as the fields being edited.
+Review the current values before resubmitting a stale draft. An unchanged
+save leaves the trip revision alone. A saved change requires a fresh deletion
+review.
+
 **Delete permanently** is a secondary owner-only Trip options action on active
 or archived trips. Review shows the exact trip ID, name and dates, affected
 record counts, sharing effects and retention limitations. The web button stays

@@ -73,6 +73,52 @@ test('owner archive/restore works across web and MCP; archived discovery, sharin
   }finally{await s.db.close();}
 });
 
+test('trip details update across web and MCP preserves archived plans, access and lifecycle guarantees',async()=>{
+  const {db,core,owner,editor,web,tripId,link,review,confirm}=await setup();
+  try{
+    await web('add_itinerary_item',{...key(),tripId,expectedRevision:1,item:note});
+    await core.call('create_decision',{...key(),tripId,title:'Fictional research',criteria:flaineCriteria},owner);
+    const active=await web('get_itinerary',{tripId});
+    await web('archive_trip',{...key(),tripId,expectedRevision:active.trip.lifecycle_revision});
+    const before=await core.call('get_trip',{tripId},owner),oldReview=await review();
+    const expectedRevision=before.trip.lifecycle_revision;
+    const request={...key(),tripId,expectedRevision,name:'  Alpine weekend  ',destination:'  French Alps  '};
+    await assert.rejects(web('update_trip',request,editor.userId),code('FORBIDDEN_OR_NOT_FOUND'));
+    await assert.rejects(web('update_trip',request,randomUUID()),code('FORBIDDEN_OR_NOT_FOUND'));
+    await db.query('insert into client_grants values($1,$2,$3,null)',[owner.userId,'read-only',['read']]);
+    await assert.rejects(core.call('update_trip',request,{...owner,clientId:'read-only'}),code('FORBIDDEN_OR_NOT_FOUND'));
+    for(const name of ['   ','a\nb','a'.repeat(121)]){
+      await assert.rejects(web('update_trip',{...request,name}),{name:'ZodError'});
+    }
+    const noop=await web('update_trip',{...request,...key(),name:` ${before.trip.payload.name} `,destination:before.trip.payload.destination});
+    assert.equal(noop.unchanged,true);
+    assert.equal(noop.lifecycleRevision,expectedRevision);
+    const first=await core.call('update_trip',request,owner);
+    assert.deepEqual(first,{tripId,unchanged:false,lifecycleRevision:expectedRevision+1,name:'Alpine weekend',destination:'French Alps'});
+    await assert.rejects(web('delete_trip',confirm(oldReview)),code('REVISION_CONFLICT'));
+    await assert.rejects(web('update_trip',{...request,...key(),name:'Stale edit'}),code('REVISION_CONFLICT'));
+    await assert.rejects(core.call('update_trip',{...request,name:'Different request'},owner),code('IDEMPOTENCY_CONFLICT'));
+
+    const latest=await web('update_trip',{...request,...key(),expectedRevision:first.lifecycleRevision,name:'Alpine getaway'});
+    assert.deepEqual(await core.call('update_trip',request,owner),first);
+    const after=await core.call('get_trip',{tripId},owner);
+    assert.deepEqual(after.trip,{...before.trip,lifecycle_revision:expectedRevision+2,payload:{...before.trip.payload,name:latest.name,destination:latest.destination}});
+    assert.deepEqual(after.decisions,before.decisions);
+    assert.deepEqual((await web('get_itinerary',{tripId})).items,active.items);
+    assert.equal((await core.call('list_trips',{status:'archived'},owner)).trips[0].payload.name,latest.name);
+    assert.equal((await web('get_itinerary',{tripId},editor.userId)).trip.payload.name,latest.name);
+    assert.equal((await readItineraryViewLink(db,{token:link.token})).trip.payload.destination,latest.destination);
+
+    await db.query('update client_grants set revoked_at=now() where owner_id=$1 and client_id=$2',[owner.userId,owner.clientId]);
+    await assert.rejects(core.call('update_trip',request,owner),code('FORBIDDEN_OR_NOT_FOUND'));
+    const freshReview=await review();
+    assert.equal(freshReview.trip.name,latest.name);
+    await web('delete_trip',confirm(freshReview));
+    await assert.rejects(web('update_trip',{...request,...key()},owner.userId),code('FORBIDDEN_OR_NOT_FOUND'));
+    assert.ok((await db.query("select response from mutation_requests where operation='update_trip'")).rows.every(row=>row.response===null));
+  }finally{await db.close();}
+});
+
 test('permanent deletion erases the relational graph and cached content without resurrecting retries or removing other trips',async()=>{
   const s=await setup();try{
     const {core,owner,tripId,web}=s;

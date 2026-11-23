@@ -7,7 +7,7 @@ import {pooledDatabase,type Database} from '../src/database.js';
 import {Core} from '../src/core.js';
 import {flaineTrip} from '../src/acceptance.js';
 const key=()=>({idempotencyKey:randomUUID()});
-test('pooled PostgreSQL deletion serializes an already-started editor save and prevents a late write or retry',{
+test('pooled PostgreSQL serializes competing trip detail edits and prevents late writes after deletion',{
   skip:!process.env.TEST_POSTGRES_URL,timeout:30000,
 },async()=>{
   const url=new URL(process.env.TEST_POSTGRES_URL!);assert.ok(['localhost','127.0.0.1','[::1]'].includes(url.hostname));assert.equal(url.search,'');
@@ -18,6 +18,17 @@ test('pooled PostgreSQL deletion serializes an already-started editor save and p
     const core=new Core(db,false),owner=randomUUID(),editor=randomUUID(),tripId=(await core.callFromWeb('create_trip',{...flaineTrip,...key()},owner)).tripId;
     const invite=await core.callFromWeb('create_itinerary_invite',{...key(),tripId,label:'Editor',role:'editor'},owner);
     await core.callFromWeb('accept_itinerary_invite',{...key(),token:invite.token,displayName:'Friend'},editor);
+    const initial=await core.callFromWeb('get_itinerary',{tripId},owner);
+    const edits=await Promise.allSettled(['Renamed trip one','Renamed trip two'].map(name=>
+      core.callFromWeb('update_trip',{...key(),tripId,expectedRevision:initial.trip.lifecycle_revision,name,destination:'Fictional Alps'},owner)));
+    const [winner]=edits.filter(result=>result.status==='fulfilled');
+    assert.equal(edits.filter(result=>result.status==='fulfilled').length,1);
+    const [loser]=edits.filter(result=>result.status==='rejected');
+    assert.equal(loser?.reason.code,'REVISION_CONFLICT');
+    const saved=await core.callFromWeb('get_itinerary',{tripId},owner);
+    assert.equal(saved.trip.payload.name,winner?.value.name);
+    assert.equal(saved.trip.lifecycle_revision,initial.trip.lifecycle_revision+1);
+    assert.equal((await db.query("select count(*)::int n from mutation_requests where operation='update_trip'")).rows[0]!.n,1);
     const review=await core.callFromWeb('prepare_trip_action',{...key(),tripId,action:'delete'},owner);
     let deleting!:()=>void,release!:()=>void,attempting!:()=>void;
     const atDelete=new Promise<void>(resolve=>deleting=resolve),mayCommit=new Promise<void>(resolve=>release=resolve),editorAttempt=new Promise<void>(resolve=>attempting=resolve);

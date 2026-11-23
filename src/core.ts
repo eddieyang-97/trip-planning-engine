@@ -196,7 +196,8 @@ export class Core {
         return old.response;
       }
       const result = await work();
-      if(tripId&&scopedTrip&&name!=='prepare_trip_action'&&name!=='delete_trip'&&!(name==='save_external_flight_offer'&&result.reusedObservation)){
+      if(tripId&&scopedTrip&&name!=='prepare_trip_action'&&name!=='delete_trip'&&
+        !(name==='update_trip'&&result.unchanged)&&!(name==='save_external_flight_offer'&&result.reusedObservation)){
         result.lifecycleRevision=(await tx.query('update trips set lifecycle_revision=lifecycle_revision+1 where id=$1 returning lifecycle_revision',[tripId])).rows[0]!.lifecycle_revision;
       }
       await tx.query('update mutation_requests set trip_id=$4 where owner_id=$1 and operation=$2 and key=$3',[actor.userId,name,args.idempotencyKey,tripId??(name==='create_trip'?result.tripId:null)]);
