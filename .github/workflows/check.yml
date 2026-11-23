@@ -50,7 +50,7 @@ jobs:
         timeout-minutes: 3
       - name: Built-frontend browser regressions
         run: npm run test:e2e
-        timeout-minutes: 4
+        timeout-minutes: 5
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

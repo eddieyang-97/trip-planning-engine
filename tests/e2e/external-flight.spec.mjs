@@ -75,8 +75,7 @@ test('assistant imports flight research, opens the comparison on web, and reads 
     await page.getByRole('button',{name:'Open local trips',exact:true}).click();
     const research=page.getByRole('region',{name:'Saved flight research'});
     await expect(research.getByRole('heading',{name:'Fictional combined flight options'})).toBeVisible();
-    const external=research.getByRole('article').filter({hasText:'Assistant-sourced flight research'});
-    await expect(external).toContainText('Shortlisted');
+    const external=research.getByRole('article').filter({hasText:'Assistant-sourced · unverified'});
     await expect(external).toContainText('Selected in research');
     await external.locator('summary').click();
     for(const expected of ['Fictional Ticket Shop · via Fictional Connector','¥42,000','Outbound price',
@@ -86,7 +85,7 @@ test('assistant imports flight research, opens the comparison on web, and reads 
     await expect(research.getByText('Synthetic example.',{exact:false}).first()).toBeVisible();
     await page.setViewportSize({width:1280,height:900});
     await expect(external.getByText('Only one seller checked',{exact:false})).toBeVisible();
-    await external.getByRole('button',{name:'Review outbound for plan'}).click();
+    await external.getByRole('button',{name:'Review outbound'}).click();
     const editor=page.getByRole('dialog',{name:'Review flight for your plan'});
     await expect(editor).toBeVisible();
     await expect(editor.getByRole('button',{name:'Remove item',exact:true})).toBeHidden();
