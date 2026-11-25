@@ -6,7 +6,10 @@ import {activeMember} from './itinerary-sharing.js';
 const revision=z.number().int().positive();
 const change={...mutation,tripId:uuid,expectedRevision:revision};
 const confirmation={...change,confirmationToken:z.string().regex(/^[A-Za-z0-9_-]{43}$/),confirmationName:z.string().min(1).max(120),confirmed:z.literal(true)};
+const tripLabel=(label:string)=>z.string().trim().min(1,`${label} is required.`).max(120,`${label} must be at most 120 characters.`)
+  .refine(value=>!/[\r\n\u0000\u2028\u2029]/u.test(value),`${label} must be a single line of text.`);
 export const lifecycleSchemas={
+  update_trip:z.strictObject({...change,name:tripLabel('Trip name'),destination:tripLabel('Destination')}),
   archive_trip:z.strictObject(change),restore_trip:z.strictObject(change),
   prepare_trip_action:z.strictObject({...mutation,tripId:uuid,action:z.enum(['delete','leave'])}),
   delete_trip:z.strictObject(confirmation),leave_trip:z.strictObject(confirmation),
@@ -22,6 +25,13 @@ export async function dispatchLifecycle(tx:Queryable,name:keyof typeof lifecycle
   const owner=trip.owner_id===actor.userId,action=name==='prepare_trip_action'?a.action:name==='leave_trip'?'leave':'delete';
   if(action==='leave'&&(name==='prepare_trip_action'||name==='leave_trip')){if(owner||!await activeMember(tx,trip.id,actor.userId))denied();}
   else if(!owner)denied();
+  if(name==='update_trip'){
+    if(a.expectedRevision!==trip.lifecycle_revision)throw new DomainError('REVISION_CONFLICT','Trip details may have changed. Review the current values before saving.');
+    const details={name:a.name,destination:a.destination};
+    const unchanged=details.name===trip.payload.name&&details.destination===trip.payload.destination;
+    if(!unchanged)await tx.query('update trips set payload=payload || $2::jsonb where id=$1',[trip.id,JSON.stringify(details)]);
+    return {tripId:trip.id,...details,unchanged,lifecycleRevision:trip.lifecycle_revision};
+  }
   if(name==='archive_trip'||name==='restore_trip'){
     if(a.expectedRevision!==trip.lifecycle_revision)throw new DomainError('REVISION_CONFLICT','The trip changed. Refresh it before changing its status.');
     const archived=name==='archive_trip';

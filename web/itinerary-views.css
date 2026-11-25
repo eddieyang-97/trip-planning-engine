@@ -3,6 +3,7 @@
 .secondary-actions{display:flex;gap:9px;flex-wrap:wrap}
 .plan-heading{flex-wrap:wrap}
 .trip-sidebar:has(#trip-switcher[hidden]){display:none}
+#trip-details-current{overflow-wrap:anywhere}
 .workspace:has(#trip-switcher[hidden]){display:block}
 .research-panel{margin:0 0 20px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .research-panel>summary{cursor:pointer;padding:13px 16px;font-size:14px;font-weight:600;color:var(--ink)}

@@ -21,7 +21,8 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     const origin = `http://127.0.0.1:${address.port}`;
     const token = randomBytes(32).toString('base64url');
     let databaseAvailable = true;
-    http.on('request', createApp({ core: new Core(db, true), authenticate: localAuthentication(token), publicOrigin: origin,
+    const core=new Core(db,true);
+    http.on('request', createApp({ core, authenticate: localAuthentication(token), publicOrigin: origin,
       ready: async () => { if (!databaseAvailable) throw new Error('Private connection details must not leak'); await db.query('select 1'); } }));
     assert.equal((await fetch(`${origin}/health`)).status, 200);
     databaseAvailable = false;
@@ -43,6 +44,7 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     for(const name of ['create_itinerary_invite','update_shared_itinerary_item'])assert.ok(!tools.tools.some(t=>t.name===name),name+' must stay web-only');
     assert.equal(tools.tools.find(t=>t.name==='delete_trip')!.annotations!.destructiveHint,true);
     assert.equal(tools.tools.find(t=>t.name==='leave_trip')!.annotations!.destructiveHint,true);
+    assert.equal(tools.tools.find(t=>t.name==='update_trip')!.annotations!.readOnlyHint,false);
     assert.ok(tools.tools.find(t=>t.name==='prepare_trip_action'));
     assert.ok(tools.tools.every(t => t.inputSchema.type === 'object'));
     for(const name of ['add_itinerary_item','update_itinerary_item']){
@@ -98,7 +100,11 @@ test('official MCP client: authentication, discovery, persisted Flaine flow and 
     await call('archive_trip',{tripId:t.tripId,expectedRevision:currentTrip.trip.lifecycle_revision,idempotencyKey:randomUUID()});
     assert.equal((await call('list_trips',{status:'archived'})).trips[0].id,t.tripId);
     const archivedTrip=await call('get_itinerary',{tripId:t.tripId});
-    await call('restore_trip',{tripId:t.tripId,expectedRevision:archivedTrip.trip.lifecycle_revision,idempotencyKey:randomUUID()});
+    const renamed=await call('update_trip',{tripId:t.tripId,expectedRevision:archivedTrip.trip.lifecycle_revision,name:'Fictional ski weekend',destination:'French Alps',idempotencyKey:randomUUID()});
+    const webPlan=await core.callFromWeb('get_itinerary',{tripId:t.tripId},localActor.userId);
+    assert.equal(webPlan.trip.payload.name,renamed.name);
+    assert.ok(webPlan.trip.archived_at);
+    await call('restore_trip',{tripId:t.tripId,expectedRevision:renamed.lifecycleRevision,idempotencyKey:randomUUID()});
     const review=await call('prepare_trip_action',{tripId:t.tripId,action:'delete',idempotencyKey:randomUUID()});
     const deletion={tripId:t.tripId,expectedRevision:review.expectedRevision,confirmationToken:review.confirmationToken,confirmationName:review.trip.name,confirmed:true,idempotencyKey:randomUUID()};
     assert.equal((await call('delete_trip',deletion)).deleted,true);assert.equal((await call('delete_trip',deletion)).deleted,true);

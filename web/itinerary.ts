@@ -15,6 +15,7 @@ import {configureMap} from './itinerary-map.js';
 import {configureMapEditor} from './itinerary-map-editor.js';
 import {configureMembers} from './itinerary-members.js';
 import {configureTripLifecycle} from './trip-lifecycle.js';
+import {configureTripDetails} from './trip-details.js';
 import {configureDiningComparison} from './dining-comparison.js';
 import {configureStayComparison} from './stay-comparison.js';
 import {isTemporaryReadError,readItineraryResponse,temporaryReadError} from './itinerary-read-response.js';
@@ -46,6 +47,7 @@ function clearTripView(){
   $('plan-recovery').hidden=true;
   $('plan-recovery-title').textContent='';$('plan-recovery-detail').textContent='';
   tripLifecycle.reset();
+  tripDetails?.update(null);
   stayComparison.reset();diningComparison.reset();
   for(const dialog of document.querySelectorAll<HTMLDialogElement>('dialog'))if(dialog.open)dialog.close();
   for(const form of document.querySelectorAll<HTMLFormElement>('dialog form'))form.reset();
@@ -211,8 +213,15 @@ async function loadPlan(id:string){
       const params=new URL(location.href).searchParams;
       const flight=params.get('trip')===id?params.get('flight'):null;
       const flightDecisionId=flight&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(flight)?flight:undefined;
-      const loaded=anonymousView?await loadViewLink(anonymousToken!):await api('get_itinerary',{tripId:id,flightDecisionId});
+      const loaded:Plan=anonymousView?await loadViewLink(anonymousToken!):await api('get_itinerary',{tripId:id,flightDecisionId});
       accountBoundary.check(generation);plan=loaded;
+      // Capture these fields with the revision from the same read. A mutation
+      // response can advance the lifecycle clock without refreshing the labels.
+      tripDetails?.update(!anonymousView&&loaded.role==='owner'?loaded.trip:null);
+      if(!anonymousView){
+        const {name,destination}=loaded.trip.payload;
+        trips=trips.map(trip=>trip.id===id?{...trip,payload:{...trip.payload,name,destination}}:trip);
+      }
     }
     failedRead=null;lastLoadedAt=new Date();$('plan-recovery').hidden=true;
     if(anonymousView){trips=[{...plan!.trip,role:'viewer'}];$('shared-unavailable').hidden=true;}
@@ -257,6 +266,12 @@ const tripLifecycle=configureTripLifecycle(mutate,async(action,id)=>{
   if(action==='archive'||action==='restore')tripStatus='active';$<HTMLSelectElement>('trip-filter').value=tripStatus;
   await loadTrips(action==='restore'?id:undefined);
 },message);
+const tripDetails=configureTripDetails({
+  read:async tripId=>{const result:Plan=await api('get_itinerary',{tripId});return result.role==='owner'?result.trip:null;},
+  save:request=>api('update_trip',request),
+  reload:async tripId=>{if(loading)return false;await loadPlan(tripId);return true;},
+  message,
+});
 $<HTMLSelectElement>('trip-filter').onchange=()=>{
   tripStatus=$<HTMLSelectElement>('trip-filter').value as typeof tripStatus;clearTripView();
   const url=new URL(location.href);url.searchParams.delete('trip');history.replaceState(null,'',url);render();void loadTrips().catch(error=>message(errorText(error)));
