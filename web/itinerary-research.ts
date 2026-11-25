@@ -6,6 +6,12 @@ const el=<K extends keyof HTMLElementTagNameMap>(tag:K,text='',className='')=>{
   const node=document.createElement(tag);node.textContent=text;node.className=className;return node;
 };
 const stamp=(instant:string)=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}).format(new Date(instant));
+const provenanceLabels={
+  provider_reported:'Built-in search · Provider-reported evidence',
+  user_reported:'Manually saved · User-reported evidence',
+  synthetic:'Synthetic example',
+  assistant_sourced_unverified:'Assistant-sourced · Unverified evidence',
+};
 export function safeResearchUrl(value:string|null):string|null {
   if(!value)return null;
   try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;}catch{return null;}
@@ -40,8 +46,7 @@ function legSummary(observation:ItineraryObservation,direction:'outbound'|'inbou
   row.append(el('span',direction==='outbound'?'Outbound':'Return','item-type'),
     el('strong',`${first.origin} → ${last.destination}`),
     el('span',start&&end?`${start.date} · ${start.time} → ${end.time}${end.date!==start.date?` (${end.date})`:''}`:'Local schedule unresolved'),
-    el('small',`${leg.map(s=>s.airline?`${s.airline} ${s.operatingFlight}`:s.operatingFlight).join(' / ')} · ${leg.length===1?'Direct':`${leg.length-1} connection(s)`}`),
-    el('small',`${start?.timeZone??'Departure zone unknown'} → ${end?.timeZone??'Arrival zone unknown'}`));
+    el('small',`${leg.map(s=>s.airline?`${s.airline} ${s.operatingFlight}`:s.operatingFlight).join(' / ')} · ${leg.length===1?'Direct':`${leg.length-1} connection(s)`}`));
   return row;
 }
 function evidenceLink(value:string|null,label:string){
@@ -68,18 +73,20 @@ function externalDetails(offer:Extract<ItineraryObservation['offer'],{external:u
 function researchCard(observations:ItineraryObservation[],onDraft:(item:ItineraryItem)=>void) {
   const sample=observations[0]!,card=el('article','','research-card');
   const selected=observations.find(o=>o.selected),booked=observations.find(o=>o.bookingReported);
-  card.append(el('span',booked?'Booking reported in research':selected?'Selected in research':'Saved research · not a booking','badge'));
-  if(selected)card.append(el('p',`Selected evidence: ${selected.offer.seller}. Selection does not make a booking.`,'muted'));
-  if(booked)card.append(el('p',`Booking reported for ${booked.offer.seller}. This remains separate from your manual itinerary.`,'muted'));
+  if(booked)card.append(el('span',`Booking reported · ${booked.offer.seller}`,'badge'));
+  if(selected)card.append(el('span',`Selected in research · ${selected.offer.seller}`,'badge'));
   if(sample.provenance==='synthetic')card.append(el('p','Synthetic example. This is not a live flight or bookable offer.','question'));
-  if(sample.provenance==='assistant_sourced_unverified')card.append(el('p','Assistant-sourced flight research · Fare and availability unverified','question'));
-  if(sample.provenance==='provider_reported')card.append(el('p','Built-in search · Provider-reported evidence','muted'));
-  if(sample.disposition==='saved')card.append(el('p','Shortlisted','muted'));
-  if(sample.disposition==='rejected')card.append(el('p','Rejected in your research.','muted'));
+  if(sample.provenance==='assistant_sourced_unverified')card.append(el('span','Assistant-sourced · unverified','research-provenance'));
+  if(sample.disposition==='saved'&&!selected&&!booked)card.append(el('span','Shortlisted','badge'));
+  if(sample.disposition==='rejected')card.append(el('span','Rejected','badge'));
   const legs=el('div','','research-legs');legs.append(legSummary(sample,'outbound'));if(sample.offer.inbound.length)legs.append(legSummary(sample,'inbound'));card.append(legs);
-  card.append(el('p','Saved research is not a held fare. Copy a flight into your plan only after reviewing it.','muted'));
-  const detail=el('details','','seller-details'),summary=el('summary',`${observations.length} saved seller observation${observations.length===1?'':'s'} · view recorded prices`);
-  detail.append(summary,el('p','Amounts are recorded evidence. Read the basis beside each price; unknown values cannot establish a whole-party total.','muted'));
+  const detail=el('details','','seller-details'),summary=el('summary',`Prices & sources · ${observations.length} record${observations.length===1?'':'s'}`);
+  detail.append(summary);
+  for(const direction of ['outbound','inbound'] as const){
+    const leg=sample.offer[direction];if(!leg.length)continue;
+    const start=airportLocal(leg[0]!.departure,leg[0]!.origin),end=airportLocal(leg.at(-1)!.arrival,leg.at(-1)!.destination);
+    detail.append(el('p',`${direction==='outbound'?'Outbound':'Return'} time zones: ${start?.timeZone??'unknown'} → ${end?.timeZone??'unknown'}`,'muted'));
+  }
   const table=el('table','','seller-table'),head=el('thead'),tr=el('tr');
   for(const title of ['Seller','Recorded amount','Basis / verification','Saved']){const th=el('th',title);th.scope='col';tr.append(th);}head.append(tr);table.append(head);
   const body=el('tbody');
@@ -91,31 +98,40 @@ function researchCard(observations:ItineraryObservation[],onDraft:(item:Itinerar
     const amount=price.amountMinor===null?'Unknown':formatter.format(price.amountMinor/10**(formatter.resolvedOptions().maximumFractionDigits??2));
     const basis=el('td',`${price.basis==='unknown'?'Basis unknown':price.basis==='party'?'Party fare':'Per person'} · ${price.exactPartyQuoted?'Exact-party basis reported; availability unverified':'Exact-party quote unverified'}`);
     if('external' in offer)basis.append(externalDetails(offer));
+    else {
+      basis.append(el('p',provenanceLabels[observation.provenance],'muted'));
+      const source=evidenceLink(offer.sourceUrl,'Open research source ↗');if(source)basis.append(source);
+    }
     row.append(el('td',external?`${offer.seller} · via ${external.source}`:offer.seller),el('td',amount),basis,el('td',`${stamp(offer.observedAt)} UK`));body.append(row);
   }
   table.append(body);detail.append(table);card.append(detail);
   const actions=el('div','','research-actions');
-  const source='external' in sample.offer?null:evidenceLink(sample.offer.sourceUrl,'Open research source ↗');
-  if(source)actions.append(source);
   if(sample.provenance!=='synthetic'&&sample.disposition!=='rejected')for(const direction of ['outbound','inbound'] as const) {
     if(!sample.offer[direction].length)continue;
-    const button=el('button',direction==='outbound'?'Review outbound for plan':'Review return for plan','subtle');button.type='button';
+    const button=el('button',direction==='outbound'?'Review outbound':'Review return','subtle');button.type='button';
     button.onclick=()=>onDraft(draftResearchFlight(sample,direction));actions.append(button);
   }
   card.append(actions);return card;
 }
 function decisionView(decision:ItineraryResearchDecision,onDraft:(item:ItineraryItem)=>void,lifecycle?:ResearchLifecycle) {
-  const section=el('section','','research-decision');section.append(el('h3',decision.title));
+  const section=el('section','','research-decision'),header=el('div','','research-decision-heading');
+  const details=el('details','','research-search-details');
+  details.append(el('summary','Search details'));
+  header.append(el('h3',decision.title),details);section.append(header);
+  const coverage=decision.latestRun?.coverage;
+  if(decision.latestRun){
+    details.append(el('p',`Latest search: ${decision.latestRun.status} · ${stamp(decision.latestRun.createdAt)} UK · criteria version ${decision.latestRun.criteriaVersion}`,'muted'));
+    if(typeof coverage?.sample==='string')details.append(el('p',coverage.sample,'muted'));
+    if(coverage?.complete===false)details.append(el('p','Other permitted airports, equipment costs and bookable totals may still need research.','muted'));
+    const notices=[];
+    if(decision.latestRun.criteriaVersion!==decision.criteriaVersion)notices.push('Criteria changed since this search');
+    if(coverage?.complete===false)notices.push('Limited search coverage');
+    if(notices.length)section.append(el('p',`${notices.join(' · ')}. Recheck before choosing.`,'research-notice'));
+  }else details.append(el('p','No built-in search recorded.','muted'));
   if(lifecycle&&decision.revision){
     const archive=el('button','Archive decision','subtle');archive.type='button';archive.disabled=!!decision.bookingLinked;
     archive.onclick=()=>{archive.disabled=true;void lifecycle.change(decision.id,decision.revision!,true).catch(error=>{archive.disabled=false;lifecycle.error(error);});};
-    section.append(archive,el('p',decision.bookingLinked?'This decision has a booking report and cannot be archived.':'Archive hides this research from active views. Evidence is kept; admitted searches continue and supplier allowance is unchanged.','muted'));
-  }
-  const coverage=decision.latestRun?.coverage;
-  if(decision.latestRun){section.append(el('p',`Latest search: ${decision.latestRun.status} · ${stamp(decision.latestRun.createdAt)} UK · criteria version ${decision.latestRun.criteriaVersion}`,'muted'));
-    if(decision.latestRun.criteriaVersion!==decision.criteriaVersion)section.append(el('p','Your criteria changed after this search. Recheck the evidence against your current requirements.','question'));
-    if(typeof coverage?.sample==='string')section.append(el('p',coverage.sample,'muted'));
-    if(coverage?.complete===false)section.append(el('p','Coverage is incomplete. Other permitted airports, equipment costs and bookable totals may still need research.','question'));
+    details.append(el('p',decision.bookingLinked?'This decision has a booking report and cannot be archived.':'Archiving hides this research and keeps its evidence. Searches already started continue and still use their allowance.','muted'),archive);
   }
   const groups=new Map<string,ItineraryObservation[]>();
   for(const observation of decision.observations){
@@ -137,7 +153,7 @@ export function renderResearch(target:HTMLElement,research:ItineraryResearch|und
   target.replaceChildren();target.hidden=!research?.decisions.length&&!research?.archivedCount;if(target.hidden)return;
   const disclosure=el('details'),summary=el('summary','','research-heading');disclosure.open=expanded;
   summary.append(el('span','FROM YOUR SAVED RESEARCH','eyebrow'),el('span',research?.decisions.length?'Flight options, ready to review':'Archived research','research-title'));
-  disclosure.append(summary,el('p','These observations are separate from your itinerary. Reviewing a flight opens an editable draft; it is saved as tentative only when you choose Save.','muted'));
+  disclosure.append(summary,el('p','Saved options · Fares and availability unverified · All times local','muted'));
   for(const decision of research!.decisions)disclosure.append(decisionView(decision,onDraft,lifecycle));
   if(research!.truncatedDecisions)disclosure.append(el('p','Showing the first five decisions by title. Use your assistant for the remaining saved research.','muted'));
   if(lifecycle&&research?.archivedCount){
